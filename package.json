@@ -1,11 +1,16 @@
-laura-fitness-ai
-│
-├── src
-│   ├── ai.js
-│   ├── db.js
-│   └── server.js
-│
-├── .env.example
-├── .gitignore
-├── package.json
-└── README.md
+{
+  "name": "laura-fitness-ai",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "openai": "^5.12.2"
+  }
+}
