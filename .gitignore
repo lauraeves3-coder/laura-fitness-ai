@@ -1,0 +1,4 @@
+node_modules/
+.env
+fitness.db
+.DS_Store
