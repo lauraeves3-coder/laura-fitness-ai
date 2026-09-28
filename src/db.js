@@ -4,6 +4,52 @@ const db = new Database("fitness.db");
 
 db.pragma("journal_mode = WAL");
 
+/* =========================================================
+   DATA E HORA — BRASIL
+========================================================= */
+
+function getBrazilDateTime(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(date);
+
+  const values = {};
+
+  for (const part of parts) {
+    values[part.type] = part.value;
+  }
+
+  return `${values.year}-${values.month}-${values.day} ${values.hour}:${values.minute}:${values.second}`;
+}
+
+function getBrazilDate(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(date);
+
+  const values = {};
+
+  for (const part of parts) {
+    values[part.type] = part.value;
+  }
+
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+/* =========================================================
+   BANCO DE DADOS
+========================================================= */
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
@@ -53,6 +99,10 @@ db.exec(`
   );
 `);
 
+/* =========================================================
+   USUÁRIO
+========================================================= */
+
 export function ensureUser(userId) {
   const existing = db
     .prepare("SELECT * FROM users WHERE id = ?")
@@ -60,9 +110,17 @@ export function ensureUser(userId) {
 
   if (!existing) {
     db.prepare(`
-      INSERT INTO users (id, name)
-      VALUES (?, ?)
-    `).run(userId, userId);
+      INSERT INTO users (
+        id,
+        name,
+        created_at
+      )
+      VALUES (?, ?, ?)
+    `).run(
+      userId,
+      userId,
+      getBrazilDateTime()
+    );
   }
 
   return db
@@ -109,6 +167,10 @@ export function updateUserProfile(userId, data) {
   return getUser(userId);
 }
 
+/* =========================================================
+   REFEIÇÕES
+========================================================= */
+
 export function saveMeal(userId, meal) {
   ensureUser(userId);
 
@@ -119,22 +181,28 @@ export function saveMeal(userId, meal) {
       calories,
       protein_g,
       carbs_g,
-      fat_g
+      fat_g,
+      consumed_at
     )
-    VALUES (?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `).run(
     userId,
     meal.description,
     meal.calories ?? 0,
     meal.protein_g ?? 0,
     meal.carbs_g ?? 0,
-    meal.fat_g ?? 0
+    meal.fat_g ?? 0,
+    getBrazilDateTime()
   );
 
   return db
     .prepare("SELECT * FROM meals WHERE id = ?")
     .get(result.lastInsertRowid);
 }
+
+/* =========================================================
+   TREINOS
+========================================================= */
 
 export function saveWorkout(userId, workout) {
   ensureUser(userId);
@@ -144,14 +212,16 @@ export function saveWorkout(userId, workout) {
       user_id,
       workout_type,
       duration_min,
-      notes
+      notes,
+      trained_at
     )
-    VALUES (?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?)
   `).run(
     userId,
     workout.workout_type,
     workout.duration_min ?? 0,
-    workout.notes ?? null
+    workout.notes ?? null,
+    getBrazilDateTime()
   );
 
   const workoutId = workoutResult.lastInsertRowid;
@@ -188,22 +258,34 @@ export function saveWorkout(userId, workout) {
     .get(workoutId);
 }
 
+/* =========================================================
+   PESO
+========================================================= */
+
 export function saveWeight(userId, weightKg) {
   ensureUser(userId);
 
   db.prepare(`
     INSERT INTO weights (
       user_id,
-      weight_kg
+      weight_kg,
+      measured_at
     )
-    VALUES (?, ?)
-  `).run(userId, weightKg);
+    VALUES (?, ?, ?)
+  `).run(
+    userId,
+    weightKg,
+    getBrazilDateTime()
+  );
 
   db.prepare(`
     UPDATE users
     SET weight_kg = ?
     WHERE id = ?
-  `).run(weightKg, userId);
+  `).run(
+    weightKg,
+    userId
+  );
 
   return db
     .prepare(`
@@ -216,16 +298,24 @@ export function saveWeight(userId, weightKg) {
     .get(userId);
 }
 
+/* =========================================================
+   BUSCAR USUÁRIO
+========================================================= */
+
 export function getUser(userId) {
   return db
     .prepare("SELECT * FROM users WHERE id = ?")
     .get(userId);
 }
 
+/* =========================================================
+   RESUMO DO DIA
+========================================================= */
+
 export function getDailySummary(userId, date = new Date()) {
   ensureUser(userId);
 
-  const day = date.toISOString().slice(0, 10);
+  const day = getBrazilDate(date);
 
   const meals = db.prepare(`
     SELECT
@@ -236,7 +326,10 @@ export function getDailySummary(userId, date = new Date()) {
     FROM meals
     WHERE user_id = ?
       AND date(consumed_at) = ?
-  `).get(userId, day);
+  `).get(
+    userId,
+    day
+  );
 
   const workouts = db.prepare(`
     SELECT
@@ -245,7 +338,10 @@ export function getDailySummary(userId, date = new Date()) {
     FROM workouts
     WHERE user_id = ?
       AND date(trained_at) = ?
-  `).get(userId, day);
+  `).get(
+    userId,
+    day
+  );
 
   const user = getUser(userId);
 
@@ -261,6 +357,10 @@ export function getDailySummary(userId, date = new Date()) {
     protein_target: user?.daily_protein_target ?? null
   };
 }
+
+/* =========================================================
+   HISTÓRICO
+========================================================= */
 
 export function getRecentHistory(userId, limit = 20) {
   ensureUser(userId);
@@ -278,7 +378,10 @@ export function getRecentHistory(userId, limit = 20) {
     WHERE user_id = ?
     ORDER BY consumed_at DESC
     LIMIT ?
-  `).all(userId, limit);
+  `).all(
+    userId,
+    limit
+  );
 
   const workouts = db.prepare(`
     SELECT
@@ -291,7 +394,10 @@ export function getRecentHistory(userId, limit = 20) {
     WHERE user_id = ?
     ORDER BY trained_at DESC
     LIMIT ?
-  `).all(userId, limit);
+  `).all(
+    userId,
+    limit
+  );
 
   const weights = db.prepare(`
     SELECT
@@ -302,7 +408,10 @@ export function getRecentHistory(userId, limit = 20) {
     WHERE user_id = ?
     ORDER BY measured_at DESC
     LIMIT ?
-  `).all(userId, limit);
+  `).all(
+    userId,
+    limit
+  );
 
   return {
     meals,
