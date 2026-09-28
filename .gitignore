@@ -1,4 +1,6 @@
 node_modules/
 .env
 fitness.db
+fitness.db-shm
+fitness.db-wal
 .DS_Store

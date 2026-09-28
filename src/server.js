@@ -200,15 +200,70 @@ app.get("/webhook/whatsapp", (req, res) => {
 });
 
 /* =========================================================
+   WHATSAPP - ENVIO DE MENSAGEM
+========================================================= */
+
+async function sendWhatsAppMessage(to, message) {
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+
+  if (!accessToken) {
+    throw new Error("WHATSAPP_ACCESS_TOKEN não configurado.");
+  }
+
+  if (!phoneNumberId) {
+    throw new Error("WHATSAPP_PHONE_NUMBER_ID não configurado.");
+  }
+
+  const response = await fetch(
+    `https://graph.facebook.com/v26.0/${phoneNumberId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to,
+        type: "text",
+        text: {
+          preview_url: false,
+          body: message
+        }
+      })
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    console.error(
+      "Erro retornado pela API do WhatsApp:",
+      JSON.stringify(data, null, 2)
+    );
+
+    throw new Error(
+      data?.error?.message || "Erro ao enviar mensagem pelo WhatsApp."
+    );
+  }
+
+  console.log(
+    "Mensagem enviada pelo WhatsApp:",
+    JSON.stringify(data, null, 2)
+  );
+
+  return data;
+}
+
+/* =========================================================
    WHATSAPP - RECEBIMENTO DE MENSAGENS
 ========================================================= */
 
 app.post("/webhook/whatsapp", async (req, res) => {
   try {
-    /*
-      Respondemos rapidamente ao WhatsApp para evitar timeout.
-    */
-
+    // Respondemos imediatamente ao Meta.
     res.sendStatus(200);
 
     const body = req.body;
@@ -218,12 +273,39 @@ app.post("/webhook/whatsapp", async (req, res) => {
       JSON.stringify(body, null, 2)
     );
 
-    /*
-      Aqui vamos implementar o envio e recebimento real
-      da API do WhatsApp posteriormente.
+    const message =
+      body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
-      Por enquanto, apenas recebemos o evento.
-    */
+    if (!message) {
+      console.log("Evento recebido sem mensagem para processar.");
+      return;
+    }
+
+    // Por enquanto processamos mensagens de texto.
+    if (message.type !== "text") {
+      console.log(
+        `Tipo de mensagem ainda não processado: ${message.type}`
+      );
+      return;
+    }
+
+    const from = message.from;
+    const text = message.text?.body?.trim();
+
+    if (!from || !text) {
+      console.log("Mensagem sem remetente ou texto.");
+      return;
+    }
+
+    console.log(`Mensagem recebida de ${from}: ${text}`);
+
+    // O número do WhatsApp será o identificador do usuário.
+    const reply = await processMessage(from, text);
+
+    console.log(`Resposta da IA para ${from}: ${reply}`);
+
+    await sendWhatsAppMessage(from, reply);
+
   } catch (error) {
     console.error("Erro no webhook do WhatsApp:", error);
   }
