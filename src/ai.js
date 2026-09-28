@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import {
   ensureUser,
   updateUserProfile,
+  calculateAndSaveNutritionTargets,
   saveMeal,
   saveWorkout,
   saveWeight,
@@ -15,191 +16,468 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
+/* =========================================================
+   INSTRUÇÕES DA IA
+========================================================= */
+
 const SYSTEM_PROMPT = `
-Você é a Laura Fitness AI, uma assistente pessoal de treino, alimentação e acompanhamento físico.
+Você é o FitPulse AI, uma assistente pessoal de treino,
+alimentação e acompanhamento físico.
 
 Seu idioma principal é português do Brasil.
 
-Sua função é ajudar o usuário a:
+Você ajuda o usuário a:
 
+- configurar seu perfil;
+- acompanhar peso;
 - registrar refeições;
 - estimar calorias;
 - estimar proteínas, carboidratos e gorduras;
+- acompanhar metas nutricionais;
 - registrar treinos;
 - registrar exercícios, séries, repetições e cargas;
-- registrar peso;
-- acompanhar metas;
 - consultar o resumo do dia;
 - acompanhar evolução;
-- identificar padrões de consistência.
+- criar planos alimentares personalizados;
+- criar planos de treino personalizados;
+- adaptar alimentação e treino conforme a evolução do usuário.
 
-REGRAS IMPORTANTES:
+=========================================================
+PRINCÍPIO CENTRAL DO FITPULSE
+=========================================================
 
-1. Seja natural, objetiva e amigável.
-2. Nunca invente que um dado foi registrado se ele não foi realmente registrado.
+O FitPulse não deve funcionar apenas como uma calculadora.
+
+Ele deve funcionar como um sistema de acompanhamento.
+
+Sempre diferencie:
+
+1. gasto energético de manutenção estimado;
+2. meta nutricional inicial;
+3. evolução real do usuário;
+4. possíveis ajustes futuros.
+
+Uma meta calculada pelo sistema é uma ESTIMATIVA INICIAL.
+
+Nunca diga que o usuário "precisa obrigatoriamente"
+comer determinada quantidade de calorias.
+
+Prefira expressões como:
+
+- "meta inicial estimada";
+- "estimativa inicial";
+- "gasto de manutenção estimado";
+- "para iniciar o acompanhamento";
+- "podemos acompanhar sua evolução";
+- "a meta poderá ser revista conforme seus resultados".
+
+O objetivo é que o FitPulse acompanhe o usuário ao longo do tempo,
+e não trate um cálculo inicial como uma verdade absoluta.
+
+=========================================================
+REGRAS GERAIS
+=========================================================
+
+1. Seja natural, objetiva, amigável e clara.
+
+2. Nunca invente que algo foi registrado se não foi realmente
+registrado pelo sistema.
+
 3. Valores nutricionais são ESTIMATIVAS.
-4. Quando a quantidade de um alimento não estiver clara, faça uma estimativa razoável e deixe claro que é uma estimativa.
-5. Não faça diagnóstico médico.
-6. Não prescreva medicamentos.
-7. Não recomende dietas extremas.
-8. Não trate estimativas nutricionais como valores exatos.
-9. Se o usuário fornecer dados suficientes para registrar algo, registre.
-10. Se faltar informação essencial para registrar uma informação, faça uma pergunta curta.
-11. Não peça confirmação desnecessariamente para mensagens simples.
-12. Responda sempre em JSON válido.
-13. Não coloque markdown fora do JSON.
-14. Use números para calorias, proteínas, carboidratos, gorduras, peso, séries, repetições e cargas.
 
-A resposta deve seguir exatamente esta estrutura:
+4. Quando a quantidade de um alimento não estiver clara,
+faça uma estimativa razoável e deixe claro que é uma estimativa.
+
+5. Não faça diagnóstico médico.
+
+6. Não prescreva medicamentos.
+
+7. Não recomende dietas extremas.
+
+8. Não trate calorias ou macros como valores médicos exatos.
+
+9. Se o usuário fornecer dados suficientes para registrar algo,
+registre.
+
+10. Se faltar informação essencial, faça uma pergunta curta.
+
+11. Não faça perguntas desnecessárias.
+
+12. Sempre responda em JSON válido.
+
+13. Não coloque markdown fora do JSON.
+
+14. Use números para calorias, proteínas, carboidratos,
+gorduras, peso, séries, repetições e cargas.
+
+15. Quando houver uma unidade claramente incompatível com o dado
+informado, não invente uma interpretação. Use o contexto para
+detectar a possível intenção, mas peça confirmação curta se
+houver dúvida.
+
+16. Quando o usuário perguntar sobre suas calorias ou metas,
+use os valores calculados pelo sistema quando eles estiverem
+disponíveis no contexto.
+
+17. Nunca substitua silenciosamente uma meta calculada pelo sistema
+por um número inventado pela IA.
+
+18. Se houver gasto de manutenção e meta de calorias disponíveis,
+explique a diferença entre eles quando isso for relevante.
+
+19. Uma meta de emagrecimento deve ser apresentada como ponto
+de partida para acompanhamento, não como prescrição médica.
+
+20. Se o usuário perguntar se uma meta está adequada, explique que
+a adequação individual depende também da evolução real, adesão,
+desempenho nos treinos, fome, recuperação e outros fatores.
+
+21. Não prometa determinado resultado de perda de peso.
+
+22. O FitPulse deve incentivar acompanhamento consistente de peso,
+alimentação e treinamento.
+
+=========================================================
+PERFIL DO USUÁRIO
+=========================================================
+
+O perfil pode conter:
+
+- nome;
+- idade;
+- sexo;
+- altura;
+- peso;
+- objetivo;
+- nível de atividade;
+- dias de treino por semana;
+- preferências alimentares;
+- alimentos que não gosta.
+
+Também podem existir:
+
+- gasto energético de manutenção estimado;
+- percentual de déficit inicial;
+- meta diária de calorias;
+- meta diária de proteínas;
+- meta diária de carboidratos;
+- meta diária de gorduras.
+
+Os campos importantes para calcular as metas nutricionais são:
+
+- idade;
+- sexo;
+- altura;
+- peso;
+- objetivo;
+- nível de atividade.
+
+Se esses dados ainda não estiverem completos, peça apenas
+os dados que estiverem faltando.
+
+Não precisa perguntar tudo novamente se o usuário já informou
+alguma informação anteriormente.
+
+=========================================================
+OBJETIVOS
+=========================================================
+
+O usuário pode ter objetivos como:
+
+- emagrecimento;
+- perda de gordura;
+- manutenção;
+- hipertrofia;
+- ganho de massa;
+- fortalecimento;
+- resistência;
+- corrida;
+- performance.
+
+Use o objetivo informado pelo usuário para interpretar
+suas necessidades e personalizar futuras sugestões.
+
+=========================================================
+NÍVEL DE ATIVIDADE
+=========================================================
+
+Os níveis podem ser:
+
+- sedentário;
+- leve;
+- moderado;
+- alto;
+- muito alto.
+
+Se o usuário não souber o nível, faça uma pergunta simples
+sobre sua rotina de atividade.
+
+=========================================================
+CÁLCULO NUTRICIONAL
+=========================================================
+
+Quando o perfil tiver dados suficientes, o sistema calculará
+automaticamente uma estimativa de:
+
+- gasto energético de manutenção;
+- calorias diárias;
+- proteínas;
+- carboidratos;
+- gorduras.
+
+O gasto de manutenção representa uma estimativa das calorias
+necessárias para manter o peso nas condições consideradas pelo
+cálculo.
+
+A meta diária representa a estratégia inicial definida pelo
+sistema de acordo com o objetivo informado.
+
+Exemplo conceitual:
+
+Manutenção estimada: 3.100 kcal
+Meta inicial de emagrecimento: 2.650 kcal
+
+Não diga:
+
+"Você precisa comer 2.650 kcal."
+
+Prefira:
+
+"Sua manutenção foi estimada em aproximadamente 3.100 kcal/dia.
+Para iniciar o acompanhamento do objetivo de emagrecimento,
+sua meta inicial foi estimada em 2.650 kcal/dia."
+
+Esses valores são estimativas para acompanhamento fitness
+e não substituem avaliação individual de nutricionista.
+
+=========================================================
+ACOMPANHAMENTO
+=========================================================
+
+O FitPulse deve considerar que a meta inicial poderá ser
+reavaliada no futuro.
+
+Quando houver histórico suficiente de peso, alimentação e treinos,
+o sistema poderá analisar tendências e ajudar a identificar
+se a estratégia está produzindo a evolução esperada.
+
+Não faça ajustes automáticos extremos.
+
+Não faça alterações importantes apenas com base em uma medição
+isolada.
+
+Prefira analisar tendências ao longo do tempo.
+
+=========================================================
+AÇÕES
+=========================================================
+
+A resposta deve seguir exatamente:
 
 {
   "action": "meal | workout | weight | profile | summary | none",
   "data": {},
-  "reply": "mensagem que será enviada ao usuário"
+  "reply": "mensagem para o usuário"
 }
 
-TIPOS DE AÇÃO:
+=========================================================
+PROFILE
+=========================================================
 
-meal:
-Usado quando o usuário informar que comeu ou bebeu algo.
-
-Formato de data:
-
-{
-  "description": "descrição da refeição",
-  "calories": 0,
-  "protein_g": 0,
-  "carbs_g": 0,
-  "fat_g": 0
-}
-
-workout:
-Usado quando o usuário informar que treinou.
+Use "profile" quando o usuário fornecer informações pessoais
+relacionadas ao perfil fitness.
 
 Formato:
 
 {
-  "workout_type": "tipo do treino",
-  "duration_min": 0,
-  "notes": "",
-  "exercises": [
-    {
-      "name": "nome do exercício",
-      "sets": 0,
-      "reps": 0,
-      "weight_kg": 0
-    }
-  ]
+  "action": "profile",
+  "data": {
+    "name": "",
+    "age_years": 0,
+    "sex": "",
+    "height_cm": 0,
+    "weight_kg": 0,
+    "goal": "",
+    "activity_level": "",
+    "training_days_per_week": 0,
+    "dietary_preferences": "",
+    "food_dislikes": ""
+  },
+  "reply": ""
 }
 
-weight:
-Usado quando o usuário informar o peso corporal.
+Não preencha campos que o usuário não informou.
+
+Se o usuário informar apenas parte do perfil, registre apenas
+essa parte.
+
+Se o perfil ficar completo, informe que as metas nutricionais
+foram calculadas.
+
+=========================================================
+MEAL
+=========================================================
+
+Use quando o usuário informar que comeu ou bebeu algo.
 
 Formato:
-
-{
-  "weight_kg": 0
-}
-
-profile:
-Usado quando o usuário fornecer informações pessoais relacionadas ao acompanhamento fitness.
-
-Formato:
-
-{
-  "name": "",
-  "height_cm": 0,
-  "weight_kg": 0,
-  "goal": "",
-  "daily_calorie_target": 0,
-  "daily_protein_target": 0
-}
-
-summary:
-Usado quando o usuário perguntar sobre o resumo, progresso ou situação atual.
-
-Formato:
-
-{}
-
-none:
-Usado quando não houver nada para registrar.
-
-Formato:
-
-{}
-
-EXEMPLOS:
-
-Usuário:
-"Comi 150g de frango e 100g de arroz"
-
-Resposta:
 
 {
   "action": "meal",
   "data": {
-    "description": "150g de frango e 100g de arroz",
+    "description": "",
     "calories": 0,
     "protein_g": 0,
     "carbs_g": 0,
     "fat_g": 0
   },
-  "reply": "Registrei sua refeição. Os valores nutricionais são estimativas."
+  "reply": ""
 }
 
-Usuário:
-"Hoje fiz treino de pernas por 1 hora"
+=========================================================
+WORKOUT
+=========================================================
 
-Resposta:
+Use quando o usuário informar que treinou.
+
+Formato:
 
 {
   "action": "workout",
   "data": {
-    "workout_type": "pernas",
-    "duration_min": 60,
+    "workout_type": "",
+    "duration_min": 0,
     "notes": "",
-    "exercises": []
+    "exercises": [
+      {
+        "name": "",
+        "sets": 0,
+        "reps": 0,
+        "weight_kg": 0
+      }
+    ]
   },
-  "reply": "Treino de pernas registrado por 1 hora. 💪"
+  "reply": ""
 }
 
-Usuário:
-"Me pesei, estou com 67,4 kg"
+=========================================================
+WEIGHT
+=========================================================
 
-Resposta:
+Use quando o usuário informar seu peso.
+
+Formato:
 
 {
   "action": "weight",
   "data": {
-    "weight_kg": 67.4
+    "weight_kg": 0
   },
-  "reply": "Peso de 67,4 kg registrado. ⚖️"
+  "reply": ""
 }
 
-Usuário:
-"Quanto já comi hoje?"
+=========================================================
+SUMMARY
+=========================================================
 
-Resposta:
+Use quando o usuário perguntar sobre seu dia,
+suas calorias, macros, treino ou metas.
+
+Formato:
 
 {
   "action": "summary",
   "data": {},
-  "reply": "Vou consultar seu resumo de hoje."
+  "reply": ""
 }
+
+=========================================================
+NONE
+=========================================================
+
+Use "none" para conversas que não exigem registro.
+
+=========================================================
+EXEMPLOS
+=========================================================
+
+"Tenho 25 anos, 1,72m e peso 67kg."
+
+=> profile.
+
+"Sou mulher e quero emagrecer."
+
+=> profile.
+
+"Treino 4 vezes por semana e faço musculação."
+
+=> profile.
+
+"Comi 150g de frango e 100g de arroz."
+
+=> meal.
+
+"Hoje fiz treino de pernas por uma hora."
+
+=> workout.
+
+"Me pesei, estou com 67,4kg."
+
+=> weight.
+
+"Quanto já comi hoje?"
+
+=> summary.
+
+"Qual é minha meta de calorias?"
+
+=> summary.
+
+"Quantas calorias eu gasto por dia?"
+
+=> summary.
+
+"Por que minha meta é 2650 calorias?"
+
+=> summary.
+
+=========================================================
+IMPORTANTE
+=========================================================
+
+Se o usuário estiver configurando o perfil, não transforme
+informações do perfil em refeição ou treino.
+
+Se o usuário informar várias informações do perfil na mesma
+mensagem, registre todas elas.
+
+Se o usuário já tiver informações salvas, use o contexto
+fornecido pelo sistema para não perguntar novamente.
+
+Se o usuário perguntar sobre uma meta já calculada, use os dados
+reais do contexto.
+
+Nunca invente o gasto de manutenção se ele não estiver disponível.
+
+Nunca invente percentual de déficit se ele não estiver disponível.
+
+Quando os dados estiverem disponíveis, explique-os de forma simples.
 `;
+
+/* =========================================================
+   JSON
+========================================================= */
 
 function cleanJson(text) {
   if (!text) {
-    throw new Error("A IA não retornou conteúdo.");
+    throw new Error("Resposta vazia da IA.");
   }
 
   let cleaned = text.trim();
 
   if (cleaned.startsWith("```")) {
     cleaned = cleaned
-      .replace(/^```json/i, "")
-      .replace(/^```/i, "")
+      .replace(/^```(?:json)?/i, "")
       .replace(/```$/i, "")
       .trim();
   }
@@ -213,19 +491,38 @@ function parseAIResponse(text) {
   try {
     return JSON.parse(cleaned);
   } catch (error) {
-    console.error("Resposta da IA não era JSON válido:", text);
-    throw new Error("A resposta da IA não está em um formato válido.");
+    const firstBrace = cleaned.indexOf("{");
+    const lastBrace = cleaned.lastIndexOf("}");
+
+    if (
+      firstBrace !== -1 &&
+      lastBrace !== -1 &&
+      lastBrace > firstBrace
+    ) {
+      return JSON.parse(
+        cleaned.slice(firstBrace, lastBrace + 1)
+      );
+    }
+
+    throw error;
   }
 }
 
-function normalizeNumber(value) {
-  if (value === null || value === undefined || value === "") {
-    return 0;
-  }
+/* =========================================================
+   NORMALIZAÇÃO
+========================================================= */
 
+function normalizeNumber(
+  value,
+  fallback = 0
+) {
   const number = Number(value);
 
-  return Number.isFinite(number) ? number : 0;
+  if (!Number.isFinite(number)) {
+    return fallback;
+  }
+
+  return number;
 }
 
 function normalizeAIResult(result) {
@@ -238,18 +535,196 @@ function normalizeAIResult(result) {
     "none"
   ];
 
-  const action = allowedActions.includes(result?.action)
-    ? result.action
-    : "none";
+  const action =
+    allowedActions.includes(
+      result?.action
+    )
+      ? result.action
+      : "none";
 
-  const data = result?.data && typeof result.data === "object"
-    ? result.data
-    : {};
+  const data =
+    result?.data &&
+    typeof result.data === "object"
+      ? result.data
+      : {};
 
   const reply =
-    typeof result?.reply === "string" && result.reply.trim()
+    typeof result?.reply === "string"
       ? result.reply.trim()
-      : "Entendi. Como posso te ajudar?";
+      : "";
+
+  if (action === "meal") {
+    return {
+      action,
+      data: {
+        description:
+          String(
+            data.description ||
+            "Refeição"
+          ),
+
+        calories:
+          normalizeNumber(
+            data.calories
+          ),
+
+        protein_g:
+          normalizeNumber(
+            data.protein_g
+          ),
+
+        carbs_g:
+          normalizeNumber(
+            data.carbs_g
+          ),
+
+        fat_g:
+          normalizeNumber(
+            data.fat_g
+          )
+      },
+      reply
+    };
+  }
+
+  if (action === "workout") {
+    return {
+      action,
+      data: {
+        workout_type:
+          String(
+            data.workout_type ||
+            "Treino"
+          ),
+
+        duration_min:
+          normalizeNumber(
+            data.duration_min
+          ),
+
+        notes:
+          String(
+            data.notes || ""
+          ),
+
+        exercises:
+          Array.isArray(
+            data.exercises
+          )
+            ? data.exercises.map(
+                (exercise) => ({
+                  name:
+                    String(
+                      exercise?.name ||
+                      "Exercício"
+                    ),
+
+                  sets:
+                    normalizeNumber(
+                      exercise?.sets
+                    ),
+
+                  reps:
+                    normalizeNumber(
+                      exercise?.reps
+                    ),
+
+                  weight_kg:
+                    normalizeNumber(
+                      exercise?.weight_kg
+                    )
+                })
+              )
+            : []
+      },
+      reply
+    };
+  }
+
+  if (action === "weight") {
+    return {
+      action,
+      data: {
+        weight_kg:
+          normalizeNumber(
+            data.weight_kg
+          )
+      },
+      reply
+    };
+  }
+
+  if (action === "profile") {
+    return {
+      action,
+      data: {
+        ...(data.name !== undefined && {
+          name:
+            String(data.name)
+        }),
+
+        ...(data.age_years !== undefined && {
+          age_years:
+            normalizeNumber(
+              data.age_years
+            )
+        }),
+
+        ...(data.sex !== undefined && {
+          sex:
+            String(data.sex)
+        }),
+
+        ...(data.height_cm !== undefined && {
+          height_cm:
+            normalizeNumber(
+              data.height_cm
+            )
+        }),
+
+        ...(data.weight_kg !== undefined && {
+          weight_kg:
+            normalizeNumber(
+              data.weight_kg
+            )
+        }),
+
+        ...(data.goal !== undefined && {
+          goal:
+            String(data.goal)
+        }),
+
+        ...(data.activity_level !== undefined && {
+          activity_level:
+            String(
+              data.activity_level
+            )
+        }),
+
+        ...(data.training_days_per_week !== undefined && {
+          training_days_per_week:
+            normalizeNumber(
+              data.training_days_per_week
+            )
+        }),
+
+        ...(data.dietary_preferences !== undefined && {
+          dietary_preferences:
+            String(
+              data.dietary_preferences
+            )
+        }),
+
+        ...(data.food_dislikes !== undefined && {
+          food_dislikes:
+            String(
+              data.food_dislikes
+            )
+        })
+      },
+      reply
+    };
+  }
 
   return {
     action,
@@ -258,211 +733,523 @@ function normalizeAIResult(result) {
   };
 }
 
-function buildContext(userId) {
-  const user = getUser(userId);
-  const dailySummary = getDailySummary(userId);
-  const recentHistory = getRecentHistory(userId, 10);
+/* =========================================================
+   CONTEXTO
+========================================================= */
 
+function buildContext(
+  user,
+  dailySummary,
+  recentHistory
+) {
   return {
-    user: user || null,
-    today: dailySummary,
-    recent_history: recentHistory
+    profile: {
+      name:
+        user?.name ?? null,
+
+      age_years:
+        user?.age_years ?? null,
+
+      sex:
+        user?.sex ?? null,
+
+      height_cm:
+        user?.height_cm ?? null,
+
+      weight_kg:
+        user?.weight_kg ?? null,
+
+      goal:
+        user?.goal ?? null,
+
+      activity_level:
+        user?.activity_level ?? null,
+
+      training_days_per_week:
+        user?.training_days_per_week ?? null,
+
+      dietary_preferences:
+        user?.dietary_preferences ?? null,
+
+      food_dislikes:
+        user?.food_dislikes ?? null,
+
+      daily_calorie_target:
+        user?.daily_calorie_target ?? null,
+
+      daily_protein_target:
+        user?.daily_protein_target ?? null,
+
+      daily_carbs_target:
+        user?.daily_carbs_target ?? null,
+
+      daily_fat_target:
+        user?.daily_fat_target ?? null,
+
+      maintenance_calories:
+        user?.maintenance_calories ?? null,
+
+      calorie_deficit_percent:
+        user?.calorie_deficit_percent ?? null
+    },
+
+    daily_summary:
+      dailySummary,
+
+    recent_history:
+      recentHistory
   };
 }
 
-function saveAction(userId, result) {
-  switch (result.action) {
-    case "meal": {
-      const data = result.data || {};
+/* =========================================================
+   SALVAR AÇÃO
+========================================================= */
 
-      saveMeal(userId, {
-        description: data.description || "Refeição",
-        calories: normalizeNumber(data.calories),
-        protein_g: normalizeNumber(data.protein_g),
-        carbs_g: normalizeNumber(data.carbs_g),
-        fat_g: normalizeNumber(data.fat_g)
-      });
-
-      break;
-    }
-
-    case "workout": {
-      const data = result.data || {};
-
-      saveWorkout(userId, {
-        workout_type: data.workout_type || "Treino",
-        duration_min: normalizeNumber(data.duration_min),
-        notes: data.notes || "",
-        exercises: Array.isArray(data.exercises)
-          ? data.exercises.map((exercise) => ({
-              name: exercise.name || "Exercício",
-              sets: normalizeNumber(exercise.sets),
-              reps: normalizeNumber(exercise.reps),
-              weight_kg: normalizeNumber(exercise.weight_kg)
-            }))
-          : []
-      });
-
-      break;
-    }
-
-    case "weight": {
-      const weight = normalizeNumber(result.data?.weight_kg);
-
-      if (weight > 0) {
-        saveWeight(userId, weight);
-      }
-
-      break;
-    }
-
-    case "profile": {
-      const data = result.data || {};
-
-      updateUserProfile(userId, {
-        name: data.name || undefined,
-        height_cm:
-          data.height_cm !== undefined
-            ? normalizeNumber(data.height_cm)
-            : undefined,
-        weight_kg:
-          data.weight_kg !== undefined
-            ? normalizeNumber(data.weight_kg)
-            : undefined,
-        goal: data.goal || undefined,
-        daily_calorie_target:
-          data.daily_calorie_target !== undefined
-            ? normalizeNumber(data.daily_calorie_target)
-            : undefined,
-        daily_protein_target:
-          data.daily_protein_target !== undefined
-            ? normalizeNumber(data.daily_protein_target)
-            : undefined
-      });
-
-      break;
-    }
-
-    case "summary":
-    case "none":
-    default:
-      break;
-  }
-}
-
-function buildSummaryReply(userId) {
-  const summary = getDailySummary(userId);
-  const user = getUser(userId);
-
-  const calories = Math.round(summary.calories || 0);
-  const protein = Math.round(summary.protein_g || 0);
-  const carbs = Math.round(summary.carbs_g || 0);
-  const fat = Math.round(summary.fat_g || 0);
-
-  const calorieTarget = user?.daily_calorie_target
-    ? Math.round(user.daily_calorie_target)
-    : null;
-
-  const proteinTarget = user?.daily_protein_target
-    ? Math.round(user.daily_protein_target)
-    : null;
-
-  const calorieRemaining =
-    calorieTarget !== null
-      ? Math.max(calorieTarget - calories, 0)
-      : null;
-
-  const proteinRemaining =
-    proteinTarget !== null
-      ? Math.max(proteinTarget - protein, 0)
-      : null;
-
-  let reply = `📊 Resumo de hoje
-
-🔥 Calorias: ${calories} kcal
-🥩 Proteínas: ${protein} g
-🍚 Carboidratos: ${carbs} g
-🥑 Gorduras: ${fat} g
-
-🏋️ Treinos: ${summary.workout_count || 0}
-⏱️ Tempo de treino: ${Math.round(
-    summary.total_duration_min || 0
-  )} min`;
-
-  if (calorieTarget !== null) {
-    reply += `
-
-🎯 Meta de calorias: ${calorieTarget} kcal
-📉 Restam aproximadamente: ${calorieRemaining} kcal`;
-  }
-
-  if (proteinTarget !== null) {
-    reply += `
-🎯 Meta de proteína: ${proteinTarget} g
-📉 Restam aproximadamente: ${proteinRemaining} g`;
-  }
-
-  if (user?.weight_kg) {
-    reply += `
-
-⚖️ Último peso registrado: ${user.weight_kg} kg`;
-  }
-
-  return reply;
-}
-
-export async function processMessage(userId, message) {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error(
-      "OPENAI_API_KEY não configurada. Verifique o arquivo .env."
+function saveAction(
+  userId,
+  result
+) {
+  if (result.action === "meal") {
+    return saveMeal(
+      userId,
+      result.data
     );
   }
 
-  if (!userId) {
-    throw new Error("userId é obrigatório.");
+  if (result.action === "workout") {
+    return saveWorkout(
+      userId,
+      result.data
+    );
   }
 
-  if (!message || !message.trim()) {
-    return "Pode me enviar uma informação sobre sua alimentação, treino ou peso. 😊";
+  if (result.action === "weight") {
+    return saveWeight(
+      userId,
+      result.data.weight_kg
+    );
   }
 
-  ensureUser(userId);
+  if (result.action === "profile") {
+    const updatedUser =
+      updateUserProfile(
+        userId,
+        result.data
+      );
 
-  const context = buildContext(userId);
+    const requiredFields = [
+      "age_years",
+      "sex",
+      "height_cm",
+      "weight_kg",
+      "goal",
+      "activity_level"
+    ];
 
-  const userInput = `
-CONTEXTO ATUAL DO USUÁRIO:
+    const profileComplete =
+      requiredFields.every(
+        (field) =>
+          updatedUser?.[field] !== null &&
+          updatedUser?.[field] !== undefined &&
+          updatedUser?.[field] !== ""
+      );
 
-${JSON.stringify(context, null, 2)}
+    if (profileComplete) {
+      const nutrition =
+        calculateAndSaveNutritionTargets(
+          userId
+        );
 
-MENSAGEM DO USUÁRIO:
+      return {
+        user:
+          nutrition?.user ||
+          updatedUser,
 
-${message}
+        targets:
+          nutrition?.targets ||
+          null
+      };
+    }
 
-Analise a mensagem considerando o contexto.
+    return {
+      user:
+        updatedUser,
 
-Se houver informação suficiente para registrar alguma coisa, escolha a ação correspondente.
+      targets:
+        null
+    };
+  }
 
-Se for uma pergunta sobre o resumo do dia, use "summary".
+  return null;
+}
 
-Retorne SOMENTE JSON válido seguindo o formato definido nas instruções.
-`;
+/* =========================================================
+   RESPOSTA DO RESUMO
+========================================================= */
 
-  const response = await client.responses.create({
-    model: process.env.OPENAI_MODEL || "gpt-5.6",
-    instructions: SYSTEM_PROMPT,
-    input: userInput
-  });
+function buildSummaryReply(
+  summary,
+  user
+) {
+  const lines = [];
 
-  const result = normalizeAIResult(
-    parseAIResponse(response.output_text)
+  lines.push(
+    `📊 Resumo de hoje (${summary.date})`
   );
 
-  saveAction(userId, result);
+  lines.push("");
 
-  if (result.action === "summary") {
-    return buildSummaryReply(userId);
+  lines.push(
+    `🔥 Calorias: ${Math.round(summary.calories)} kcal`
+  );
+
+  lines.push(
+    `🥩 Proteínas: ${Math.round(summary.protein_g)} g`
+  );
+
+  lines.push(
+    `🍚 Carboidratos: ${Math.round(summary.carbs_g)} g`
+  );
+
+  lines.push(
+    `🥑 Gorduras: ${Math.round(summary.fat_g)} g`
+  );
+
+  lines.push("");
+
+  lines.push(
+    `🏋️ Treinos: ${summary.workout_count}`
+  );
+
+  lines.push(
+    `⏱️ Tempo treinado: ${Math.round(summary.total_duration_min)} min`
+  );
+
+  /* =======================================================
+     MANUTENÇÃO E META
+  ======================================================= */
+
+  if (
+    summary.maintenance_calories
+  ) {
+    lines.push("");
+
+    lines.push(
+      `🔥 Manutenção estimada: ${Math.round(summary.maintenance_calories)} kcal`
+    );
   }
 
-  return result.reply;
+  if (
+    summary.calorie_target
+  ) {
+    const remaining =
+      summary.calorie_target -
+      summary.calories;
+
+    lines.push("");
+
+    lines.push(
+      `🎯 Meta inicial: ${Math.round(summary.calorie_target)} kcal`
+    );
+
+    lines.push(
+      `📌 Restante estimado: ${Math.round(Math.max(remaining, 0))} kcal`
+    );
+  }
+
+  if (
+    summary.calorie_deficit_percent
+  ) {
+    lines.push(
+      `📉 Déficit inicial considerado: ${summary.calorie_deficit_percent}%`
+    );
+  }
+
+  if (
+    summary.protein_target
+  ) {
+    const remaining =
+      summary.protein_target -
+      summary.protein_g;
+
+    lines.push("");
+
+    lines.push(
+      `🥩 Meta de proteína: ${Math.round(summary.protein_target)} g`
+    );
+
+    lines.push(
+      `📌 Restante: ${Math.round(Math.max(remaining, 0))} g`
+    );
+  }
+
+  if (
+    summary.carbs_target
+  ) {
+    lines.push(
+      `🍚 Meta de carboidratos: ${Math.round(summary.carbs_target)} g`
+    );
+  }
+
+  if (
+    summary.fat_target
+  ) {
+    lines.push(
+      `🥑 Meta de gorduras: ${Math.round(summary.fat_target)} g`
+    );
+  }
+
+  if (
+    user?.weight_kg
+  ) {
+    lines.push("");
+
+    lines.push(
+      `⚖️ Peso atual: ${user.weight_kg} kg`
+    );
+  }
+
+  return lines.join("\n");
+}
+
+/* =========================================================
+   RESPOSTA DO PERFIL COMPLETO
+========================================================= */
+
+function buildProfileReply(
+  updatedUser,
+  targets
+) {
+  const sex =
+    String(
+      updatedUser?.sex || ""
+    )
+      .toLowerCase()
+      .trim();
+
+  const sexLabel =
+    [
+      "female",
+      "feminino",
+      "mulher",
+      "f"
+    ].includes(sex)
+      ? "Mulher"
+      : "Homem";
+
+  const goalLabel =
+    updatedUser?.goal ||
+    "não informado";
+
+  const activityLabel =
+    updatedUser?.activity_level ||
+    "não informado";
+
+  const trainingDays =
+    updatedUser?.training_days_per_week;
+
+  const trainingText =
+    trainingDays
+      ? `${trainingDays}x por semana`
+      : "não informado";
+
+  const height =
+    Number(
+      updatedUser?.height_cm || 0
+    );
+
+  const heightText =
+    height > 0
+      ? `${(height / 100)
+          .toFixed(2)
+          .replace(".", ",")} m`
+      : "não informado";
+
+  const maintenance =
+    Number(
+      targets?.maintenance_calories || 0
+    );
+
+  const calories =
+    Number(
+      targets?.daily_calorie_target || 0
+    );
+
+  const deficit =
+    Number(
+      targets?.calorie_deficit_percent || 0
+    );
+
+  const lines = [
+    "✅ *Perfil atualizado!*",
+    "",
+    `👤 Sexo: ${sexLabel}`,
+    `🎂 Idade: ${updatedUser.age_years} anos`,
+    `📏 Altura: ${heightText}`,
+    `⚖️ Peso: ${updatedUser.weight_kg} kg`,
+    `🏃 Treinos: ${trainingText}`,
+    `🔥 Atividade: ${activityLabel}`,
+    `🎯 Objetivo: ${goalLabel}`,
+    "",
+    "📊 *Estimativa nutricional inicial*",
+    ""
+  ];
+
+  if (maintenance > 0) {
+    lines.push(
+      `🔥 Manutenção estimada: *${Math.round(maintenance)} kcal/dia*`
+    );
+  }
+
+  if (calories > 0) {
+    lines.push(
+      `🎯 Meta inicial: *${Math.round(calories)} kcal/dia*`
+    );
+  }
+
+  if (deficit > 0) {
+    lines.push(
+      `📉 Déficit inicial considerado: *${deficit}%*`
+    );
+  }
+
+  lines.push("");
+
+  lines.push(
+    `🥩 Proteínas: *${targets.daily_protein_target} g*`
+  );
+
+  lines.push(
+    `🍚 Carboidratos: *${targets.daily_carbs_target} g*`
+  );
+
+  lines.push(
+    `🥑 Gorduras: *${targets.daily_fat_target} g*`
+  );
+
+  lines.push("");
+
+  lines.push(
+    "📌 *Importante:* esses valores são uma estimativa inicial para acompanhamento fitness."
+  );
+
+  lines.push(
+    "📈 Conforme você registrar peso, alimentação e treinos, o FitPulse poderá acompanhar sua evolução e ajudar a avaliar a necessidade de ajustes."
+  );
+
+  return lines.join("\n");
+}
+
+/* =========================================================
+   PROCESSAR MENSAGEM
+========================================================= */
+
+export async function processMessage(
+  userId,
+  message
+) {
+  ensureUser(userId);
+
+  const user =
+    getUser(userId);
+
+  const dailySummary =
+    getDailySummary(
+      userId
+    );
+
+  const recentHistory =
+    getRecentHistory(
+      userId,
+      20
+    );
+
+  const context =
+    buildContext(
+      user,
+      dailySummary,
+      recentHistory
+    );
+
+  const response =
+    await client.responses.create({
+      model:
+        process.env.OPENAI_MODEL ||
+        "gpt-5.6",
+
+      instructions:
+        SYSTEM_PROMPT,
+
+      input:
+        JSON.stringify({
+          user_message:
+            message,
+
+          current_context:
+            context
+        })
+    });
+
+  const raw =
+    response.output_text;
+
+  const parsed =
+    parseAIResponse(raw);
+
+  const result =
+    normalizeAIResult(
+      parsed
+    );
+
+  const saved =
+    saveAction(
+      userId,
+      result
+    );
+
+  /* -------------------------------------------------------
+     Perfil completo
+  ------------------------------------------------------- */
+
+  if (
+    result.action === "profile" &&
+    saved?.targets
+  ) {
+    return buildProfileReply(
+      saved.user,
+      saved.targets
+    );
+  }
+
+  /* -------------------------------------------------------
+     Resumo
+  ------------------------------------------------------- */
+
+  if (
+    result.action === "summary"
+  ) {
+    const updatedSummary =
+      getDailySummary(
+        userId
+      );
+
+    const updatedUser =
+      getUser(
+        userId
+      );
+
+    return buildSummaryReply(
+      updatedSummary,
+      updatedUser
+    );
+  }
+
+  /* -------------------------------------------------------
+     Resposta normal
+  ------------------------------------------------------- */
+
+  return (
+    result.reply ||
+    "Entendi. Como posso te ajudar?"
+  );
 }
