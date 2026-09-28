@@ -175,6 +175,11 @@ ensureColumn(
   "calorie_deficit_percent",
   "REAL"
 );
+ensureColumn(
+  "users",
+  "calorie_target_mode",
+  "TEXT"
+);
 
 /* =========================================================
    USUÁRIO
@@ -697,7 +702,75 @@ export function calculateAndSaveNutritionTargets(
     targets
   };
 }
+export function setCustomCalorieTarget(
+  userId,
+  calories
+) {
+  ensureUser(userId);
 
+  const user =
+    getUser(userId);
+
+  const targetCalories =
+    Math.round(Number(calories));
+
+  if (
+    !Number.isFinite(targetCalories) ||
+    targetCalories <= 0
+  ) {
+    return null;
+  }
+
+  const currentProtein =
+    Number(
+      user?.daily_protein_target
+    ) || 0;
+
+  const protein =
+    currentProtein > 0
+      ? Math.round(currentProtein)
+      : Math.round(
+          (Number(user?.weight_kg) || 0) * 1.6
+        );
+
+  const fat =
+    Math.round(
+      (targetCalories * 0.25) / 9
+    );
+
+  const remainingCalories =
+    targetCalories -
+    (protein * 4) -
+    (fat * 9);
+
+  const carbs =
+    Math.max(
+      0,
+      Math.round(
+        remainingCalories / 4
+      )
+    );
+
+  db.prepare(`
+    UPDATE users
+    SET
+      daily_calorie_target = ?,
+      daily_protein_target = ?,
+      daily_carbs_target = ?,
+      daily_fat_target = ?,
+      calorie_target_mode = ?
+    WHERE id = ?
+  `).run(
+    targetCalories,
+    protein,
+    carbs,
+    fat,
+    "custom",
+    userId
+  );
+
+  return getUser(userId);
+}
 /* =========================================================
    REFEIÇÕES
 ========================================================= */

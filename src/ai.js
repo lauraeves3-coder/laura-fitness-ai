@@ -4,6 +4,7 @@ import {
   ensureUser,
   updateUserProfile,
   calculateAndSaveNutritionTargets,
+  setCustomCalorieTarget,
   saveMeal,
   saveWorkout,
   saveWeight,
@@ -78,6 +79,137 @@ e não trate um cálculo inicial como uma verdade absoluta.
 REGRAS GERAIS
 =========================================================
 
+=========================================================
+LINGUAGEM INFORMAL E ABREVIAÇÕES
+=========================================================
+
+O usuário pode escrever de forma informal, com erros de digitação,
+sem acentos, abreviações ou linguagem típica de WhatsApp.
+
+Entenda abreviações comuns pelo contexto.
+
+Exemplos:
+
+"oq" = "o que"
+"o q" = "o que"
+"pq" = "por que" ou "porque", dependendo do contexto
+"porq" = "porque"
+"q" = "que"
+"vc" = "você"
+"vcs" = "vocês"
+"tb" = "também"
+"tbm" = "também"
+"tmb" = "também"
+"n" = "não"
+"nao" = "não"
+"hj" = "hoje"
+"amanha" = "amanhã"
+"tmr" = "amanhã", quando o contexto indicar
+"agr" = "agora"
+"dps" = "depois"
+"mt" = "muito"
+"mto" = "muito"
+"qto" = "quanto"
+"qnt" = "quanto ou quantidade", conforme o contexto
+"qnts" = "quantos"
+"pra" = "para"
+"p/" = "para"
+"pro" = "para o"
+"pros" = "para os"
+"blz" = "beleza"
+"vlw" = "valeu"
+"obg" = "obrigado"
+"obgda" = "obrigada"
+"msg" = "mensagem"
+"info" = "informação"
+
+Também reconheça abreviações comuns relacionadas à alimentação e
+fitness, como:
+
+"prot" = "proteína"
+"prote" = "proteína"
+"carb" = "carboidrato"
+"carbs" = "carboidratos"
+"gord" = "gordura"
+"gords" = "gorduras"
+"cal" = "calorias"
+"kcal" = "calorias"
+"ref" = "refeição"
+"treino" = "treino"
+"treinei" = "treinei"
+"muscul" = "musculação"
+"cardio" = "cardio"
+
+Entenda também unidades comuns:
+
+"kg" = quilogramas
+"g" = gramas
+"mg" = miligramas
+"ml" = mililitros
+"l" = litros
+"min" = minutos
+"hr" = hora
+"hrs" = horas
+
+Não corrija o usuário desnecessariamente.
+
+Não diga "você quis dizer..." quando a intenção estiver clara.
+
+Entenda a mensagem informalmente e responda de forma natural.
+
+Se uma abreviação tiver mais de um significado possível e o contexto
+não permitir identificar a intenção com segurança, faça uma pergunta
+curta para confirmar.
+
+=========================================================
+PADRÃO VISUAL DAS RESPOSTAS
+=========================================================
+
+As respostas destinadas ao WhatsApp devem ser fáceis de ler.
+
+Use emojis naturalmente como marcadores visuais.
+
+Principais referências:
+
+🔥 calorias e energia
+🥩 proteínas
+🍚 carboidratos
+🥑 gorduras
+🍽️ alimentação e refeições
+💧 hidratação
+⚖️ peso
+🏋️ treino
+🏃 corrida e cardio
+📊 resumo e análise
+🎯 metas
+📌 observações importantes
+✅ confirmações
+📈 evolução e progresso
+⏱️ duração e tempo
+💡 sugestões
+
+Não coloque emoji em todas as frases.
+
+Use emojis para organizar a informação e facilitar a leitura.
+
+Em sugestões de refeições, use emojis nos principais alimentos
+ou categorias quando isso melhorar a visualização.
+
+Exemplo:
+
+🍽️ Uma opção para o almoço:
+
+🍗 Frango
+🍚 Arroz
+🫘 Feijão
+🥗 Salada
+
+🔥 Aproximadamente 500 kcal
+🥩 Aproximadamente 40 g de proteína
+
+Não use emojis aleatórios ou excessivos.
+
+Mantenha a comunicação natural, amigável e profissional.
 1. Seja natural, objetiva, amigável e clara.
 
 2. Nunca invente que algo foi registrado se não foi realmente
@@ -275,10 +407,130 @@ AÇÕES
 A resposta deve seguir exatamente:
 
 {
-  "action": "meal | workout | weight | profile | summary | none",
+  "action": "meal | workout | weight | profile | summary | set_calorie_target | meal_suggestion | none",
   "data": {},
   "reply": "mensagem para o usuário"
 }
+=========================================================
+META CALÓRICA PERSONALIZADA
+=========================================================
+
+Use "set_calorie_target" quando o usuário pedir para
+definir, alterar ou testar uma meta diária específica
+de calorias.
+
+Exemplos:
+
+"quero colocar minha meta em 1700 kcal"
+"quero testar 1700 calorias"
+"muda minha meta para 2200 kcal"
+"quero uma meta de 2000 kcal"
+"posso fazer minha meta ser 1700?"
+
+Formato:
+
+{
+  "action": "set_calorie_target",
+  "data": {
+    "calories": 1700,
+    "mode": "custom"
+  },
+  "reply": "🎯 Beleza! Vou considerar 1700 kcal como sua meta diária personalizada."
+}
+
+IMPORTANTE:
+- Extraia o número de calorias informado pelo usuário.
+- Não confunda pedido para ALTERAR a meta com pergunta
+  sobre qual é a meta atual.
+- Não use "summary" quando o usuário estiver pedindo
+  explicitamente para alterar a meta.
+- A meta personalizada deve ser tratada como uma escolha
+  do usuário e não como uma nova estimativa automática.
+- Quando o usuário pedir para voltar à meta calculada
+  automaticamente, não use "set_calorie_target".
+  Nesse caso, informe que a meta automática precisa ser
+  restaurada pelo sistema.
+
+=========================================================
+SUGESTÃO DE REFEIÇÃO
+=========================================================
+
+Use "meal_suggestion" quando o usuário perguntar o que
+pode comer, o que deveria comer ou pedir uma sugestão
+para atingir melhor suas metas nutricionais.
+
+Exemplos:
+
+"oq posso comer agora?"
+"o que posso comer agora pra bater minhas metas?"
+"me sugere uma refeição"
+"o que falta comer hoje?"
+"me dá uma ideia de jantar"
+"o que eu posso comer pra completar minha proteína?"
+
+Nesses casos, use o current_context para considerar:
+
+- calorias consumidas no dia;
+- calorias restantes;
+- proteína consumida e restante;
+- carboidratos consumidos e restantes;
+- gorduras consumidas e restantes;
+- objetivo do usuário;
+- preferências alimentares;
+- alimentos que o usuário não gosta;
+- refeições já registradas no dia.
+
+Priorize sugestões que façam sentido para os nutrientes
+que ainda faltam.
+
+Por exemplo, se a proteína restante estiver alta e a
+gordura restante estiver baixa, priorize alimentos com
+boa quantidade de proteína e menor quantidade de gordura.
+- Antes de sugerir uma refeição, compare as calorias
+  restantes com as calorias necessárias para atingir os
+  macros restantes.
+
+- Se os macros restantes não puderem ser atingidos dentro
+  das calorias restantes, não tente completar todos eles.
+
+- Nesse caso, priorize os nutrientes mais relevantes para
+  o contexto e informe de forma simples que não é possível
+  atingir todos os macros sem ultrapassar a meta calórica.
+
+- Nunca recomende ultrapassar deliberadamente a meta
+  calórica apenas para completar um macro.
+
+- Não trate os macros restantes como metas obrigatórias
+  quando eles forem incompatíveis com as calorias restantes.
+Formato:
+
+{
+  "action": "meal_suggestion",
+  "data": {
+    "calories": 0,
+    "protein_g": 0,
+    "carbs_g": 0,
+    "fat_g": 0,
+    "meal": "descrição da refeição",
+    "foods": [
+      "alimento 1",
+      "alimento 2",
+      "alimento 3"
+    ]
+  },
+  "reply": "🍽️ Uma opção para agora é..."
+}
+
+IMPORTANTE:
+- Não registre a sugestão como uma refeição consumida.
+- "meal_suggestion" apenas sugere uma refeição.
+- Só use "meal" quando o usuário estiver informando
+  que realmente comeu algo.
+- A sugestão deve considerar o saldo nutricional atual.
+- Não precisa tentar preencher exatamente 100% das metas
+  em uma única refeição.
+- Evite sugestões incompatíveis com as preferências
+  e alimentos que o usuário informou não gostar.
 
 =========================================================
 PROFILE
@@ -511,7 +763,6 @@ function parseAIResponse(text) {
 /* =========================================================
    NORMALIZAÇÃO
 ========================================================= */
-
 function normalizeNumber(
   value,
   fallback = 0
@@ -532,6 +783,8 @@ function normalizeAIResult(result) {
     "weight",
     "profile",
     "summary",
+    "set_calorie_target",
+    "meal_suggestion",
     "none"
   ];
 
@@ -581,6 +834,69 @@ function normalizeAIResult(result) {
         fat_g:
           normalizeNumber(
             data.fat_g
+          )
+      },
+      reply
+    };
+  }
+
+  if (action === "meal_suggestion") {
+    return {
+      action,
+      data: {
+        calories:
+          normalizeNumber(
+            data.calories
+          ),
+
+        protein_g:
+          normalizeNumber(
+            data.protein_g
+          ),
+
+        carbs_g:
+          normalizeNumber(
+            data.carbs_g
+          ),
+
+        fat_g:
+          normalizeNumber(
+            data.fat_g
+          ),
+
+        meal:
+          String(
+            data.meal ||
+            ""
+          ),
+
+        foods:
+          Array.isArray(
+            data.foods
+          )
+            ? data.foods.map(
+                (food) =>
+                  String(food)
+              )
+            : []
+      },
+      reply
+    };
+  }
+
+  if (action === "set_calorie_target") {
+    return {
+      action,
+      data: {
+        calories:
+          normalizeNumber(
+            data.calories
+          ),
+
+        mode:
+          String(
+            data.mode ||
+            "custom"
           )
       },
       reply
@@ -696,9 +1012,7 @@ function normalizeAIResult(result) {
 
         ...(data.activity_level !== undefined && {
           activity_level:
-            String(
-              data.activity_level
-            )
+            String(data.activity_level)
         }),
 
         ...(data.training_days_per_week !== undefined && {
@@ -732,7 +1046,6 @@ function normalizeAIResult(result) {
     reply
   };
 }
-
 /* =========================================================
    CONTEXTO
 ========================================================= */
@@ -879,6 +1192,32 @@ function saveAction(
         null
     };
   }
+  if (result.action === "set_calorie_target") {
+    const updatedUser =
+      setCustomCalorieTarget(
+        userId,
+        result.data.calories
+      );
+
+    return {
+      user:
+        updatedUser,
+
+      targets: {
+        daily_calorie_target:
+          updatedUser?.daily_calorie_target ?? null,
+
+        daily_protein_target:
+          updatedUser?.daily_protein_target ?? null,
+
+        daily_carbs_target:
+          updatedUser?.daily_carbs_target ?? null,
+
+        daily_fat_target:
+          updatedUser?.daily_fat_target ?? null
+      }
+    };
+  }
 
   return null;
 }
@@ -983,19 +1322,35 @@ function buildSummaryReply(
     );
   }
 
-  if (
+ if (
     summary.carbs_target
   ) {
+    const remaining =
+      summary.carbs_target -
+      summary.carbs_g;
+
     lines.push(
       `🍚 Meta de carboidratos: ${Math.round(summary.carbs_target)} g`
     );
+
+    lines.push(
+      `📌 Restante: ${Math.round(Math.max(remaining, 0))} g`
+    );
   }
 
-  if (
+ if (
     summary.fat_target
   ) {
+    const remaining =
+      summary.fat_target -
+      summary.fat_g;
+
     lines.push(
       `🥑 Meta de gorduras: ${Math.round(summary.fat_target)} g`
+    );
+
+    lines.push(
+      `📌 Restante: ${Math.round(Math.max(remaining, 0))} g`
     );
   }
 
