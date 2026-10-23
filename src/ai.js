@@ -9,6 +9,7 @@ import {
   correctMeal,
   getMeal,
   findRecentDuplicateMeal,
+  getMealsBetween,
   deleteMeal,
   getPendingMealDeletion,
   getPendingMealClarification,
@@ -72,8 +73,13 @@ import {
   isMealDeletionConfirmation,
   isMealDeletionCancellation,
   resolveGenericFoodAnswer,
-  isExplicitRepeatMeal
+  isExplicitRepeatMeal,
+  detectHistoryQuery,
+  buildPeriodHistoryReply,
+  detectMealPeriodMention,
+  pastMealTimestamp
 } from "./mealIntent.js";
+import { parsePastMealDate, formatDay } from "./dates.js";
 import { getQuantityQuestions, applyQuantityAnswer } from "./nutritionCatalog.js";
 import { runAgent } from "./agent/agent.js";
 import { createAgentToolRegistry } from "./agent/tools.js";
@@ -170,7 +176,12 @@ function normalizeAIResult(result) {
         plan_option_index:
           normalizeNumber(data.plan_option_index, null),
         selection_event_id:
-          normalizeNumber(data.selection_event_id, null)
+          normalizeNumber(data.selection_event_id, null),
+        // CONV-03: só o fluxo determinístico define data passada ("ontem comi…").
+        consumed_at:
+          typeof data.consumed_at === "string" && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(data.consumed_at)
+            ? data.consumed_at
+            : null
       },
       reply
     };
@@ -2381,6 +2392,25 @@ const summaryIntent = classifySummaryIntent(message);
     if (clarificationReply) {
       return clarificationReply;
     }
+
+    // NUT-14: "o que comi ontem?", "resumo da semana".
+    const historyRange =
+      detectHistoryQuery(
+        message,
+        dailySummary.date
+      );
+
+    if (historyRange) {
+      return buildPeriodHistoryReply({
+        range: historyRange,
+        meals: getMealsBetween(
+          userId,
+          historyRange.start,
+          historyRange.end
+        ),
+        calorieTarget: dailySummary.calorie_target
+      });
+    }
   }
 
   const currentPlan =
@@ -2431,6 +2461,14 @@ const summaryIntent = classifySummaryIntent(message);
       }
 
       if (estimatedMeal) {
+        const pastDate =
+          parsePastMealDate(
+            message,
+            dailySummary.date
+          );
+        const mentionedPeriod =
+          detectMealPeriodMention(message);
+
         return processMessage(
           userId,
           message,
@@ -2443,7 +2481,12 @@ const summaryIntent = classifySummaryIntent(message);
                 protein_g: estimatedMeal.protein_g,
                 carbs_g: estimatedMeal.carbs_g,
                 fat_g: estimatedMeal.fat_g,
-                meal_period: getMealPeriod()
+                meal_period: pastDate
+                  ? mentionedPeriod
+                  : getMealPeriod(),
+                consumed_at: pastDate
+                  ? pastMealTimestamp(pastDate, mentionedPeriod)
+                  : null
               }
             }
           }
@@ -4066,14 +4109,22 @@ const summaryIntent = classifySummaryIntent(message);
     result.action ===
     "meal"
   ) {
-    result.data.meal_period =
-      currentPeriod;
+    // Refeição de dia anterior mantém o período citado e não entra no plano de hoje.
+    const pastMeal =
+      Boolean(result.data.consumed_at) &&
+      result.data.consumed_at.slice(0, 10) < dailySummary.date;
 
-    if (
-      currentPlan
-    ) {
-      result.data.plan_id =
-        currentPlan.id;
+    if (!pastMeal) {
+      result.data.consumed_at = null;
+      result.data.meal_period =
+        currentPeriod;
+
+      if (
+        currentPlan
+      ) {
+        result.data.plan_id =
+          currentPlan.id;
+      }
     }
 
     const mealCheck =
@@ -4088,11 +4139,25 @@ const summaryIntent = classifySummaryIntent(message);
       );
     }
 
+    // Para dia anterior, duplicata = mesma refeição já registrada naquela data.
+    const sameMeal = (meal) =>
+      normalizeRequestText(meal.description).replace(/[^a-z0-9]+/g, " ").trim() ===
+        normalizeRequestText(result.data.description).replace(/[^a-z0-9]+/g, " ").trim()
+      && Math.abs(Number(meal.calories) - Number(result.data.calories)) < 1;
+
     const duplicate =
       !isExplicitRepeatMeal(message) &&
-      findRecentDuplicateMeal(
-        userId,
-        result.data
+      (
+        pastMeal
+          ? getMealsBetween(
+              userId,
+              result.data.consumed_at.slice(0, 10),
+              result.data.consumed_at.slice(0, 10)
+            ).find(sameMeal) || null
+          : findRecentDuplicateMeal(
+              userId,
+              result.data
+            )
       );
 
     if (duplicate) {
@@ -4201,7 +4266,11 @@ const summaryIntent = classifySummaryIntent(message);
       }
     }
 
-    return `✅ Registrei: ${saved.description} — ${Math.round(saved.calories)} kcal, ${Number(saved.protein_g)} g de proteína, ${Number(saved.carbs_g)} g de carboidratos e ${Number(saved.fat_g)} g de gorduras. ID da refeição: ${saved.id}.`;
+    const savedDate = String(saved.consumed_at).slice(0, 10);
+    const pastNote = savedDate < dailySummary.date
+      ? ` Data: ${formatDay(savedDate)}${saved.meal_period ? ` (${saved.meal_period})` : ""}; não entra no saldo de hoje.`
+      : "";
+    return `✅ Registrei: ${saved.description} — ${Math.round(saved.calories)} kcal, ${Number(saved.protein_g)} g de proteína, ${Number(saved.carbs_g)} g de carboidratos e ${Number(saved.fat_g)} g de gorduras. ID da refeição: ${saved.id}.${pastNote}`;
   }
 
   if (

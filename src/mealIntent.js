@@ -11,6 +11,7 @@ import {
   findTermOccurrences,
   normalizeFoodText
 } from "./foodMatching.js";
+import { addDays, formatDay, parseDateReference } from "./dates.js";
 
 // CONV-09: resposta curta a "qual batata/bife?". pending = { original_message,
 // clarifications: [{ term, options: [{ id, name }] }] }. Retorna a frase original com
@@ -46,6 +47,93 @@ function chooseClarificationOption(term, options, reply) {
     return stemsOf(option.name).some((word) => !others.has(word) && replyStems.has(word));
   });
   return matches.length === 1 ? matches[0] : null;
+}
+
+// NUT-14: consulta de histórico com data ou período ("o que comi ontem?", "resumo da
+// semana", "quanto comi de proteína na segunda"). Retorna o período ou null.
+// Pedidos de sugestão ("o que posso comer hoje?") e relatos ("ontem comi pizza") não contam.
+export function detectHistoryQuery(message, today) {
+  const text = normalizeRequestText(message);
+  if (/\b(?:posso|devo|deveria|sugere|sugira|sugestao|sugestoes|recomenda|opcoes?|plano)\b/.test(text)) return null;
+  const asks = /\b(?:o que|oque|quanto|quantas?|qual|quais|resumo|historico|consumo|me mostra|mostre|mostrar|lista|listar|meus registros|minhas refeicoes)\b/.test(text);
+  if (!asks) return null;
+  const range = parseDateReference(message, today);
+  if (!range) return null;
+  const aboutToday = range.start === today && range.end === today;
+  if (aboutToday && !/\b(?:o que|oque)\s+(?:eu\s+)?(?:comi|registrei|bebi)|\bminhas refeicoes\b|\bmeus registros\b/.test(text)) return null;
+  return range;
+}
+
+// Período da refeição citado num relato ("no jantar", "café da manhã").
+export function detectMealPeriodMention(message) {
+  const text = normalizeRequestText(message);
+  if (/\bcafe\s+da\s+manha\b/.test(text)) return "café da manhã";
+  if (/\b(?:almoco|almocei)\b/.test(text)) return "almoço";
+  if (/\b(?:lanche|lanchei)\b/.test(text)) return "lanche da tarde";
+  if (/\b(?:jantar|janta|jantei)\b/.test(text)) return "jantar";
+  if (/\bceia\b/.test(text)) return "ceia";
+  return null;
+}
+
+const MEAL_PERIOD_TIMES = {
+  "café da manhã": "08:00:00", almoço: "12:30:00", "lanche da tarde": "16:00:00", jantar: "20:00:00", ceia: "22:00:00"
+};
+
+// Horário de referência para refeição registrada em dia anterior.
+export function pastMealTimestamp(date, period) {
+  return `${date} ${MEAL_PERIOD_TIMES[period] || "12:00:00"}`;
+}
+
+const formatNumber = (value) => Math.round(Number(value) || 0).toLocaleString("pt-BR");
+const macroLine = (totals) =>
+  `${formatNumber(totals.calories)} kcal · P ${formatNumber(totals.protein_g)} g · C ${formatNumber(totals.carbs_g)} g · G ${formatNumber(totals.fat_g)} g`;
+
+function sumMeals(meals) {
+  return meals.reduce((total, meal) => {
+    for (const key of ["calories", "protein_g", "carbs_g", "fat_g"]) total[key] += Number(meal[key]) || 0;
+    return total;
+  }, { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
+}
+
+// Resposta do histórico. `calorieTarget` é a meta atual (metas antigas não são guardadas).
+export function buildPeriodHistoryReply({ range, meals, calorieTarget = null }) {
+  const days = [];
+  for (let day = range.start; day <= range.end; day = addDays(day, 1)) days.push(day);
+  const title = range.label === formatDay(range.start) ? formatDay(range.start) : `${range.label[0].toLocaleUpperCase("pt-BR")}${range.label.slice(1)}`;
+
+  if (range.single) {
+    const header = `📅 ${title}${title === formatDay(range.start) ? "" : ` (${formatDay(range.start)})`}`;
+    if (!meals.length) return `${header}\nNão há refeições registradas nesse dia.`;
+    const totals = sumMeals(meals);
+    const lines = [header, ...meals.map((meal) =>
+      `• ${String(meal.consumed_at).slice(11, 16)} — ${meal.description} — ${formatNumber(meal.calories)} kcal`)];
+    lines.push(`Total: ${macroLine(totals)}`);
+    if (calorieTarget) {
+      const difference = Math.round(calorieTarget - totals.calories);
+      lines.push(`Meta atual: ${formatNumber(calorieTarget)} kcal (${difference >= 0 ? `${formatNumber(difference)} kcal abaixo` : `${formatNumber(-difference)} kcal acima`}).`);
+    }
+    return lines.join("\n");
+  }
+
+  const byDay = new Map(days.map((day) => [day, []]));
+  for (const meal of meals) byDay.get(String(meal.consumed_at).slice(0, 10))?.push(meal);
+  const logged = days.filter((day) => byDay.get(day).length);
+  const lines = [`📊 ${title} (${formatDay(range.start)} a ${formatDay(range.end)})`];
+  for (const day of days) {
+    const dayMeals = byDay.get(day);
+    lines.push(`• ${formatDay(day)}: ${dayMeals.length ? macroLine(sumMeals(dayMeals)) : "sem registros"}`);
+  }
+  lines.push(`Dias com registro: ${logged.length} de ${days.length}.`);
+  if (logged.length) {
+    const totals = sumMeals(meals);
+    const average = Object.fromEntries(Object.entries(totals).map(([key, value]) => [key, value / logged.length]));
+    lines.push(`Média nos dias com registro: ${macroLine(average)}.`);
+    if (calorieTarget) {
+      const difference = Math.round(calorieTarget - average.calories);
+      lines.push(`Meta atual: ${formatNumber(calorieTarget)} kcal (média ${difference >= 0 ? `${formatNumber(difference)} kcal abaixo` : `${formatNumber(-difference)} kcal acima`}).`);
+    }
+  }
+  return lines.join("\n");
 }
 
 // NUT-13: o usuário diz explicitamente que comeu de novo, então uma refeição igual à

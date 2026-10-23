@@ -152,3 +152,22 @@ test("NUT-13: fora da janela de 10 minutos não é duplicata", () => {
   const later = new Date(Date.now() + 11 * 60000);
   assert.equal(db.findRecentDuplicateMeal(userId, { description: "comi uma banana", calories: 88 }, { now: later }), null);
 });
+
+// ---------- CONV-03 / NUT-14 ----------
+
+test("CONV-03: refeição com data passada é aceita; data futura ou inválida não", () => {
+  const userId = newUser();
+  assert.ok(db.saveMeal(userId, meal({ consumed_at: "2020-01-15 12:00:00" })));
+  assert.equal(db.saveMeal(userId, meal({ consumed_at: "2999-01-01 12:00:00" })), null);
+  assert.equal(db.saveMeal(userId, meal({ consumed_at: "ontem" })), null);
+});
+
+test("NUT-14: getMealsBetween respeita intervalo e usuário", () => {
+  const userId = newUser();
+  db.saveMeal(userId, meal({ description: "a", consumed_at: "2021-03-01 08:00:00" }));
+  db.saveMeal(userId, meal({ description: "b", consumed_at: "2021-03-02 08:00:00" }));
+  db.saveMeal(userId, meal({ description: "c", consumed_at: "2021-03-04 08:00:00" }));
+  db.saveMeal(newUser(), meal({ description: "outro", consumed_at: "2021-03-02 09:00:00" }));
+  assert.deepEqual(db.getMealsBetween(userId, "2021-03-01", "2021-03-02").map((row) => row.description), ["a", "b"]);
+  assert.deepEqual(db.getMealsBetween(userId, "2021-03-03", "2021-03-03"), []);
+});

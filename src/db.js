@@ -1074,6 +1074,13 @@ export function saveMeal(
     return null;
   }
 
+  // CONV-03: refeição de um dia anterior ("ontem no jantar comi…"). Nunca no futuro.
+  const now = getBrazilDateTime();
+  const consumedAt = meal.consumed_at ?? now;
+  if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(consumedAt) || consumedAt > now) {
+    return null;
+  }
+
   const result =
     db.prepare(`
       INSERT INTO meals (
@@ -1096,7 +1103,7 @@ export function saveMeal(
       meal.protein_g ?? 0,
       meal.carbs_g ?? 0,
       meal.fat_g ?? 0,
-      getBrazilDateTime(),
+      consumedAt,
       meal.meal_period ?? null,
       meal.plan_id ?? null,
       meal.plan_option_index ?? null
@@ -1431,6 +1438,17 @@ export function findRecentDuplicateMeal(userId, meal, { windowMinutes = 10, now 
   `).all(userId, since, until)
     .find((row) => normalize(row.description) === description && Math.abs(Number(row.calories) - calories) < 1)
     || null;
+}
+
+// NUT-14: refeições entre duas datas "YYYY-MM-DD" (inclusive), em ordem cronológica.
+export function getMealsBetween(userId, startDate, endDate) {
+  ensureUser(userId);
+  return db.prepare(`
+    SELECT id, description, calories, protein_g, carbs_g, fat_g, consumed_at, meal_period
+    FROM meals
+    WHERE user_id = ? AND date(consumed_at) BETWEEN ? AND ?
+    ORDER BY consumed_at, id
+  `).all(userId, startDate, endDate);
 }
 
 export function getMeal(userId, mealId) {

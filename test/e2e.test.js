@@ -503,3 +503,77 @@ test("NUT-09: cadeia corte → quantidade → registro", async () => {
   assert.match(meal.description, /patinho grelhado/);
   assert.equal(meal.calories, estimateMealFromText("comi arroz e patinho grelhado").calories);
 });
+
+// ---------- CONV-03 / NUT-14: datas relativas e histórico por período ----------
+
+const { addDays } = await import("../src/dates.js");
+
+test("CONV-03: 'ontem no jantar comi…' grava em ontem e não mexe no saldo de hoje", async () => {
+  const userId = newUser();
+  const yesterday = addDays(today(userId), -1);
+  const reply = await send(userId, "ontem no jantar comi 2 ovos");
+  assert.match(reply, /não entra no saldo de hoje/);
+  const [meal] = db.getMealsBetween(userId, yesterday, yesterday);
+  assert.equal(meal.consumed_at, `${yesterday} 20:00:00`);
+  assert.equal(meal.meal_period, "jantar");
+  assert.equal(db.getDailySummary(userId).calories, 0);
+  assert.equal(db.getTodayMeals(userId).length, 0);
+});
+
+test("CONV-03: relato repetido do mesmo dia anterior não duplica", async () => {
+  const userId = newUser();
+  const yesterday = addDays(today(userId), -1);
+  await send(userId, "ontem no jantar comi 2 ovos");
+  assert.match(await send(userId, "ontem no jantar comi 2 ovos"), /já está registrada/);
+  assert.equal(db.getMealsBetween(userId, yesterday, yesterday).length, 1);
+});
+
+test("CONV-03 / NUT-09: data passada segue válida depois da pergunta de quantidade", async () => {
+  const userId = newUser();
+  const dayBefore = addDays(today(userId), -2);
+  assert.match(await send(userId, "anteontem comi arroz"), /quanto foi de:/);
+  await send(userId, "150 g");
+  const [meal] = db.getMealsBetween(userId, dayBefore, dayBefore);
+  assert.equal(meal.calories, estimateMealFromText("comi 150 g de arroz").calories);
+  assert.equal(db.getTodayMeals(userId).length, 0);
+});
+
+test("NUT-14: 'o que comi ontem?' lista as refeições e o total", async () => {
+  const userId = userWithTargets();
+  await send(userId, "ontem no almoço comi 2 ovos");
+  await send(userId, "ontem no jantar comi uma banana");
+  const model = fakeModel();
+  const reply = await send(userId, "o que comi ontem?", model);
+  assert.match(reply, /^📅 Ontem/);
+  assert.match(reply, /12:30 — ontem no almoço comi 2 ovos/);
+  assert.match(reply, /20:00 — ontem no jantar comi uma banana/);
+  const total = db.getMealsBetween(userId, addDays(today(userId), -1), addDays(today(userId), -1))
+    .reduce((sum, meal) => sum + meal.calories, 0);
+  assert.match(reply, new RegExp(`Total: ${Math.round(total)} kcal`));
+  assert.match(reply, /Meta atual:/);
+  assert.equal(model.requests.length, 0);
+});
+
+test("NUT-14: dia sem registros", async () => {
+  const userId = newUser();
+  assert.match(await send(userId, "o que comi anteontem?"), /Não há refeições registradas nesse dia/);
+});
+
+test("NUT-14: resumo dos últimos 7 dias com média dos dias registrados", async () => {
+  const userId = newUser();
+  const day1 = addDays(today(userId), -1);
+  const day3 = addDays(today(userId), -3);
+  db.saveMeal(userId, { description: "almoço", calories: 1800, protein_g: 100, carbs_g: 200, fat_g: 60, consumed_at: `${day1} 12:00:00` });
+  db.saveMeal(userId, { description: "almoço", calories: 2000, protein_g: 120, carbs_g: 210, fat_g: 70, consumed_at: `${day3} 12:00:00` });
+  const reply = await send(userId, "me mostra o resumo dos últimos 7 dias");
+  assert.match(reply, /^📊 Últimos 7 dias/);
+  assert.match(reply, /Dias com registro: 2 de 7\./);
+  assert.match(reply, /Média nos dias com registro: 1\.900 kcal · P 110 g · C 205 g · G 65 g/);
+  assert.equal((reply.match(/sem registros/g) || []).length, 5);
+});
+
+test("NUT-14: pedido de sugestão com data não vira consulta de histórico", async () => {
+  const userId = newUser();
+  const reply = await send(userId, "o que posso comer hoje?", fakeModel([finalText("Resposta simulada.")]));
+  assert.doesNotMatch(reply, /^📅|^📊/);
+});
