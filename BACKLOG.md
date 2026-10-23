@@ -13,7 +13,7 @@ Auditoria de status: 23/10/2026, branch `audit/nutrition-tests`; atualizado a ca
 - `BLOQUEADO` — depende de decisão, autorização, dado externo ou outro item.
 - `NÃO AUDITADO` — não verificado.
 
-Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pendente de autorização). "Testado" significa teste local determinístico.
+Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pendente de autorização). "Testado" significa teste local determinístico; os testes com modelo simulado (`test/e2e.test.js`) verificam o fluxo do código quando o modelo chama uma ferramenta, não se o modelo real escolheria essa ferramenta.
 
 **Prioridade** — `P0` estabilizar o existente · `P1` próxima expansão (catálogo, composições, porções, refeição livre) · `P2` novos módulos centrais · `P3` futuro.
 
@@ -33,7 +33,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | CONV-06 | Mínimo de perguntas; estimar só quando aceitável; declarar incerteza | P0 | PARCIAL | — | `needs_clarification`, `approximate_quantity`, `confidence` no catálogo (testados) |
 | CONV-07 | Distinguir disponível / obrigatório / desejado / excluído / composição excluída / sugerida / escolhida / consumida / correção | P0 | PARCIAL | — | campos em `buildExplicitMealRequestFacts`; eventos em `meal_plan_events`; partes testadas em `test/intent.test.js` |
 | CONV-08 | Memória estruturada: perfil, preferências/hábitos, contexto episódico | P1 | PARCIAL | — | tabela `users` (perfil, dislikes, preferências), `meal_plan_events`; sem memória de rotinas, eventos, provas |
-| CONV-09 | Pergunta pendente com estado (responder "patinho" após "qual bife?") | P0 | IMPLEMENTADO NÃO TESTADO | ARQ-07 | `resolveGenericFoodAnswer` (`mealIntent.js`) e estado em `users.pending_meal_clarification` testados (`test/intent.test.js`, `test/db.test.js`); ligação em `ai.js` (`handlePendingMealClarification`, validade 15 min) sem teste ponta a ponta |
+| CONV-09 | Pergunta pendente com estado (responder "patinho" após "qual bife?") | P0 | IMPLEMENTADO E TESTADO | — | `resolveGenericFoodAnswer` (`mealIntent.js`), estado em `users.pending_meal_clarification`, `handlePendingMealClarification` (15 min); `test/intent.test.js`, `test/db.test.js`, `test/e2e.test.js` |
 | CONV-10 | Áudio: receber, transcrever, interpretar; depois responder em áudio | P2 | NÃO IMPLEMENTADO | DEC-03 | `server.js:352` ignora mensagens que não são texto |
 | CONV-11 | Notificações, lembretes e proatividade sem excesso | P2 | NÃO IMPLEMENTADO | ARQ-04 | sem agendador |
 
@@ -50,13 +50,13 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | NUT-07 | Vários alimentos e várias ocorrências; sem falsos positivos de alias | P0 | IMPLEMENTADO E TESTADO | — | `foodMatching.js`; `test/foodMatching.test.js`, `test/catalog.test.js` |
 | NUT-08 | Diferenciar cru/cozido/assado/grelhado/frito | P1 | PARCIAL | CAT-01 | depende de existir item por preparo no catálogo |
 | NUT-09 | Perguntar só o dado ausente; não pedir gramas quando a unidade é conhecida | P0 | PARCIAL | — | `getMissingMealQuantities` (testado); preparo/corte genérico já tem pergunta com estado (CONV-09); quantidade ausente ainda sem estado |
-| NUT-10 | Corrigir registro sem duplicar | P0 | IMPLEMENTADO NÃO TESTADO | ARQ-07 | `db.js correctMeal` por ID (validação testada em `test/db.test.js`); correção sem descrição reaproveita a anterior; fluxo em `ai.js` sem teste |
-| NUT-11 | Excluir registro | P0 | IMPLEMENTADO NÃO TESTADO | ARQ-07 | `db.js deleteMeal` com cópia em `meal_plan_events`, `getPendingMealDeletion`, confirmação explícita em 2 passos (banco e detecção testados em `test/db.test.js`); fluxo `ai.js handleMealDeletion` sem teste ponta a ponta |
+| NUT-10 | Corrigir registro sem duplicar | P0 | IMPLEMENTADO E TESTADO | — | `db.js correctMeal` por ID; correção sem descrição mantém a original (bug do texto fixo "Refeição corrigida" corrigido); `test/db.test.js`, `test/e2e.test.js` via ferramenta `correct_meal` simulada |
+| NUT-11 | Excluir registro | P0 | IMPLEMENTADO E TESTADO | — | `db.js deleteMeal` com cópia em `meal_plan_events`, confirmação explícita em 2 passos, cancelamento, isolamento por usuário; `test/db.test.js`, `test/e2e.test.js` |
 | NUT-12 | Distinguir consumo de intenção, sugestão e escolha; confirmar antes de salvar | P0 | IMPLEMENTADO NÃO TESTADO | — | ferramentas `choose_meal_option`, `confirm_meal_consumption`; `consumeMealSelection` |
 | NUT-13 | Evitar registros duplicados | P0 | PARCIAL | — | deduplicação de mensagem do WhatsApp (`claimWhatsAppMessage`); sem checagem de refeição duplicada |
 | NUT-14 | Histórico por data/período; consumo diário e semanal | P1 | PARCIAL | CONV-03 | `getDailySummary` (dia), `getRecentHistory` (últimos N, sem período); sem semanal |
 | NUT-15 | Saldo de kcal/macros atualizado após registro e correção | P0 | IMPLEMENTADO NÃO TESTADO | — | `getDailySummary`, `calculateNutritionBalance`, `analyzeRemainingNutritionBudget` |
-| NUT-16 | Metas personalizadas, ajuste manual, restaurar automáticas | P0 | IMPLEMENTADO NÃO TESTADO | — | `setCustomCalorieTarget`, `setCustomMacroTargets`, `restoreAutomaticNutritionTargets` |
+| NUT-16 | Metas personalizadas, ajuste manual, restaurar automáticas | P0 | IMPLEMENTADO E TESTADO | — | `setCustomCalorieTarget`, `restoreAutomaticNutritionTargets` e a proteção contra alteração sem pedido explícito; `test/e2e.test.js` (metas de macros ainda sem teste) |
 | NUT-17 | Validar coerência das metas e valores zero/negativos | P0 | PARCIAL | — | rejeita negativos; avisa metas incompatíveis (`ai.js`); sem testes |
 | NUT-18 | Plano diário por refeição com orçamento e adaptação ao consumido | P0 | IMPLEMENTADO NÃO TESTADO | — | `buildDailyMealPlan`, `getMealBudget`; tabela `meal_plans` |
 | NUT-19 | Refeições livres: frequência, dia/período, categorias favoritas | P1 | IMPLEMENTADO NÃO TESTADO | — | colunas `free_meal_*`; `setFreeMealSettings`; `generateFreeMealOptions` |
@@ -138,7 +138,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
-| ESP-01 | Registrar treino realizado (tipo, duração, notas, exercícios) | P1 | IMPLEMENTADO NÃO TESTADO | — | tabelas `workouts`/`exercises`; `saveWorkout`; ferramenta `record_workout` |
+| ESP-01 | Registrar treino realizado (tipo, duração, notas, exercícios) | P1 | IMPLEMENTADO E TESTADO | — | tabelas `workouts`/`exercises`; `saveWorkout`; ferramenta `record_workout`; `test/e2e.test.js` |
 | ESP-02 | Motor central com módulos por modalidade (força, corrida, ciclismo, natação, lutas, coletivos…) | P2 | NÃO IMPLEMENTADO | ARQ-01 | `workout_type` é texto livre |
 | ESP-03 | Perguntas adaptativas por modalidade | P2 | NÃO IMPLEMENTADO | ESP-02 | — |
 | ESP-04 | Objetivos de longo prazo, provas, prazos e calendário | P2 | NÃO IMPLEMENTADO | ESP-02 | — |
@@ -176,7 +176,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
-| CRP-01 | Registrar peso com data e histórico | P1 | IMPLEMENTADO NÃO TESTADO | — | tabela `weights`; `saveWeight` atualiza `users.weight_kg` |
+| CRP-01 | Registrar peso com data e histórico | P1 | IMPLEMENTADO E TESTADO | — | tabela `weights`; `saveWeight` atualiza `users.weight_kg`; `test/e2e.test.js` |
 | CRP-02 | Atualizar metas automáticas quando o peso muda | P1 | NÃO IMPLEMENTADO | DEC-07 | `saveWeight` não recalcula metas |
 | CRP-03 | Medidas/circunferências, gráficos e tendências | P2 | NÃO IMPLEMENTADO | — | — |
 | CRP-04 | Fotos privadas de evolução com consentimento | P3 | NÃO IMPLEMENTADO | VIS-04 | — |
@@ -209,7 +209,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | ARQ-04 | Agendador para lembretes e tarefas proativas | P2 | NÃO IMPLEMENTADO | DEC-09 | — |
 | ARQ-05 | Testes de integração com WhatsApp e OpenAI reais (Fase 5) | P0 | BLOQUEADO | autorização da usuária (créditos) | — |
 | ARQ-06 | Testes de `db.js` com banco temporário | P0 | IMPLEMENTADO E TESTADO | — | `FITPULSE_DB_PATH` em `db.js`; `test/db.test.js` usa SQLite temporário |
-| ARQ-07 | Testes de `ai.js` ponta a ponta sem API (modelo simulado) | P1 | NÃO IMPLEMENTADO | ARQ-06 | — |
+| ARQ-07 | Testes de `ai.js` ponta a ponta sem API (modelo simulado) | P1 | IMPLEMENTADO E TESTADO | — | `test/e2e.test.js`: `processMessage` real + SQLite temporário + cliente simulado (`internal.apiClient`); cliente OpenAI criado só no primeiro uso (`agent.js`) e chave removida nos testes |
 | ARQ-08 | Testes unitários e de regressão do núcleo nutricional | P0 | IMPLEMENTADO E TESTADO | — | 94 testes em `test/` |
 | ARQ-09 | Métricas de qualidade (acerto, perguntas desnecessárias, duplicações, custo) | P2 | NÃO IMPLEMENTADO | ARQ-05 | — |
 | ARQ-10 | Encoding UTF-8 correto nos arquivos ativos | P0 | IMPLEMENTADO E TESTADO | — | `scripts/fix-mojibake.mjs`; teste ENC-01 |
@@ -248,3 +248,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 |---|---|
 | 23/10/2026 | Criação do backlog a partir do documento da usuária: 119 requisitos + 10 decisões pendentes (8 implementados e testados, 13 implementados não testados, 31 parciais, 65 não implementados, 2 bloqueados); status auditados no commit `1748948`. Itens IMPLEMENTADO E TESTADO referem-se aos testes de `test/` (94 passando). Detalhes da auditoria nutricional em `AUDITORIA-NUTRICAO.md`. |
 | 23/10/2026 | ARQ-06, NUT-24, SEG-02 → IMPLEMENTADO E TESTADO; NUT-11, CONV-09 → IMPLEMENTADO NÃO TESTADO (lógica e banco testados; fluxo em `ai.js` aguarda ARQ-07). Totais: 11 testados, 15 não testados, 29 parciais, 62 não implementados, 2 bloqueados. 108 testes passando. |
+| 23/10/2026 | ARQ-07 implementado (`test/e2e.test.js`, modelo simulado). Passam a IMPLEMENTADO E TESTADO: ARQ-07, CONV-09, NUT-10, NUT-11, NUT-16, CRP-01, ESP-01. Bugs encontrados pelos testes e corrigidos: relato com "não comi X, comi Y" era ignorado; correção sem descrição sobrescrevia o nome com "Refeição corrigida". Totais: 18 testados, 9 não testados, 29 parciais, 61 não implementados, 2 bloqueados. 124 testes passando. |

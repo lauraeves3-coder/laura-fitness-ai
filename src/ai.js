@@ -178,7 +178,8 @@ function normalizeAIResult(result) {
       action,
       data: {
         meal_id: normalizeNumber(data.meal_id, null),
-        description: String(data.description || "Refeição corrigida"),
+        // Sem descrição nova, a correção mantém a descrição original da refeição.
+        description: data.description ? String(data.description) : null,
         calories: data.calories === null || data.calories === undefined ? null : normalizeNumber(data.calories, null),
         protein_g: data.protein_g === null || data.protein_g === undefined ? null : normalizeNumber(data.protein_g, null),
         carbs_g: data.carbs_g === null || data.carbs_g === undefined ? null : normalizeNumber(data.carbs_g, null),
@@ -511,8 +512,11 @@ function isExplicitSelectionConfirmation(message) {
 
 function isExplicitMealReport(message) {
   const text = normalizeRequestText(message);
-  if (/[?？]$/.test(text) || /\b(?:nao|nunca)\s+(?:comi|consumi|bebi|tomei)\b/.test(text)) return false;
-  return /\b(?:comi|consumi|bebi|tomei|almocei|jantei|lanchei|cafei)\b/.test(text);
+  if (/[?？]$/.test(text)) return false;
+  // Verbos negados ("não comi arroz") não contam; um verbo afirmativo na mesma frase
+  // ("..., comi 2 ovos") ainda caracteriza relato. O catálogo ignora os itens negados.
+  const affirmative = text.replace(/\b(?:nao|nunca|nem)\s+(?:comi|consumi|bebi|tomei|almocei|jantei|lanchei)\b/g, " ");
+  return /\b(?:comi|consumi|bebi|tomei|almocei|jantei|lanchei|cafei)\b/.test(affirmative);
 }
 
 function extractExplicitMealNutrition(message) {
@@ -2859,7 +2863,9 @@ const summaryIntent = classifySummaryIntent(message);
     return runAgent({
       message,
       context,
-      registry
+      registry,
+      // Só os testes passam um cliente simulado; em produção é undefined.
+      apiClient: internal.apiClient
     });
   }
 

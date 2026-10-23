@@ -1,6 +1,12 @@
 ﻿import OpenAI from "openai";
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Criado só no primeiro uso: testes injetam um cliente simulado (apiClient) e nunca
+// instanciam o cliente real.
+let client = null;
+function getClient() {
+  client ??= new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return client;
+}
 const MAX_TOOL_ROUNDS = 4;
 
 const AGENT_INSTRUCTIONS = `
@@ -124,10 +130,11 @@ async function executeToolCall(call, registry) {
   }
 }
 
-export async function runAgent({ message, context, registry, model = process.env.OPENAI_MODEL || "gpt-5.6", apiClient = client }) {
+export async function runAgent({ message, context, registry, model = process.env.OPENAI_MODEL || "gpt-5.6", apiClient = null }) {
   if (!registry || !Array.isArray(registry.definitions) || !registry.handlers) {
     return "Não consegui preparar as ferramentas do FitPulse agora. Tente novamente em instantes.";
   }
+  apiClient ??= getClient();
 
   let response;
   const toolReplies = [];
