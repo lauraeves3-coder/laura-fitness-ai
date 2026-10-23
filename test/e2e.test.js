@@ -217,3 +217,33 @@ test("ESP-01: treino realizado é registrado com exercícios", async () => {
   assert.equal(summary.workout_count, 1);
   assert.equal(summary.total_duration_min, 45);
 });
+
+// ---------- NUT-13: duplicatas ----------
+
+test("NUT-13: mesma mensagem reenviada não grava duas vezes", async () => {
+  const userId = newUser();
+  await send(userId, "comi uma banana");
+  const reply = await send(userId, "comi uma banana");
+  assert.match(reply, /já está registrada/);
+  assert.equal(db.getTodayMeals(userId).length, 1);
+});
+
+test("NUT-13: agente chamando record_meal duas vezes na mesma conversa grava uma vez", async () => {
+  const userId = newUser();
+  const args = { description: "banana", calories: 90, protein_g: 1, carbs_g: 21, fat_g: 0 };
+  const message = "comi banana: 90 kcal, 1 g de proteína, 21 g de carboidratos e 0 g de gordura";
+  await send(userId, message, fakeModel([
+    toolCall("record_meal", args, "call-1"),
+    toolCall("record_meal", args, "call-2"),
+    finalText("ok")
+  ]));
+  assert.equal(db.getTodayMeals(userId).length, 1);
+});
+
+test("NUT-13: 'de novo' registra a repetição intencional", async () => {
+  const userId = newUser();
+  const args = { description: "banana", calories: 90, protein_g: 1, carbs_g: 21, fat_g: 0 };
+  await send(userId, "comi banana: 90 kcal, 1 g de proteína, 21 g de carboidratos e 0 g de gordura", fakeModel([toolCall("record_meal", args), finalText("ok")]));
+  await send(userId, "comi banana de novo: 90 kcal, 1 g de proteína, 21 g de carboidratos e 0 g de gordura", fakeModel([toolCall("record_meal", args), finalText("ok")]));
+  assert.equal(db.getTodayMeals(userId).length, 2);
+});

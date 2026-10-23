@@ -48,6 +48,13 @@ function chooseClarificationOption(term, options, reply) {
   return matches.length === 1 ? matches[0] : null;
 }
 
+// NUT-13: o usuário diz explicitamente que comeu de novo, então uma refeição igual à
+// recém-registrada não é duplicata.
+export function isExplicitRepeatMeal(message) {
+  const text = normalizeRequestText(message);
+  return /\b(?:de\s+novo|novamente|outra\s+vez|mais\s+uma\s+vez|repeti|repetindo|registr(?:a|e|ar)\s+(?:de\s+novo|novamente))\b/.test(text);
+}
+
 // NUT-11: pedido de exclusão de refeição ("apague a refeição #12", "exclua o último
 // registro"). Retorna { mealId, last } ou null.
 export function detectMealDeletionRequest(message) {

@@ -130,3 +130,25 @@ test("CONV-09: pergunta pendente é guardada e limpa por usuário", () => {
   db.clearPendingMealClarification(userId);
   assert.equal(db.getPendingMealClarification(userId), null);
 });
+
+// ---------- NUT-13: duplicatas ----------
+
+const banana = (overrides = {}) => meal({ description: "comi uma banana", calories: 88, protein_g: 1.2, carbs_g: 21, fat_g: 0.3, ...overrides });
+
+test("NUT-13: mesma refeição recente é encontrada; outra descrição, calorias ou usuário não", () => {
+  const userId = newUser();
+  const saved = db.saveMeal(userId, banana({ description: "Comi uma banana" }));
+  assert.ok(saved);
+  assert.equal(db.findRecentDuplicateMeal(userId, { description: "comi  uma banana!", calories: 88 }).id, saved.id);
+  assert.equal(db.findRecentDuplicateMeal(userId, { description: "comi duas bananas", calories: 88 }), null);
+  assert.equal(db.findRecentDuplicateMeal(userId, { description: "comi uma banana", calories: 176 }), null);
+  assert.equal(db.findRecentDuplicateMeal(newUser(), { description: "comi uma banana", calories: 88 }), null);
+});
+
+test("NUT-13: fora da janela de 10 minutos não é duplicata", () => {
+  const userId = newUser();
+  assert.ok(db.saveMeal(userId, banana()));
+  assert.ok(db.findRecentDuplicateMeal(userId, { description: "comi uma banana", calories: 88 }));
+  const later = new Date(Date.now() + 11 * 60000);
+  assert.equal(db.findRecentDuplicateMeal(userId, { description: "comi uma banana", calories: 88 }, { now: later }), null);
+});

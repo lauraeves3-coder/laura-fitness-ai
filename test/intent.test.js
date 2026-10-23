@@ -156,3 +156,13 @@ test("CONV-09: várias perguntas, resposta parcial e variações de gênero/plur
   assert.equal(ai.resolveGenericFoodAnswer(pending, "fritas e acebolado"), "comi batata frita e bife acebolado");
   assert.equal(ai.resolveGenericFoodAnswer(pending, "cozido"), "comi batata inglesa cozida e bife");
 });
+
+// ---------- NUT-13 ----------
+
+test("NUT-13: repetição explícita", () => {
+  for (const message of ["comi banana de novo", "comi outra vez", "tomei whey novamente", "registra de novo"]) {
+    assert.equal(ai.isExplicitRepeatMeal(message), true, message);
+  }
+  assert.equal(ai.isExplicitRepeatMeal("comi uma banana"), false);
+  assert.equal(ai.isExplicitRepeatMeal("comi um ovo novo"), false);
+});

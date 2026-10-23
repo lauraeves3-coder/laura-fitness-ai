@@ -1409,6 +1409,28 @@ export function getTodayMeals(userId, date = new Date()) {
   `).all(userId, getBrazilDate(date));
 }
 
+// NUT-13: mesma refeição (descrição normalizada e calorias) do mesmo usuário gravada há
+// no máximo windowMinutes. Usada para não gravar de novo um reenvio ou uma segunda
+// chamada do agente na mesma conversa.
+export function findRecentDuplicateMeal(userId, meal, { windowMinutes = 10, now = new Date() } = {}) {
+  ensureUser(userId);
+  const normalize = (value) => String(value || "")
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .toLocaleLowerCase("pt-BR").replace(/[^a-z0-9]+/g, " ").trim();
+  const description = normalize(meal?.description);
+  const calories = Number(meal?.calories);
+  if (!description || !Number.isFinite(calories)) return null;
+  const since = getBrazilDateTime(new Date(now.getTime() - windowMinutes * 60000));
+  const until = getBrazilDateTime(now);
+  return db.prepare(`
+    SELECT * FROM meals
+    WHERE user_id = ? AND consumed_at >= ? AND consumed_at <= ?
+    ORDER BY id DESC
+  `).all(userId, since, until)
+    .find((row) => normalize(row.description) === description && Math.abs(Number(row.calories) - calories) < 1)
+    || null;
+}
+
 export function getMeal(userId, mealId) {
   ensureUser(userId);
   const id = Number(mealId);

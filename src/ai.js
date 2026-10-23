@@ -8,6 +8,7 @@ import {
   saveMeal,
   correctMeal,
   getMeal,
+  findRecentDuplicateMeal,
   deleteMeal,
   getPendingMealDeletion,
   getPendingMealClarification,
@@ -70,7 +71,8 @@ import {
   detectMealDeletionRequest,
   isMealDeletionConfirmation,
   isMealDeletionCancellation,
-  resolveGenericFoodAnswer
+  resolveGenericFoodAnswer,
+  isExplicitRepeatMeal
 } from "./mealIntent.js";
 import { runAgent } from "./agent/agent.js";
 import { createAgentToolRegistry } from "./agent/tools.js";
@@ -4030,6 +4032,17 @@ const summaryIntent = classifySummaryIntent(message);
         mealCheck.errors,
         "Não registrei a refeição"
       );
+    }
+
+    const duplicate =
+      !isExplicitRepeatMeal(message) &&
+      findRecentDuplicateMeal(
+        userId,
+        result.data
+      );
+
+    if (duplicate) {
+      return `Essa refeição já está registrada (${describeMealForReply(duplicate)}), então não gravei de novo. Se você comeu outra vez, diga por exemplo "comi de novo ${duplicate.description.replace(/^\s*comi\s+/i, "")}".`;
     }
   }
 
