@@ -7,6 +7,9 @@ import {
   restoreAutomaticNutritionTargets,
   saveMeal,
   correctMeal,
+  getMeal,
+  deleteMeal,
+  getPendingMealDeletion,
   getTodayMeals,
   saveMealPlan,
   getMealPlan,
@@ -32,6 +35,7 @@ import {
   generateDesiredFoodOptions,
   buildDailyMealPlan,
   validateMealOption,
+  validateMealRecord,
   getMealPeriods,
   isActuallyQuickOption,
   estimateMealFromText,
@@ -59,7 +63,10 @@ import {
   getFoodRestrictions,
   hasDesiredFoodAvailable,
   extractAvailableFoods,
-  detectWheyAvailability
+  detectWheyAvailability,
+  detectMealDeletionRequest,
+  isMealDeletionConfirmation,
+  isMealDeletionCancellation
 } from "./mealIntent.js";
 import { runAgent } from "./agent/agent.js";
 import { createAgentToolRegistry } from "./agent/tools.js";
@@ -1129,6 +1136,63 @@ function formatPlanReply(plan) {
 /* =========================================================
    SALVAR AÇÃO
 ========================================================= */
+
+function describeMealForReply(meal) {
+  return `#${meal.id} — ${meal.description} (${Math.round(meal.calories)} kcal, registrada em ${String(meal.consumed_at).slice(0, 16)})`;
+}
+
+// NUT-11: exclusão em dois passos. O pedido só mostra a refeição; a exclusão acontece
+// após confirmação explícita em até 15 minutos.
+function handleMealDeletion(userId, message, todayMeals) {
+  const pending = getPendingMealDeletion(userId);
+
+  if (pending && isMealDeletionConfirmation(message)) {
+    const deleted = deleteMeal(userId, pending.details?.meal_id, { requestEventId: pending.id });
+    return deleted
+      ? `🗑️ Excluí a refeição ${describeMealForReply(deleted)}. O resumo do dia já desconsidera esse registro, e uma cópia ficou no histórico de eventos.`
+      : "Não encontrei mais essa refeição; nada foi excluído.";
+  }
+
+  if (pending && isMealDeletionCancellation(message)) {
+    recordMealPlanEvent(userId, {
+      event_type: "meal_deletion_cancelled",
+      meal_id: pending.details?.meal_id ?? null,
+      details: { request_event_id: pending.id }
+    });
+    return "Tudo bem, não excluí nada.";
+  }
+
+  const request = detectMealDeletionRequest(message);
+  if (!request) return null;
+
+  const meal = request.mealId
+    ? getMeal(userId, request.mealId)
+    : request.last
+      ? todayMeals[todayMeals.length - 1] || null
+      : null;
+
+  if (!meal) {
+    const options = todayMeals.slice(-5).map((item) => `• ${describeMealForReply(item)}`);
+    return [
+      request.mealId
+        ? `Não encontrei a refeição #${request.mealId} no seu histórico.`
+        : "Qual refeição você quer excluir? Me diga o número (ex.: \"exclua a refeição #12\").",
+      ...(options.length ? ["Refeições de hoje:", ...options] : ["Você não tem refeições registradas hoje."])
+    ].join("\n");
+  }
+
+  recordMealPlanEvent(userId, {
+    event_type: "meal_deletion_requested",
+    meal_period: meal.meal_period,
+    meal_id: meal.id,
+    details: { meal_id: meal.id }
+  });
+  return `Vou excluir a refeição ${describeMealForReply(meal)}. Para confirmar, responda "sim, excluir". Para manter, responda "não".`;
+}
+
+function buildInvalidMealReply(errors, prefix) {
+  return `${prefix} porque os dados nutricionais não são válidos: ${errors.join("; ")}. Envie a descrição e os valores corretos (calorias, proteínas, carboidratos e gorduras).`;
+}
 
 function saveAction(
   userId,
@@ -2212,6 +2276,19 @@ const summaryIntent = classifySummaryIntent(message);
     getTodayMeals(
       userId
     );
+
+  if (!internal.interpretedAction) {
+    const deletionReply =
+      handleMealDeletion(
+        userId,
+        message,
+        todayMeals
+      );
+
+    if (deletionReply) {
+      return deletionReply;
+    }
+  }
 
   const currentPlan =
     getMealPlan(
@@ -3804,6 +3881,10 @@ const summaryIntent = classifySummaryIntent(message);
     result.data = {
       ...result.data,
 
+      description:
+        result.data.description ||
+        before.description,
+
       calories:
         result.data.calories ??
         before.calories,
@@ -3820,6 +3901,18 @@ const summaryIntent = classifySummaryIntent(message);
         result.data.fat_g ??
         before.fat_g
     };
+
+    const correctionCheck =
+      validateMealRecord(
+        result.data
+      );
+
+    if (!correctionCheck.valid) {
+      return buildInvalidMealReply(
+        correctionCheck.errors,
+        "Não apliquei a correção"
+      );
+    }
 
     const corrected =
       saveAction(
@@ -3866,6 +3959,18 @@ const summaryIntent = classifySummaryIntent(message);
     ) {
       result.data.plan_id =
         currentPlan.id;
+    }
+
+    const mealCheck =
+      validateMealRecord(
+        result.data
+      );
+
+    if (!mealCheck.valid) {
+      return buildInvalidMealReply(
+        mealCheck.errors,
+        "Não registrei a refeição"
+      );
     }
   }
 

@@ -1,7 +1,9 @@
 import Database from "better-sqlite3";
-import { calculateNutritionBalance } from "./nutrition.js";
+import { calculateNutritionBalance, validateMealRecord } from "./nutrition.js";
 
-const db = new Database("fitness.db");
+// FITPULSE_DB_PATH permite que os testes usem um banco temporário; sem ela, o
+// comportamento de produção (fitness.db na pasta do projeto) não muda.
+const db = new Database(process.env.FITPULSE_DB_PATH || "fitness.db");
 
 db.pragma("journal_mode = WAL");
 
@@ -1065,6 +1067,11 @@ export function saveMeal(
 ) {
   ensureUser(userId);
 
+  // Última barreira: dados inválidos não chegam ao banco (NUT-24).
+  if (!validateMealRecord(meal).valid) {
+    return null;
+  }
+
   const result =
     db.prepare(`
       INSERT INTO meals (
@@ -1402,10 +1409,55 @@ export function getTodayMeals(userId, date = new Date()) {
   `).all(userId, getBrazilDate(date));
 }
 
+export function getMeal(userId, mealId) {
+  ensureUser(userId);
+  const id = Number(mealId);
+  if (!Number.isInteger(id) || id <= 0) return null;
+  return db.prepare("SELECT * FROM meals WHERE id = ? AND user_id = ?").get(id, userId) || null;
+}
+
+// NUT-11: exclusão rastreável. A cópia completa da refeição fica em meal_plan_events
+// ("meal_deleted") antes de a linha sair de meals, na mesma transação.
+export function deleteMeal(userId, mealId, { requestEventId = null } = {}) {
+  ensureUser(userId);
+  const id = Number(mealId);
+  if (!Number.isInteger(id) || id <= 0) return null;
+  return db.transaction(() => {
+    const meal = db.prepare("SELECT * FROM meals WHERE id = ? AND user_id = ?").get(id, userId);
+    if (!meal) return null;
+    recordMealPlanEvent(userId, {
+      plan_id: meal.plan_id,
+      event_type: "meal_deleted",
+      meal_period: meal.meal_period,
+      meal_id: meal.id,
+      details: { meal, request_event_id: requestEventId }
+    });
+    db.prepare("DELETE FROM meals WHERE id = ? AND user_id = ?").run(id, userId);
+    return meal;
+  })();
+}
+
+// Pedido de exclusão aguardando confirmação: o evento mais recente de exclusão do
+// usuário é um pedido feito há no máximo maxAgeMinutes.
+export function getPendingMealDeletion(userId, { maxAgeMinutes = 15, now = new Date() } = {}) {
+  ensureUser(userId);
+  const latest = db.prepare(`
+    SELECT * FROM meal_plan_events
+    WHERE user_id = ?
+      AND event_type IN ('meal_deletion_requested', 'meal_deleted', 'meal_deletion_cancelled')
+    ORDER BY id DESC LIMIT 1
+  `).get(userId);
+  if (!latest || latest.event_type !== "meal_deletion_requested") return null;
+  const ageMs = Date.parse(getBrazilDateTime(now).replace(" ", "T")) - Date.parse(latest.created_at.replace(" ", "T"));
+  if (!(ageMs >= 0 && ageMs <= maxAgeMinutes * 60000)) return null;
+  return { ...latest, details: latest.details_json ? JSON.parse(latest.details_json) : null };
+}
+
 export function correctMeal(userId, mealId, meal) {
   ensureUser(userId);
   const id = Number(mealId);
   if (!Number.isInteger(id) || id <= 0) return null;
+  if (!validateMealRecord(meal).valid) return null;
   const result = db.prepare(`
     UPDATE meals
     SET description = ?, calories = ?, protein_g = ?, carbs_g = ?, fat_g = ?

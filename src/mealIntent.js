@@ -10,6 +10,32 @@ import {
   detectJapaneseSubtype
 } from "./foodMatching.js";
 
+// NUT-11: pedido de exclusão de refeição ("apague a refeição #12", "exclua o último
+// registro"). Retorna { mealId, last } ou null.
+export function detectMealDeletionRequest(message) {
+  const text = normalizeRequestText(message);
+  const verb = /\b(?:apag(?:a|ue|ar)|exclu(?:a|i|ir)|remov(?:a|e|er)|delet(?:a|e|ar))\b/.test(text);
+  const target = /\b(?:refeic(?:ao|oes)|registros?|lancamentos?|comida)\b/.test(text);
+  if (!verb || !target) return null;
+  const idMatch = text.match(/#\s*(\d+)|\b(?:refeicao|registro|lancamento)\s+(?:n(?:umero|o)?\.?\s*)?(\d+)\b/);
+  const mealId = idMatch ? Number(idMatch[1] || idMatch[2]) : null;
+  const last = /\bultim[oa]\b/.test(text);
+  return { mealId, last: !mealId && last };
+}
+
+// Confirmação explícita: precisa nomear a ação ("sim, excluir", "confirmo a exclusão");
+// um "sim" solto não basta porque também responde a outras perguntas.
+export function isMealDeletionConfirmation(message) {
+  const text = normalizeRequestText(message).trim();
+  return /^(?:sim[\s,!.]*)?(?:pode\s+)?(?:excluir|exclui|apagar|apaga|confirmo(?:\s+a\s+exclusao)?|confirmar\s+exclusao)\b/.test(text);
+}
+
+export function isMealDeletionCancellation(message) {
+  const text = normalizeRequestText(message).trim();
+  return /^(?:nao|cancela|cancelar|deixa|esquece|mantem|manter)[\s,.!]*$/.test(text)
+    || /^nao\s+(?:exclu|apag|remov)/.test(text);
+}
+
 export function normalizeDesiredFood(value) {
   return detectDesiredFoodCategory(value);
 }

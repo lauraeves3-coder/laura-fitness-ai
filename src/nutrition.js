@@ -741,6 +741,45 @@ export function buildDailyMealPlan({summary,currentPeriod,dislikes=[],availableF
  const meals=periods.map(period=>{const fraction=WEIGHTS[period]/total,budget=left===null?null:(left>0?left*fraction:0),macroBudget={};for(const [key,field] of [["protein_g","protein_remaining"],["carbs_g","carbs_remaining"],["fat_g","fat_remaining"]]){const value=n(summary?.[field]);macroBudget[key]=value===null?null:value*fraction;}return{period,calorie_budget:budget===null?null:Math.round(budget),macro_budget:macroBudget,options:generateMealOptions({mealPeriod:period,calorieBudget:budget,macroBudget,macroPriority,dislikes,availableFoods})};});
  const valid=left!==null&&meals.every(m=>m.options.length>=3);return{id:existingPlanId||null,date,current_period:currentPeriod,daily_calorie_budget:left,meals,valid,note:valid?null:"Não foi possível montar três opções para todas as refeições dentro dos dados e do saldo disponíveis."};
 }
+// NUT-24: checagem antes de gravar uma refeição consumida. Calorias são obrigatórias;
+// macros ausentes valem 0 (o usuário pode informar só calorias), mas nunca negativos,
+// não numéricos ou maiores do que as calorias comportam.
+const MEAL_LIMITS = { calories: 10000, protein_g: 1000, carbs_g: 1000, fat_g: 1000 };
+
+export function validateMealRecord(meal) {
+  const errors = [];
+  if (!meal || typeof meal !== "object") return { valid: false, errors: ["refeição ausente"] };
+  const description = typeof meal.description === "string" ? meal.description.trim() : "";
+  if (!description) errors.push("descrição vazia");
+  else if (description.length > 500) errors.push("descrição com mais de 500 caracteres");
+
+  const values = {};
+  for (const [key, label] of [["calories", "calorias"], ["protein_g", "proteínas"], ["carbs_g", "carboidratos"], ["fat_g", "gorduras"]]) {
+    const raw = meal[key];
+    if ((raw === null || raw === undefined || raw === "") && key !== "calories") {
+      values[key] = 0;
+      continue;
+    }
+    const value = Number(raw);
+    if (raw === null || raw === undefined || raw === "" || typeof raw === "boolean" || !Number.isFinite(value)) {
+      errors.push(`${label} ausentes ou não numéricas`);
+    } else if (value < 0) {
+      errors.push(`${label} negativas`);
+    } else if (value > MEAL_LIMITS[key]) {
+      errors.push(`${label} acima do limite plausível de ${MEAL_LIMITS[key]}`);
+    }
+    values[key] = value;
+  }
+
+  if (!errors.length) {
+    const macroCalories = values.protein_g * 4 + values.carbs_g * 4 + values.fat_g * 9;
+    if (macroCalories > values.calories * 1.3 + 30) {
+      errors.push(`macros somam cerca de ${Math.round(macroCalories)} kcal, acima das ${Math.round(values.calories)} kcal informadas`);
+    }
+  }
+  return { valid: errors.length === 0, errors };
+}
+
 export function validateMealOption(o, budget, macroBudget = {}, options = {}) {
   const vals = ["calories", "protein_g", "carbs_g", "fat_g"].map((key) => n(o?.[key]));
 
