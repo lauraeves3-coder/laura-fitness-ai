@@ -118,3 +118,15 @@ test("NUT-11: detecção do pedido, confirmação e cancelamento", () => {
   assert.equal(isMealDeletionCancellation("não"), true);
   assert.equal(isMealDeletionCancellation("não quero frango"), false);
 });
+
+// ---------- CONV-09: estado da pergunta pendente ----------
+
+test("CONV-09: pergunta pendente é guardada e limpa por usuário", () => {
+  const userId = newUser();
+  assert.equal(db.getPendingMealClarification(userId), null);
+  db.setPendingMealClarification(userId, { type: "generic_food", original_message: "comi bife", clarifications: [], created_at: 1 });
+  assert.equal(db.getPendingMealClarification(userId).original_message, "comi bife");
+  assert.equal(db.getPendingMealClarification(newUser()), null);
+  db.clearPendingMealClarification(userId);
+  assert.equal(db.getPendingMealClarification(userId), null);
+});

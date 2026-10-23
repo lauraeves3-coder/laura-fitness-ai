@@ -10,6 +10,9 @@ import {
   getMeal,
   deleteMeal,
   getPendingMealDeletion,
+  getPendingMealClarification,
+  setPendingMealClarification,
+  clearPendingMealClarification,
   getTodayMeals,
   saveMealPlan,
   getMealPlan,
@@ -66,7 +69,8 @@ import {
   detectWheyAvailability,
   detectMealDeletionRequest,
   isMealDeletionConfirmation,
-  isMealDeletionCancellation
+  isMealDeletionCancellation,
+  resolveGenericFoodAnswer
 } from "./mealIntent.js";
 import { runAgent } from "./agent/agent.js";
 import { createAgentToolRegistry } from "./agent/tools.js";
@@ -1136,6 +1140,44 @@ function formatPlanReply(plan) {
 /* =========================================================
    SALVAR AÇÃO
 ========================================================= */
+
+const PENDING_CLARIFICATION_MAX_AGE_MS = 15 * 60000;
+
+// CONV-09: guarda a pergunta de preparo/corte para aceitar a resposta curta depois.
+function askMealClarification(userId, message, estimate) {
+  setPendingMealClarification(userId, {
+    type: "generic_food",
+    original_message: message,
+    clarifications: estimate.needs_clarification,
+    created_at: Date.now()
+  });
+  return buildMealClarificationQuestion(estimate);
+}
+
+async function handlePendingMealClarification(userId, message, internal) {
+  const pending = getPendingMealClarification(userId);
+  if (!pending || pending.type !== "generic_food") return null;
+
+  if (!(Date.now() - Number(pending.created_at) <= PENDING_CLARIFICATION_MAX_AGE_MS)) {
+    clearPendingMealClarification(userId);
+    return null;
+  }
+
+  const rewritten = resolveGenericFoodAnswer(pending, message);
+  if (rewritten) {
+    clearPendingMealClarification(userId);
+    return processMessage(userId, rewritten, internal);
+  }
+
+  // Resposta curta que não bate com nenhuma opção: pergunta de novo. Mensagem longa
+  // é outro assunto: a pendência é encerrada e o fluxo normal segue.
+  const words = normalizeRequestText(message).trim().split(/\s+/).filter(Boolean);
+  if (words.length <= 3 && !message.includes("?")) {
+    return `Não identifiquei a opção.\n${buildMealClarificationQuestion({ needs_clarification: pending.clarifications })}`;
+  }
+  clearPendingMealClarification(userId);
+  return null;
+}
 
 function describeMealForReply(meal) {
   return `#${meal.id} — ${meal.description} (${Math.round(meal.calories)} kcal, registrada em ${String(meal.consumed_at).slice(0, 16)})`;
@@ -2288,6 +2330,17 @@ const summaryIntent = classifySummaryIntent(message);
     if (deletionReply) {
       return deletionReply;
     }
+
+    const clarificationReply =
+      await handlePendingMealClarification(
+        userId,
+        message,
+        internal
+      );
+
+    if (clarificationReply) {
+      return clarificationReply;
+    }
   }
 
   const currentPlan =
@@ -2325,7 +2378,7 @@ const summaryIntent = classifySummaryIntent(message);
       const estimatedMeal = estimateMealFromText(message);
 
       if (estimatedMeal?.needs_clarification) {
-        return buildMealClarificationQuestion(estimatedMeal);
+        return askMealClarification(userId, message, estimatedMeal);
       }
 
       if (estimatedMeal) {
@@ -2700,7 +2753,7 @@ const summaryIntent = classifySummaryIntent(message);
             }
 
             if (estimatedMeal.needs_clarification) {
-              return buildMealClarificationQuestion(estimatedMeal);
+              return askMealClarification(userId, message, estimatedMeal);
             }
 
             data = {

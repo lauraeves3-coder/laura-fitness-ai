@@ -1,7 +1,7 @@
 # Backlog — FitPulse AI / Laura Fitness AI
 
 Fonte: backlog completo enviado pela usuária em 23/10/2026. Todos os itens são requisitos do produto; não implementar tudo de uma vez.
-Auditoria de status: 23/10/2026, branch `audit/nutrition-tests` (commit `1748948`). Nenhum código de produção foi alterado para este documento.
+Auditoria de status: 23/10/2026, branch `audit/nutrition-tests`; atualizado a cada item concluído (ver Histórico de status).
 
 ## Como ler
 
@@ -33,7 +33,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | CONV-06 | Mínimo de perguntas; estimar só quando aceitável; declarar incerteza | P0 | PARCIAL | — | `needs_clarification`, `approximate_quantity`, `confidence` no catálogo (testados) |
 | CONV-07 | Distinguir disponível / obrigatório / desejado / excluído / composição excluída / sugerida / escolhida / consumida / correção | P0 | PARCIAL | — | campos em `buildExplicitMealRequestFacts`; eventos em `meal_plan_events`; partes testadas em `test/intent.test.js` |
 | CONV-08 | Memória estruturada: perfil, preferências/hábitos, contexto episódico | P1 | PARCIAL | — | tabela `users` (perfil, dislikes, preferências), `meal_plan_events`; sem memória de rotinas, eventos, provas |
-| CONV-09 | Pergunta pendente com estado (responder "patinho" após "qual bife?") | P0 | PARCIAL | — | `db.js` tem `set/get/clearPendingMealClarification` e coluna `pending_meal_clarification`, mas nenhum código usa |
+| CONV-09 | Pergunta pendente com estado (responder "patinho" após "qual bife?") | P0 | IMPLEMENTADO NÃO TESTADO | ARQ-07 | `resolveGenericFoodAnswer` (`mealIntent.js`) e estado em `users.pending_meal_clarification` testados (`test/intent.test.js`, `test/db.test.js`); ligação em `ai.js` (`handlePendingMealClarification`, validade 15 min) sem teste ponta a ponta |
 | CONV-10 | Áudio: receber, transcrever, interpretar; depois responder em áudio | P2 | NÃO IMPLEMENTADO | DEC-03 | `server.js:352` ignora mensagens que não são texto |
 | CONV-11 | Notificações, lembretes e proatividade sem excesso | P2 | NÃO IMPLEMENTADO | ARQ-04 | sem agendador |
 
@@ -49,9 +49,9 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | NUT-06 | Medidas caseiras e conversão específica por alimento/densidade | P1 | PARCIAL | DEC-01 | medidas genéricas marcadas como aproximação (testado); sem fator por alimento |
 | NUT-07 | Vários alimentos e várias ocorrências; sem falsos positivos de alias | P0 | IMPLEMENTADO E TESTADO | — | `foodMatching.js`; `test/foodMatching.test.js`, `test/catalog.test.js` |
 | NUT-08 | Diferenciar cru/cozido/assado/grelhado/frito | P1 | PARCIAL | CAT-01 | depende de existir item por preparo no catálogo |
-| NUT-09 | Perguntar só o dado ausente; não pedir gramas quando a unidade é conhecida | P0 | PARCIAL | CONV-09 | `getMissingMealQuantities` (testado); fluxo de pergunta no `ai.js` sem estado |
-| NUT-10 | Corrigir registro sem duplicar | P0 | IMPLEMENTADO NÃO TESTADO | — | `db.js correctMeal` por ID; ferramenta `correct_meal`; `hasExplicitMealCorrectionIntent` |
-| NUT-11 | Excluir registro | P0 | NÃO IMPLEMENTADO | — | não há `DELETE` de refeições em `db.js` |
+| NUT-09 | Perguntar só o dado ausente; não pedir gramas quando a unidade é conhecida | P0 | PARCIAL | — | `getMissingMealQuantities` (testado); preparo/corte genérico já tem pergunta com estado (CONV-09); quantidade ausente ainda sem estado |
+| NUT-10 | Corrigir registro sem duplicar | P0 | IMPLEMENTADO NÃO TESTADO | ARQ-07 | `db.js correctMeal` por ID (validação testada em `test/db.test.js`); correção sem descrição reaproveita a anterior; fluxo em `ai.js` sem teste |
+| NUT-11 | Excluir registro | P0 | IMPLEMENTADO NÃO TESTADO | ARQ-07 | `db.js deleteMeal` com cópia em `meal_plan_events`, `getPendingMealDeletion`, confirmação explícita em 2 passos (banco e detecção testados em `test/db.test.js`); fluxo `ai.js handleMealDeletion` sem teste ponta a ponta |
 | NUT-12 | Distinguir consumo de intenção, sugestão e escolha; confirmar antes de salvar | P0 | IMPLEMENTADO NÃO TESTADO | — | ferramentas `choose_meal_option`, `confirm_meal_consumption`; `consumeMealSelection` |
 | NUT-13 | Evitar registros duplicados | P0 | PARCIAL | — | deduplicação de mensagem do WhatsApp (`claimWhatsAppMessage`); sem checagem de refeição duplicada |
 | NUT-14 | Histórico por data/período; consumo diário e semanal | P1 | PARCIAL | CONV-03 | `getDailySummary` (dia), `getRecentHistory` (últimos N, sem período); sem semanal |
@@ -64,7 +64,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | NUT-21 | Cravings: priorizar o alimento desejado e encaixar no dia | P0 | IMPLEMENTADO E TESTADO | — | `generateDesiredFoodOptions`; `test/desiredFood.test.js` |
 | NUT-22 | Fome e saciedade (horário, intensidade, padrões) | P3 | NÃO IMPLEMENTADO | — | — |
 | NUT-23 | Restrições alimentares e combinações rejeitadas | P0 | IMPLEMENTADO E TESTADO | — | `mealIntent.js`; `test/intent.test.js` |
-| NUT-24 | Validação nutricional ao salvar refeição | P0 | NÃO IMPLEMENTADO | — | `saveMeal` grava campos ausentes como 0 |
+| NUT-24 | Validação nutricional ao salvar refeição | P0 | IMPLEMENTADO E TESTADO | — | `validateMealRecord` (`nutrition.js`) em `saveMeal`/`correctMeal` e no `ai.js`; `test/db.test.js` |
 | NUT-25 | Peso por unidade correto em itens multiunidade (pão de queijo) | P1 | NÃO IMPLEMENTADO | DEC-01 | `default_g` representa a porção padrão |
 
 ## CAT — Catálogo alimentar brasileiro
@@ -208,7 +208,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | ARQ-03 | Fluxo mensagem → normalização → router → skill → validação → persistência → memória → resposta | P1 | PARCIAL | ARQ-01 | etapas misturadas em `ai.js processMessage` |
 | ARQ-04 | Agendador para lembretes e tarefas proativas | P2 | NÃO IMPLEMENTADO | DEC-09 | — |
 | ARQ-05 | Testes de integração com WhatsApp e OpenAI reais (Fase 5) | P0 | BLOQUEADO | autorização da usuária (créditos) | — |
-| ARQ-06 | Testes de `db.js` com banco temporário | P0 | NÃO IMPLEMENTADO | — | `db.js` abre `fitness.db` fixo no carregamento; requer injeção de caminho |
+| ARQ-06 | Testes de `db.js` com banco temporário | P0 | IMPLEMENTADO E TESTADO | — | `FITPULSE_DB_PATH` em `db.js`; `test/db.test.js` usa SQLite temporário |
 | ARQ-07 | Testes de `ai.js` ponta a ponta sem API (modelo simulado) | P1 | NÃO IMPLEMENTADO | ARQ-06 | — |
 | ARQ-08 | Testes unitários e de regressão do núcleo nutricional | P0 | IMPLEMENTADO E TESTADO | — | 94 testes em `test/` |
 | ARQ-09 | Métricas de qualidade (acerto, perguntas desnecessárias, duplicações, custo) | P2 | NÃO IMPLEMENTADO | ARQ-05 | — |
@@ -220,7 +220,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
 | SEG-01 | `.env` nunca lido, impresso ou versionado | P0 | IMPLEMENTADO NÃO TESTADO | — | `.gitignore`; regra de processo |
-| SEG-02 | Banco real nunca alterado sem autorização; testes isolados | P0 | PARCIAL | ARQ-06 | testes atuais não importam `db.js`; hash conferido a cada etapa |
+| SEG-02 | Banco real nunca alterado sem autorização; testes isolados | P0 | IMPLEMENTADO E TESTADO | — | testes de banco só em arquivo temporário (asserção em `test/db.test.js`); hash do `fitness.db` conferido a cada etapa |
 | SEG-03 | Assinatura do webhook do WhatsApp validada | P0 | IMPLEMENTADO NÃO TESTADO | — | `server.js` HMAC SHA-256 com `WHATSAPP_APP_SECRET` |
 | SEG-04 | Não gastar créditos em testes evitáveis | P0 | IMPLEMENTADO NÃO TESTADO | — | regra de processo; suíte local sem API |
 | SEG-05 | Marcar implementado só com teste reproduzível | P0 | IMPLEMENTADO NÃO TESTADO | — | este documento |
@@ -247,3 +247,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | Data | Mudança |
 |---|---|
 | 23/10/2026 | Criação do backlog a partir do documento da usuária: 119 requisitos + 10 decisões pendentes (8 implementados e testados, 13 implementados não testados, 31 parciais, 65 não implementados, 2 bloqueados); status auditados no commit `1748948`. Itens IMPLEMENTADO E TESTADO referem-se aos testes de `test/` (94 passando). Detalhes da auditoria nutricional em `AUDITORIA-NUTRICAO.md`. |
+| 23/10/2026 | ARQ-06, NUT-24, SEG-02 → IMPLEMENTADO E TESTADO; NUT-11, CONV-09 → IMPLEMENTADO NÃO TESTADO (lógica e banco testados; fluxo em `ai.js` aguarda ARQ-07). Totais: 11 testados, 15 não testados, 29 parciais, 62 não implementados, 2 bloqueados. 108 testes passando. |

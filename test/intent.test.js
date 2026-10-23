@@ -132,3 +132,27 @@ test("NC-10: pergunta lista as opções sem registrar", () => {
   assert.match(question, /bife: patinho grelhado ou alcatra grelhada\?/);
   assert.match(question, /Ainda não registrei nada/);
 });
+
+// ---------- CONV-09: resposta curta à pergunta pendente ----------
+
+const bifeOptions = [{ id: "patinho-grelhado", name: "Patinho grelhado" }, { id: "alcatra-grelhada", name: "Alcatra grelhada" }, { id: "bife-acebolado", name: "Bife acebolado" }];
+const batataOptions = [{ id: "batata-cozida", name: "Batata inglesa cozida" }, { id: "batata-assada", name: "Batata assada" }, { id: "batata-frita", name: "Batata frita" }];
+
+test("CONV-09: 'patinho' completa a refeição original", () => {
+  const pending = { original_message: "comi arroz, feijão e bife", clarifications: [{ term: "bife", options: bifeOptions }] };
+  assert.equal(ai.resolveGenericFoodAnswer(pending, "patinho"), "comi arroz, feijão e patinho grelhado");
+  assert.equal(ai.resolveGenericFoodAnswer(pending, "foi alcatra"), "comi arroz, feijão e alcatra grelhada");
+});
+test("CONV-09: palavra comum a duas opções não decide", () => {
+  const pending = { original_message: "comi bife", clarifications: [{ term: "bife", options: bifeOptions }] };
+  assert.equal(ai.resolveGenericFoodAnswer(pending, "grelhado"), null);
+  assert.equal(ai.resolveGenericFoodAnswer(pending, "quanto falta?"), null);
+});
+test("CONV-09: várias perguntas, resposta parcial e variações de gênero/plural", () => {
+  const pending = {
+    original_message: "comi batatas e bife",
+    clarifications: [{ term: "batata", options: batataOptions }, { term: "bife", options: bifeOptions }]
+  };
+  assert.equal(ai.resolveGenericFoodAnswer(pending, "fritas e acebolado"), "comi batata frita e bife acebolado");
+  assert.equal(ai.resolveGenericFoodAnswer(pending, "cozido"), "comi batata inglesa cozida e bife");
+});

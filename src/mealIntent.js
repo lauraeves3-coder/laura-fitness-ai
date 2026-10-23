@@ -7,8 +7,46 @@ import {
   GLUTEN_FOODS,
   parseQuantity,
   QUANTITY_PATTERN,
-  detectJapaneseSubtype
+  detectJapaneseSubtype,
+  findTermOccurrences,
+  normalizeFoodText
 } from "./foodMatching.js";
+
+// CONV-09: resposta curta a "qual batata/bife?". pending = { original_message,
+// clarifications: [{ term, options: [{ id, name }] }] }. Retorna a frase original com
+// cada termo genérico respondido trocado pela opção escolhida, ou null.
+export function resolveGenericFoodAnswer(pending, reply) {
+  if (!pending?.original_message || !Array.isArray(pending.clarifications)) return null;
+  let rewritten = String(pending.original_message).normalize("NFC");
+  let resolved = 0;
+  for (const { term, options } of pending.clarifications) {
+    const choice = chooseClarificationOption(term, options || [], reply);
+    if (!choice) continue;
+    const [occurrence] = findTermOccurrences(normalizeFoodText(rewritten), term);
+    if (!occurrence) continue;
+    rewritten = rewritten.slice(0, occurrence.index)
+      + choice.name.toLocaleLowerCase("pt-BR")
+      + rewritten.slice(occurrence.end);
+    resolved++;
+  }
+  return resolved ? rewritten : null;
+}
+
+// Escolhe a opção cuja palavra exclusiva aparece na resposta ("patinho", "cozida").
+// Compara radicais sem a vogal final para aceitar "cozido"/"cozida", "fritas"/"frita";
+// palavras comuns a duas opções ("grelhado"/"grelhada") não decidem nada.
+function chooseClarificationOption(term, options, reply) {
+  const stem = (word) => word.replace(/[ao]s?$/, "");
+  const termStems = normalizeFoodText(term).split(/\s+/).map(stem);
+  const stemsOf = (text) => normalizeFoodText(text).split(/[^a-z0-9]+/)
+    .filter((word) => word.length > 2).map(stem).filter((word) => !termStems.includes(word));
+  const replyStems = new Set(stemsOf(reply));
+  const matches = options.filter((option) => {
+    const others = new Set(options.filter((other) => other !== option).flatMap((other) => stemsOf(other.name)));
+    return stemsOf(option.name).some((word) => !others.has(word) && replyStems.has(word));
+  });
+  return matches.length === 1 ? matches[0] : null;
+}
 
 // NUT-11: pedido de exclusão de refeição ("apague a refeição #12", "exclua o último
 // registro"). Retorna { mealId, last } ou null.
