@@ -10,7 +10,7 @@
   - Valores estimativos curados para itens sem referência específica no catálogo.
 */
 
-import { matchFoodTerms, parseQuantity, QUANTITY_PATTERN } from "./foodMatching.js";
+import { matchFoodTerms, normalizeFoodText, parseQuantity, QUANTITY_PATTERN } from "./foodMatching.js";
 
 const F = (
   id, name, aliases, kcal, protein, carbs, fat,
@@ -766,6 +766,61 @@ export function getMissingMealQuantities(message) {
       unit: item.unit,
       position
     }));
+}
+
+// NUT-09: só itens com porção em peso/volume ("100 g", "200 ml") pedem quantidade;
+// itens por unidade (banana, ovo, pão francês) assumem 1 unidade. O whey tem porção
+// de referência própria (1 scoop de 30 g) e também não pergunta (DEC-12).
+const DEFAULT_PORTION_ACCEPTED = new Set(["whey"]);
+
+export function getQuantityQuestions(message) {
+  return getMissingMealQuantities(message).filter((item) =>
+    /^\d+(?:[.,]\d+)?\s*(?:g|ml)$/i.test(String(item.unit || "").trim())
+    && !DEFAULT_PORTION_ACCEPTED.has(item.id));
+}
+
+// Aplica a resposta à pergunta de quantidade na frase original:
+// "comi arroz e feijão" + "150 g de arroz e 1 concha de feijão"
+//   -> "comi 150 g de arroz e 1 concha de feijão".
+// Com um único item, a resposta pode ser só a quantidade ("150 g", "2 conchas", "200").
+// "padrão" aceita as porções padrão. Retorna { message, acceptDefaults } ou null.
+export function applyQuantityAnswer(originalMessage, items, reply) {
+  const replyText = normalizeText(reply);
+  if (/^(?:padrao|porcao padrao|o padrao|normal|nao sei|tanto faz|(?:pode )?(?:usar|usa|use)(?: a| o)? (?:porcao )?padrao)\b/.test(replyText)) {
+    return { message: originalMessage, acceptDefaults: true };
+  }
+
+  const quantityPhrase = (match) => {
+    if (!match) return null;
+    const amount = parseQuantity(match[1]);
+    if (!amount) return null;
+    if (match[2]) return `${match[1]} ${match[2]}`;
+    // Número solto vale como gramas quando não pode ser contagem ("150", não "2").
+    return amount >= 10 ? `${match[1]} g` : null;
+  };
+  const unit = `(?:\\s*(${UNIT_PATTERN})(?![a-z]))?`;
+  const original = String(originalMessage || "").normalize("NFC");
+  const originalOccurrences = findFoodOccurrences(normalizeFoodText(original));
+  const replyOccurrences = findFoodOccurrences(replyText);
+  const inserts = [];
+
+  for (const item of items) {
+    const inReply = replyOccurrences.find((occurrence) => occurrence.item?.id === item.id);
+    const phrase = inReply
+      ? quantityPhrase(replyText.slice(0, inReply.index).match(new RegExp(`(${QUANTITY_PATTERN})${unit}\\s*(?:de|do|da)?\\s*$`)))
+      : items.length === 1
+        ? quantityPhrase(replyText.match(new RegExp(`^\\s*(${QUANTITY_PATTERN})${unit}\\s*$`)))
+        : null;
+    const target = originalOccurrences.find((occurrence) => occurrence.item?.id === item.id);
+    if (phrase && target) inserts.push({ index: target.index, text: `${phrase} de ` });
+  }
+
+  if (!inserts.length) return null;
+  let message = original;
+  for (const { index, text } of inserts.sort((left, right) => right.index - left.index)) {
+    message = message.slice(0, index) + text + message.slice(index);
+  }
+  return { message, acceptDefaults: false };
 }
 
 export function estimateMealFromText(message, options = {}) {

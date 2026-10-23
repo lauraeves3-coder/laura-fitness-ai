@@ -64,7 +64,7 @@ test("ARQ-07: 'não comi arroz' não grava arroz", async () => {
 
 test("CONV-09: 'bife' pergunta o corte e 'patinho' completa o registro", async () => {
   const userId = newUser();
-  const question = await send(userId, "comi arroz, feijão e bife");
+  const question = await send(userId, "comi 100 g de arroz, 100 g de feijão e 150 g de bife");
   assert.match(question, /Antes de registrar/);
   assert.match(question, /patinho grelhado, alcatra grelhada ou bife acebolado/);
   assert.equal(db.getTodayMeals(userId).length, 0);
@@ -74,7 +74,7 @@ test("CONV-09: 'bife' pergunta o corte e 'patinho' completa o registro", async (
   const meals = db.getTodayMeals(userId);
   assert.equal(meals.length, 1);
   assert.match(meals[0].description, /patinho grelhado/);
-  assert.equal(meals[0].calories, estimateMealFromText("comi arroz, feijão e patinho grelhado").calories);
+  assert.equal(meals[0].calories, estimateMealFromText("comi 100 g de arroz, 100 g de feijão e 150 g de patinho grelhado").calories);
   assert.equal(db.getPendingMealClarification(userId), null);
 });
 
@@ -434,4 +434,72 @@ test("NUT-17: meta de macros válida é salva", async () => {
   const userId = userWithTargets();
   await setMacros(userId, { protein_g: 140 }, "mude minha meta de proteína para 140 g");
   assert.equal(db.getUser(userId).daily_protein_target, 140);
+});
+
+// ---------- NUT-09: quantidade ausente com estado ----------
+
+test("NUT-09: item de peso sem quantidade pergunta só ele; item por unidade não pergunta", async () => {
+  const userId = newUser();
+  const question = await send(userId, "comi 2 ovos e arroz");
+  assert.match(question, /quanto foi de:/);
+  assert.match(question, /arroz branco cozido \(porção padrão: 100 g\)/);
+  assert.doesNotMatch(question, /ovo/);
+  assert.equal(db.getTodayMeals(userId).length, 0);
+
+  await send(userId, "150 g");
+  const [meal] = db.getTodayMeals(userId);
+  assert.equal(meal.calories, estimateMealFromText("comi 2 ovos e 150 g de arroz").calories);
+  assert.equal(db.getPendingMealClarification(userId), null);
+});
+
+test("NUT-09: vários itens respondidos pelo nome", async () => {
+  const userId = newUser();
+  await send(userId, "comi arroz e feijão");
+  await send(userId, "200 g de arroz e 1 concha de feijão");
+  const [meal] = db.getTodayMeals(userId);
+  assert.equal(meal.calories, estimateMealFromText("comi 200 g de arroz e 1 concha de feijão").calories);
+});
+
+test("NUT-09: resposta parcial pergunta só o que faltou", async () => {
+  const userId = newUser();
+  await send(userId, "comi arroz e feijão");
+  const again = await send(userId, "200 g de arroz");
+  assert.match(again, /feijão carioca cozido/);
+  assert.doesNotMatch(again, /arroz branco/);
+  assert.equal(db.getTodayMeals(userId).length, 0);
+  await send(userId, "1 concha");
+  assert.equal(db.getTodayMeals(userId)[0].calories, estimateMealFromText("comi 200 g de arroz e 1 concha de feijão").calories);
+});
+
+test("NUT-09: 'padrão' registra com as porções padrão", async () => {
+  const userId = newUser();
+  await send(userId, "comi arroz e feijão");
+  await send(userId, "padrão");
+  assert.equal(db.getTodayMeals(userId)[0].calories, estimateMealFromText("comi arroz e feijão").calories);
+});
+
+test("NUT-09: resposta ambígua pergunta de novo; mudança de assunto encerra", async () => {
+  const userId = newUser();
+  await send(userId, "comi feijão");
+  assert.match(await send(userId, "2"), /Não identifiquei a quantidade/);
+  await send(userId, "qual é a minha meta de proteína para hoje?", fakeModel([finalText("Resposta simulada.")]));
+  assert.equal(db.getPendingMealClarification(userId), null);
+  assert.equal(db.getTodayMeals(userId).length, 0);
+});
+
+test("NUT-09: whey e itens com quantidade não perguntam", async () => {
+  const userId = newUser();
+  await send(userId, "tomei whey");
+  await send(userId, "comi 150 g de arroz");
+  assert.equal(db.getTodayMeals(userId).length, 2);
+});
+
+test("NUT-09: cadeia corte → quantidade → registro", async () => {
+  const userId = newUser();
+  assert.match(await send(userId, "comi arroz e bife"), /Antes de registrar/);
+  assert.match(await send(userId, "patinho"), /quanto foi de:/);
+  await send(userId, "padrão");
+  const [meal] = db.getTodayMeals(userId);
+  assert.match(meal.description, /patinho grelhado/);
+  assert.equal(meal.calories, estimateMealFromText("comi arroz e patinho grelhado").calories);
 });

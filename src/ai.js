@@ -74,6 +74,7 @@ import {
   resolveGenericFoodAnswer,
   isExplicitRepeatMeal
 } from "./mealIntent.js";
+import { getQuantityQuestions, applyQuantityAnswer } from "./nutritionCatalog.js";
 import { runAgent } from "./agent/agent.js";
 import { createAgentToolRegistry } from "./agent/tools.js";
 
@@ -1161,26 +1162,58 @@ function askMealClarification(userId, message, estimate) {
   return buildMealClarificationQuestion(estimate);
 }
 
+// NUT-09: pergunta só a quantidade dos itens de peso/volume sem quantidade.
+function askMealQuantities(userId, message, items) {
+  setPendingMealClarification(userId, {
+    type: "missing_quantity",
+    original_message: message,
+    items: items.map(({ id, name, default_g, unit }) => ({ id, name, default_g, unit })),
+    created_at: Date.now()
+  });
+  return buildMealQuantityQuestion(items);
+}
+
+function buildMealQuantityQuestion(items) {
+  return [
+    "Para registrar com precisão, quanto foi de:",
+    ...items.map(({ name, unit }) => `• ${name.toLocaleLowerCase("pt-BR")} (porção padrão: ${unit})?`),
+    "Responda, por exemplo, \"150 g\", \"2 colheres de sopa\" ou \"1 concha\" para cada item, ou \"padrão\" para usar as porções padrão. Ainda não registrei nada."
+  ].join("\n");
+}
+
 async function handlePendingMealClarification(userId, message, internal) {
   const pending = getPendingMealClarification(userId);
-  if (!pending || pending.type !== "generic_food") return null;
+  if (!pending || !["generic_food", "missing_quantity"].includes(pending.type)) return null;
 
   if (!(Date.now() - Number(pending.created_at) <= PENDING_CLARIFICATION_MAX_AGE_MS)) {
     clearPendingMealClarification(userId);
     return null;
   }
 
-  const rewritten = resolveGenericFoodAnswer(pending, message);
-  if (rewritten) {
-    clearPendingMealClarification(userId);
-    return processMessage(userId, rewritten, internal);
+  if (pending.type === "missing_quantity") {
+    const answer = applyQuantityAnswer(pending.original_message, pending.items || [], message);
+    if (answer) {
+      clearPendingMealClarification(userId);
+      return processMessage(userId, answer.message, {
+        ...internal,
+        acceptDefaultQuantities: answer.acceptDefaults
+      });
+    }
+  } else {
+    const rewritten = resolveGenericFoodAnswer(pending, message);
+    if (rewritten) {
+      clearPendingMealClarification(userId);
+      return processMessage(userId, rewritten, internal);
+    }
   }
 
-  // Resposta curta que não bate com nenhuma opção: pergunta de novo. Mensagem longa
+  // Resposta curta que não resolve a pergunta: pergunta de novo. Mensagem longa
   // é outro assunto: a pendência é encerrada e o fluxo normal segue.
   const words = normalizeRequestText(message).trim().split(/\s+/).filter(Boolean);
   if (words.length <= 3 && !message.includes("?")) {
-    return `Não identifiquei a opção.\n${buildMealClarificationQuestion({ needs_clarification: pending.clarifications })}`;
+    return pending.type === "missing_quantity"
+      ? `Não identifiquei a quantidade.\n${buildMealQuantityQuestion(pending.items || [])}`
+      : `Não identifiquei a opção.\n${buildMealClarificationQuestion({ needs_clarification: pending.clarifications })}`;
   }
   clearPendingMealClarification(userId);
   return null;
@@ -2388,6 +2421,15 @@ const summaryIntent = classifySummaryIntent(message);
         return askMealClarification(userId, message, estimatedMeal);
       }
 
+      const quantityQuestions =
+        estimatedMeal && !internal.acceptDefaultQuantities
+          ? getQuantityQuestions(message)
+          : [];
+
+      if (quantityQuestions.length) {
+        return askMealQuantities(userId, message, quantityQuestions);
+      }
+
       if (estimatedMeal) {
         return processMessage(
           userId,
@@ -2761,6 +2803,15 @@ const summaryIntent = classifySummaryIntent(message);
 
             if (estimatedMeal.needs_clarification) {
               return askMealClarification(userId, message, estimatedMeal);
+            }
+
+            const quantityQuestions =
+              internal.acceptDefaultQuantities
+                ? []
+                : getQuantityQuestions(message);
+
+            if (quantityQuestions.length) {
+              return askMealQuantities(userId, message, quantityQuestions);
             }
 
             data = {
