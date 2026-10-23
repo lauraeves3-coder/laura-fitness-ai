@@ -25,7 +25,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
-| CONV-01 | Assistente persistente e natural em pt-BR via WhatsApp | P0 | PARCIAL | ARQ-05 | `server.js` webhook só texto; `ai.js` + `agent/agent.js` |
+| CONV-01 | Assistente persistente e natural em pt-BR via WhatsApp | P0 | PARCIAL | ARQ-05 | `server.js`/`app.js` webhook só texto; `ai.js` + `agent/agent.js` |
 | CONV-02 | Entender coloquial, abreviações, erros de digitação, respostas curtas | P1 | PARCIAL | — | regras determinísticas em `mealIntent.js`; restante depende do LLM (não testado) |
 | CONV-03 | Datas relativas ("ontem", "segunda") em registros e consultas | P1 | NÃO IMPLEMENTADO | NUT-09 | registros usam a hora atual (`getBrazilDateTime` em `db.js`) |
 | CONV-04 | Várias intenções numa mesma mensagem | P1 | PARCIAL | ARQ-02 | agente pode chamar várias ferramentas; sem teste |
@@ -34,7 +34,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | CONV-07 | Distinguir disponível / obrigatório / desejado / excluído / composição excluída / sugerida / escolhida / consumida / correção | P0 | PARCIAL | — | campos em `buildExplicitMealRequestFacts`; eventos em `meal_plan_events`; partes testadas em `test/intent.test.js` |
 | CONV-08 | Memória estruturada: perfil, preferências/hábitos, contexto episódico | P1 | PARCIAL | — | tabela `users` (perfil, dislikes, preferências), `meal_plan_events`; sem memória de rotinas, eventos, provas |
 | CONV-09 | Pergunta pendente com estado (responder "patinho" após "qual bife?") | P0 | IMPLEMENTADO E TESTADO | — | `resolveGenericFoodAnswer` (`mealIntent.js`), estado em `users.pending_meal_clarification`, `handlePendingMealClarification` (15 min); `test/intent.test.js`, `test/db.test.js`, `test/e2e.test.js` |
-| CONV-10 | Áudio: receber, transcrever, interpretar; depois responder em áudio | P2 | NÃO IMPLEMENTADO | DEC-03 | `server.js:352` ignora mensagens que não são texto |
+| CONV-10 | Áudio: receber, transcrever, interpretar; depois responder em áudio | P2 | NÃO IMPLEMENTADO | DEC-03 | `app.js` ignora mensagens que não são texto |
 | CONV-11 | Notificações, lembretes e proatividade sem excesso | P2 | NÃO IMPLEMENTADO | ARQ-04 | sem agendador |
 
 ## NUT — Nutrição e registro alimentar
@@ -99,7 +99,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
-| VIS-01 | Foto de refeição: componentes, porções com incerteza, kcal/macros, confirmar antes de registrar | P2 | NÃO IMPLEMENTADO | CONV-10, DEC-03 | `server.js` ignora imagens |
+| VIS-01 | Foto de refeição: componentes, porções com incerteza, kcal/macros, confirmar antes de registrar | P2 | NÃO IMPLEMENTADO | CONV-10, DEC-03 | `app.js` ignora imagens |
 | VIS-02 | Não fingir peso exato; perguntar se imagem ruim/sem escala | P2 | NÃO IMPLEMENTADO | VIS-01 | — |
 | VIS-03 | OCR de rótulo, ingredientes, receita escrita, balança | P2 | NÃO IMPLEMENTADO | VIS-01 | — |
 | VIS-04 | Fotos de evolução corporal privadas por data | P3 | NÃO IMPLEMENTADO | CRP-03 | — |
@@ -197,7 +197,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
 | WEB-01 | Painel autenticado sincronizado com WhatsApp (hoje/semana/evolução, gráficos com análise) | P3 | PARCIAL | ACO-03 | só API JSON: `/api/user`, `/api/summary`, `/api/history`, `/api/chat`; `index.html` é página estática |
-| WEB-02 | Isolamento por usuário, privacidade, controle de acesso | P2 | PARCIAL | DEC-08 | `/api` exige um token único compartilhado (`API_ACCESS_TOKEN`); sem login por usuário |
+| WEB-02 | Isolamento por usuário, privacidade, controle de acesso | P2 | PARCIAL | DEC-08 | `/api` exige um token único compartilhado (`API_ACCESS_TOKEN`, recusa testada em `test/app.test.js`); sem login por usuário |
 
 ## ARQ — Arquitetura e qualidade
 
@@ -221,7 +221,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 |---|---|---|---|---|---|
 | SEG-01 | `.env` nunca lido, impresso ou versionado | P0 | IMPLEMENTADO NÃO TESTADO | — | `.gitignore`; regra de processo |
 | SEG-02 | Banco real nunca alterado sem autorização; testes isolados | P0 | IMPLEMENTADO E TESTADO | — | testes de banco só em arquivo temporário (asserção em `test/db.test.js`); hash do `fitness.db` conferido a cada etapa |
-| SEG-03 | Assinatura do webhook do WhatsApp validada | P0 | IMPLEMENTADO NÃO TESTADO | — | `server.js` HMAC SHA-256 com `WHATSAPP_APP_SECRET` |
+| SEG-03 | Assinatura do webhook do WhatsApp validada | P0 | IMPLEMENTADO E TESTADO | — | `app.js` HMAC SHA-256 com `WHATSAPP_APP_SECRET` (sem assinatura, segredo errado, malformada, corpo alterado, sem segredo → 503); `test/app.test.js`. App separado de `server.js` para os testes não lerem `.env` |
 | SEG-04 | Não gastar créditos em testes evitáveis | P0 | IMPLEMENTADO NÃO TESTADO | — | regra de processo; suíte local sem API |
 | SEG-05 | Marcar implementado só com teste reproduzível | P0 | IMPLEMENTADO NÃO TESTADO | — | este documento |
 
