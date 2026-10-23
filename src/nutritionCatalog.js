@@ -14,9 +14,11 @@ import { matchFoodTerms, normalizeFoodText, parseQuantity, QUANTITY_PATTERN } fr
 
 const F = (
   id, name, aliases, kcal, protein, carbs, fat,
-  default_g, unit = "porção", source = "curated_estimate"
+  default_g, unit = "porção", source = "curated_estimate", reference = null
 ) => ({
-  id, name, aliases, kcal, protein, carbs, fat, default_g, unit, source
+  id, name, aliases, kcal, protein, carbs, fat, default_g, unit, source,
+  // Origem rastreável do dado (ex.: código TBCA e data da consulta).
+  ...(reference ? { reference } : {})
 });
 
 export const FOOD_CATALOG = [
@@ -58,32 +60,67 @@ export const FOOD_CATALOG = [
   // =========================================================
   // CARNES — CORTES E PREPAROS
   // =========================================================
-  F("patinho-grelhado", "Patinho grelhado", ["patinho", "bife de patinho"], 212, 34.2, 0.0, 8.0, 150, "150 g", "tbca_verified"),
+  F("patinho-grelhado", "Patinho grelhado", ["patinho","bife de patinho","patinho grelhado","patinho assado"], 211, 36, 0, 7.5, 150, "150 g", "tbca_verified", "TBCA BRC0045F (consulta 23/10/2026)"),
+  F("patinho-cru", "Patinho cru", ["patinho cru"], 114, 21.1, 0, 3.33, 150, "150 g", "tbca_verified", "TBCA BRC0075F (consulta 23/10/2026)"),
+  F("patinho-frito", "Patinho frito", ["patinho frito","bife de patinho frito"], 265, 33, 0, 14.7, 150, "150 g", "tbca_verified", "TBCA BRC0633F (consulta 23/10/2026)"),
   F("patinho-refogado", "Patinho refogado", ["patinho refogado", "carne moída de patinho"], 165, 27.9, 0.0, 5.6, 130, "130 g", "tbca_verified"),
   F("bife-acebolado", "Bife acebolado", ["bife acebolado", "bife com cebola", "bife acebolado com cebola"], 230, 29.0, 2.5, 10.5, 150, "150 g", "curated_estimate"),
-  F("musculo-cozido", "Músculo bovino cozido", ["músculo", "musculo"], 216, 31.2, 0.0, 9.9, 150, "150 g", "tbca_verified"),
-  F("acem-cozido", "Acém bovino cozido", ["acém", "acem"], 190, 27.0, 0.0, 8.0, 150, "150 g", "curated_estimate"),
-  F("coxao-mole-grelhado", "Coxão mole grelhado", ["coxão mole", "coxao mole"], 190, 31.0, 0.0, 7.0, 150, "150 g", "curated_estimate"),
-  F("coxao-duro-cozido", "Coxão duro cozido", ["coxão duro", "coxao duro"], 195, 29.0, 0.0, 8.0, 150, "150 g", "curated_estimate"),
-  F("lagarto-cozido", "Lagarto cozido", ["lagarto bovino", "lagarto"], 185, 30.0, 0.0, 6.5, 150, "150 g", "curated_estimate"),
-  F("alcatra-grelhada", "Alcatra grelhada", ["alcatra"], 210, 31.0, 0.0, 9.0, 150, "150 g", "curated_estimate"),
-  F("contrafile-grelhado", "Contrafilé grelhado", ["contrafilé", "contrafile"], 250, 30.0, 0.0, 14.0, 150, "150 g", "curated_estimate"),
-  F("file-mignon-grelhado", "Filé-mignon grelhado", ["filé mignon", "file mignon"], 220, 32.0, 0.0, 9.0, 150, "150 g", "curated_estimate"),
-  F("maminha-grelhada", "Maminha grelhada", ["maminha"], 230, 29.0, 0.0, 12.0, 150, "150 g", "curated_estimate"),
-  F("fraldinha-grelhada", "Fraldinha grelhada", ["fraldinha"], 240, 28.0, 0.0, 14.0, 150, "150 g", "curated_estimate"),
-  F("picanha-grelhada", "Picanha grelhada", ["picanha"], 280, 27.0, 0.0, 19.0, 150, "150 g", "curated_estimate"),
-  F("costela-bovina-assada", "Costela bovina assada", ["costela bovina", "costela"], 370, 24.0, 0.0, 30.0, 120, "120 g", "curated_estimate"),
-  F("carne-moida-bovina", "Carne moída bovina", ["carne moída", "carne moida"], 220, 26.0, 0.0, 13.0, 130, "130 g", "curated_estimate"),
+  F("musculo-cozido", "Músculo bovino cozido", ["músculo","musculo","músculo cozido"], 183, 30.8, 0, 6.6, 150, "150 g", "tbca_verified", "TBCA BRC0043F (consulta 23/10/2026)"),
+  F("musculo-cru", "Músculo bovino cru", ["músculo cru","musculo cru"], 137, 20.7, 0, 6.06, 150, "150 g", "tbca_verified", "TBCA BRC0072F (consulta 23/10/2026)"),
+  F("acem-cozido", "Acém bovino cozido", ["acém","acem","acém cozido"], 208, 27.5, 0, 10.9, 150, "150 g", "tbca_verified", "TBCA BRC0026F (consulta 23/10/2026)"),
+  F("acem-cru", "Acém cru", ["acém cru","acem cru"], 128, 19.8, 0, 5.46, 150, "150 g", "tbca_verified", "TBCA BRC0053F (consulta 23/10/2026)"),
+  F("acem-frito", "Acém frito", ["acém frito","acem frito"], 261, 24.6, 0, 18, 150, "150 g", "tbca_verified", "TBCA BRC0651F (consulta 23/10/2026)"),
+  F("coxao-mole-grelhado", "Coxão mole grelhado", ["coxão mole", "coxao mole", "coxão mole grelhado", "coxão mole assado"], 208, 33.4, 0.0, 8.32, 150, "150 g", "tbca_verified", "TBCA BRC0727F, carne de primeira cozida/grelhada/assada (consulta 23/10/2026)"),
+  F("coxao-mole-cozido", "Coxão mole cozido", ["coxão mole cozido","coxao mole cozido"], 209, 32.2, 0, 8.91, 150, "150 g", "tbca_verified", "TBCA BRC0034F (consulta 23/10/2026)"),
+  F("coxao-mole-cru", "Coxão mole cru", ["coxão mole cru","coxao mole cru"], 143, 20.4, 0.01, 6.76, 150, "150 g", "tbca_verified", "TBCA BRC0064F (consulta 23/10/2026)"),
+  F("coxao-mole-frito", "Coxão mole frito", ["coxão mole frito","coxao mole frito"], 265, 29.8, 0, 16.2, 150, "150 g", "tbca_verified", "TBCA BRC0642F (consulta 23/10/2026)"),
+  F("coxao-duro-cozido", "Coxão duro cozido", ["coxão duro","coxao duro","coxão duro cozido"], 208, 31.8, 0, 8.92, 150, "150 g", "tbca_verified", "TBCA BRC0033F (consulta 23/10/2026)"),
+  F("coxao-duro-cru", "Coxão duro cru", ["coxão duro cru","coxao duro cru"], 132, 22, 0, 4.96, 150, "150 g", "tbca_verified", "TBCA BRC0063F (consulta 23/10/2026)"),
+  F("lagarto-cozido", "Lagarto cozido", ["lagarto bovino","lagarto","lagarto cozido"], 212, 32.6, 0, 9.11, 150, "150 g", "tbca_verified", "TBCA BRC0039F (consulta 23/10/2026)"),
+  F("lagarto-cru", "Lagarto cru", ["lagarto cru"], 128, 21.3, 0, 4.72, 150, "150 g", "tbca_verified", "TBCA BRC0068F (consulta 23/10/2026)"),
+  F("lagarto-frito", "Lagarto frito", ["lagarto frito"], 268, 30.2, 0, 16.4, 150, "150 g", "tbca_verified", "TBCA BRC0626F (consulta 23/10/2026)"),
+  F("alcatra-grelhada", "Alcatra grelhada", ["alcatra","alcatra grelhada","alcatra assada","miolo de alcatra"], 236, 32.6, 0, 11.7, 150, "150 g", "tbca_verified", "TBCA BRC0042F (consulta 23/10/2026)"),
+  F("alcatra-crua", "Alcatra crua", ["alcatra crua"], 134, 23.5, 0, 4.47, 150, "150 g", "tbca_verified", "TBCA BRC0055F (consulta 23/10/2026)"),
+  F("alcatra-frita", "Alcatra frita", ["alcatra frita","bife de alcatra frito"], 286, 29.4, 0, 18.7, 150, "150 g", "tbca_verified", "TBCA BRC0607F (consulta 23/10/2026)"),
+  F("contrafile-grelhado", "Contrafilé grelhado", ["contrafilé","contrafile","contra filé","contrafilé grelhado","contrafilé assado"], 187, 35.9, 0.86, 4.49, 150, "150 g", "tbca_verified", "TBCA BRC0616F (consulta 23/10/2026)"),
+  F("contrafile-frito", "Contrafilé frito", ["contrafilé frito","contrafile frito"], 241, 33, 0, 12.1, 150, "150 g", "tbca_verified", "TBCA BRC0618F (consulta 23/10/2026)"),
+  F("file-mignon-grelhado", "Filé-mignon grelhado", ["filé mignon","file mignon","filé mignon grelhado"], 211, 32.9, 0, 8.83, 150, "150 g", "tbca_verified", "TBCA BRC0036F (consulta 23/10/2026)"),
+  F("file-mignon-cru", "Filé-mignon cru", ["filé mignon cru","file mignon cru"], 137, 21.6, 0, 5.61, 150, "150 g", "tbca_verified", "TBCA BRC0065F (consulta 23/10/2026)"),
+  F("file-mignon-frito", "Filé-mignon frito", ["filé mignon frito","file mignon frito"], 266, 30.2, 0, 16.1, 150, "150 g", "tbca_verified", "TBCA BRC0596F (consulta 23/10/2026)"),
+  F("maminha-grelhada", "Maminha grelhada", ["maminha","maminha grelhada","maminha assada"], 141, 30.7, 0, 2.04, 150, "150 g", "tbca_verified", "TBCA BRC0041F (consulta 23/10/2026)"),
+  F("maminha-crua", "Maminha crua", ["maminha crua"], 142, 21.1, 0, 6.37, 150, "150 g", "tbca_verified", "TBCA BRC0070F (consulta 23/10/2026)"),
+  F("maminha-frita", "Maminha frita", ["maminha frita"], 205, 28.3, 0, 10.2, 150, "150 g", "tbca_verified", "TBCA BRC0817F (consulta 23/10/2026)"),
+  F("fraldinha-grelhada", "Fraldinha grelhada", ["fraldinha","fraldinha grelhada","fraldinha assada"], 267, 21.8, 0, 20, 150, "150 g", "tbca_verified", "TBCA BRC0801F (consulta 23/10/2026)"),
+  F("fraldinha-crua", "Fraldinha crua", ["fraldinha crua"], 216, 17.6, 0, 16.1, 150, "150 g", "tbca_verified", "TBCA BRC0067F (consulta 23/10/2026)"),
+  F("fraldinha-cozida", "Fraldinha cozida", ["fraldinha cozida"], 329, 24, 0, 25.9, 150, "150 g", "tbca_verified", "TBCA BRC0038F (consulta 23/10/2026)"),
+  F("fraldinha-frita", "Fraldinha frita", ["fraldinha frita"], 292, 20, 0, 23.5, 150, "150 g", "tbca_verified", "TBCA BRC0803F (consulta 23/10/2026)"),
+  F("picanha-grelhada", "Picanha grelhada", ["picanha","picanha grelhada","picanha assada","picanha com gordura"], 281, 26.3, 0, 19.5, 150, "150 g", "tbca_verified", "TBCA BRC0047F (consulta 23/10/2026)"),
+  F("picanha-sem-gordura-grelhada", "Picanha sem gordura grelhada", ["picanha sem gordura","picanha magra"], 233, 32, 0, 11.7, 150, "150 g", "tbca_verified", "TBCA BRC0048F (consulta 23/10/2026)"),
+  F("picanha-crua", "Picanha crua", ["picanha crua"], 160, 20.4, 0, 8.68, 150, "150 g", "tbca_verified", "TBCA BRC0077F (consulta 23/10/2026)"),
+  F("cupim-assado", "Cupim assado", ["cupim","cupim assado"], 321, 28.2, 0.03, 23.1, 150, "150 g", "tbca_verified", "TBCA BRC0024F (consulta 23/10/2026)"),
+  F("cupim-frito", "Cupim frito", ["cupim frito"], 357, 26.9, 0, 27.7, 150, "150 g", "tbca_verified", "TBCA BRC0807F (consulta 23/10/2026)"),
+  F("costela-bovina-assada", "Costela bovina assada", ["costela bovina","costela","costela assada"], 362, 28.6, 0, 27.5, 120, "120 g", "tbca_verified", "TBCA BRC0032F (consulta 23/10/2026)"),
+  F("costela-bovina-crua", "Costela bovina crua", ["costela crua","costela bovina crua"], 346, 16.7, 0, 31.8, 120, "120 g", "tbca_verified", "TBCA BRC0062F (consulta 23/10/2026)"),
+  F("carne-moida-bovina", "Carne moída bovina cozida", ["carne moída","carne moida","carne moída cozida"], 205, 26.7, 0, 10.9, 130, "130 g", "tbca_verified", "TBCA BRC0025F (consulta 23/10/2026)"),
+  F("carne-moida-crua", "Carne moída bovina crua", ["carne moída crua","carne moida crua"], 129, 19.7, 0, 5.56, 130, "130 g", "tbca_verified", "TBCA BRC0054F (consulta 23/10/2026)"),
+  F("carne-seca-cozida", "Carne-seca cozida", ["carne seca","carne-seca","charque","jabá","jaba","carne seca cozida"], 259, 37.4, 0, 12.2, 100, "100 g", "tbca_verified", "TBCA BRC0084F (consulta 23/10/2026)"),
+  F("carne-seca-frita", "Carne-seca frita", ["carne seca frita","carne de sol frita","charque frito"], 305, 33.5, 0, 19, 100, "100 g", "tbca_verified", "TBCA BRC0660F (consulta 23/10/2026)"),
   F("fiiambre-bovino", "Rosbife bovino", ["rosbife"], 190, 30.0, 0.0, 7.0, 100, "100 g", "curated_estimate"),
-  F("figado-bovino-grelhado", "Fígado bovino grelhado", ["fígado", "figado"], 175, 26.0, 4.0, 5.0, 100, "100 g", "curated_estimate"),
+  F("figado-bovino-grelhado", "Fígado bovino grelhado", ["fígado","figado","fígado grelhado","bife de fígado"], 217, 29.9, 4.2, 9.01, 100, "100 g", "tbca_verified", "TBCA BRC0035F (consulta 23/10/2026)"),
+  F("figado-bovino-frito", "Fígado bovino frito", ["fígado frito","figado frito","bife de fígado frito"], 272, 27.5, 3.86, 16.3, 100, "100 g", "tbca_verified", "TBCA BRC0752F (consulta 23/10/2026)"),
 
   // =========================================================
   // AVES / PORCO
   // =========================================================
-  F("peito-de-frango-grelhado", "Peito de frango grelhado", ["frango", "peito de frango", "frango grelhado"], 165, 31.0, 0.0, 3.6, 150, "150 g", "tbca_aligned"),
+  F("peito-de-frango-grelhado", "Peito de frango grelhado", ["frango","peito de frango","frango grelhado","peito de frango grelhado","filé de frango","file de frango"], 150, 32.1, 0, 2.45, 150, "150 g", "tbca_verified", "TBCA BRC0114F (consulta 23/10/2026)"),
+  F("peito-de-frango-cozido", "Peito de frango cozido", ["peito de frango cozido","frango cozido"], 154, 31.3, 0, 3.16, 150, "150 g", "tbca_verified", "TBCA BRC0194F (consulta 23/10/2026)"),
+  F("peito-de-frango-assado", "Peito de frango assado", ["peito de frango assado"], 153, 31.1, 0, 3.16, 150, "150 g", "tbca_verified", "TBCA BRC0113F (consulta 23/10/2026)"),
+  F("peito-de-frango-frito", "Peito de frango frito", ["peito de frango frito","frango frito","filé de frango frito"], 214, 28.5, 0, 11.1, 150, "150 g", "tbca_verified", "TBCA BRC0236F (consulta 23/10/2026)"),
+  F("peito-de-frango-cru", "Peito de frango cru", ["peito de frango cru","frango cru"], 105, 21.1, 0, 2.29, 150, "150 g", "tbca_verified", "TBCA BRC0133F (consulta 23/10/2026)"),
+  F("coxa-de-frango-cozida", "Coxa de frango cozida", ["coxa de frango cozida","coxa cozida"], 160, 26.8, 0, 5.85, 100, "100 g", "tbca_verified", "TBCA BRC0109F (consulta 23/10/2026)"),
   F("frango-desfiado", "Frango desfiado", ["frango desfiado"], 165, 31.0, 0.0, 3.6, 120, "120 g", "curated_estimate"),
   F("coxa-de-frango-assada", "Coxa de frango assada", ["coxa de frango", "coxa"], 215, 26.0, 0.0, 11.0, 120, "120 g", "curated_estimate"),
-  F("sobrecoxa-de-frango-assada", "Sobrecoxa de frango assada", ["sobrecoxa", "sobrecoxa de frango"], 230, 25.0, 0.0, 14.0, 120, "120 g", "curated_estimate"),
+  F("sobrecoxa-de-frango-assada", "Sobrecoxa de frango assada", ["sobrecoxa","sobrecoxa de frango","sobrecoxa assada"], 232, 29.2, 1.7, 12, 120, "120 g", "tbca_verified", "TBCA BRC0116F (consulta 23/10/2026)"),
   F("asa-de-frango-assada", "Asa de frango assada", ["asa de frango", "asa"], 254, 23.0, 0.0, 17.0, 100, "100 g", "curated_estimate"),
   F("frango-empanado-assado", "Frango empanado assado", ["frango empanado"], 220, 23.0, 17.0, 7.0, 120, "120 g", "curated_estimate"),
   F("peru-assado", "Peito de peru assado", ["peru assado", "peito de peru assado"], 150, 29.0, 0.0, 3.0, 120, "120 g", "curated_estimate"),
@@ -103,7 +140,9 @@ export const FOOD_CATALOG = [
   // =========================================================
   F("salmao-grelhado", "Salmão grelhado", ["salmão", "salmao", "salmão grelhado"], 206, 22.1, 0.0, 12.4, 150, "150 g", "curated_estimate"),
   F("salmao-cru", "Salmão cru", ["salmão cru", "salmao cru"], 208, 20.5, 0.0, 13.4, 100, "100 g", "curated_estimate"),
-  F("tilapia-grelhada", "Tilápia grelhada", ["tilápia", "tilapia"], 128, 26.0, 0.0, 2.7, 150, "150 g", "curated_estimate"),
+  F("tilapia-grelhada", "Tilápia grelhada", ["tilápia","tilapia","tilápia grelhada","filé de tilápia"], 90, 18.5, 0, 1.73, 150, "150 g", "tbca_verified", "TBCA BRC0486E (consulta 23/10/2026)"),
+  F("tilapia-cozida", "Tilápia cozida", ["tilápia cozida","tilapia cozida"], 108, 22.2, 0, 2.07, 150, "150 g", "tbca_verified", "TBCA BRC0098E (consulta 23/10/2026)"),
+  F("tilapia-crua", "Tilápia crua", ["tilápia crua","tilapia crua"], 93, 18.1, 0, 2.3, 150, "150 g", "tbca_verified", "TBCA BRC0031E (consulta 23/10/2026)"),
   F("atum-fresco-grelhado", "Atum fresco grelhado", ["atum fresco"], 184, 29.9, 0.0, 6.3, 150, "150 g", "curated_estimate"),
   F("atum-enlatado-agua", "Atum em água", ["atum em água", "atum enlatado", "atum natural"], 116, 25.5, 0.0, 0.8, 120, "120 g", "curated_estimate"),
   F("sardinha-assada", "Sardinha assada", ["sardinha"], 208, 24.6, 0.0, 11.5, 120, "120 g", "curated_estimate"),
@@ -116,7 +155,9 @@ export const FOOD_CATALOG = [
   // =========================================================
   // OVOS / LATICÍNIOS
   // =========================================================
-  F("ovo-inteiro", "Ovo inteiro", ["ovo", "ovos"], 143, 12.6, 0.7, 9.5, 50, "1 unidade", "curated_estimate"),
+  F("ovo-inteiro", "Ovo cozido", ["ovo", "ovos", "ovo cozido", "ovos cozidos"], 125, 10.4, 1.38, 8.7, 50, "1 unidade", "tbca_verified", "TBCA BRC0010J (consulta 23/10/2026)"),
+  F("ovo-frito", "Ovo frito", ["ovo frito", "ovos fritos"], 235, 15.6, 1.19, 18.6, 50, "1 unidade", "tbca_verified", "TBCA BRC0015J (consulta 23/10/2026)"),
+  F("ovo-mexido", "Ovo mexido", ["ovo mexido", "ovos mexidos"], 146, 12.2, 2.3, 9.77, 50, "1 unidade", "tbca_verified", "TBCA BRC0065J (consulta 23/10/2026)"),
   F("clara-de-ovo", "Clara de ovo", ["clara", "claras"], 52, 10.9, 0.7, 0.2, 33, "1 unidade", "curated_estimate"),
   F("queijo-minas-frescal", "Queijo minas frescal", ["queijo minas", "minas frescal"], 264, 17.4, 3.0, 20.8, 40, "40 g", "curated_estimate"),
   F("muçarela", "Queijo muçarela", ["muçarela", "mucarela", "mussarela"], 300, 22.0, 2.0, 22.0, 30, "30 g", "curated_estimate"),
@@ -136,11 +177,11 @@ export const FOOD_CATALOG = [
   // =========================================================
   // VEGETAIS / TUBÉRCULOS
   // =========================================================
-  F("batata-cozida", "Batata inglesa cozida", ["batata cozida", "batata inglesa cozida", "batata inglesa"], 87, 1.9, 20.1, 0.1, 180, "180 g", "tbca_aligned"),
-  F("batata-assada", "Batata assada", ["batata assada"], 93, 2.5, 21.0, 0.1, 180, "180 g", "curated_estimate"),
-  F("batata-frita", "Batata frita", ["batata frita", "fritas"], 312, 3.4, 41.0, 15.0, 100, "100 g", "curated_estimate"),
+  F("batata-cozida", "Batata inglesa cozida", ["batata cozida","batata inglesa cozida","batata inglesa"], 52, 1.33, 12.3, 0.05, 180, "180 g", "tbca_verified", "TBCA BRC0041B (consulta 23/10/2026)"),
+  F("batata-assada", "Batata assada", ["batata assada"], 89, 2.51, 20.3, 0.05, 180, "180 g", "tbca_verified", "TBCA BRC0140B (consulta 23/10/2026)"),
+  F("batata-frita", "Batata frita", ["batata frita","fritas"], 248, 4.06, 32.9, 11.9, 100, "100 g", "tbca_verified", "TBCA BRC0048B (consulta 23/10/2026)"),
   F("batata-doce-cozida", "Batata-doce cozida", ["batata-doce", "batata doce"], 76, 1.4, 18.2, 0.1, 150, "150 g", "curated_estimate"),
-  F("mandioca-cozida", "Mandioca cozida", ["mandioca", "aipim", "macaxeira"], 125, 1.0, 30.0, 0.3, 150, "150 g", "tbca_aligned"),
+  F("mandioca-cozida", "Mandioca cozida", ["mandioca","aipim","macaxeira","mandioca cozida"], 120, 0.64, 29.8, 0.24, 150, "150 g", "tbca_verified", "TBCA BRC0053B (consulta 23/10/2026)"),
   F("mandioquinha-cozida", "Mandioquinha cozida", ["mandioquinha", "batata-baroa"], 80, 0.9, 18.0, 0.2, 150, "150 g", "curated_estimate"),
   F("inhame-cozido", "Inhame cozido", ["inhame"], 116, 1.5, 27.5, 0.1, 150, "150 g", "curated_estimate"),
   F("cenoura-cozida", "Cenoura cozida", ["cenoura"], 35, 0.8, 8.2, 0.2, 100, "100 g", "curated_estimate"),
@@ -294,7 +335,11 @@ export const FOOD_CATALOG = [
   F("arroz-temperado", "Arroz temperado", ["arroz temperado"], 145, 2.5, 28.0, 2.2, 100, "100 g", "curated_estimate"),
   F("pure-de-batata", "Purê de batata", ["purê", "pure de batata", "purê de batata"], 110, 2.2, 17.0, 3.5, 180, "180 g", "curated_estimate"),
   F("polenta-frita", "Polenta frita", ["polenta frita", "polenta"], 230, 3.0, 33.0, 10.0, 120, "120 g", "curated_estimate"),
-  F("mandioca-frita", "Mandioca frita", ["mandioca frita", "aipim frito"], 300, 2.0, 45.0, 13.0, 120, "120 g", "curated_estimate"),
+  F("mandioca-frita", "Mandioca frita", ["mandioca frita","aipim frito","macaxeira frita"], 304, 1.38, 50.3, 11.2, 120, "120 g", "tbca_verified", "TBCA BRC0091B (consulta 23/10/2026)"),
+  F("acucar-refinado", "Açúcar refinado", ["açúcar","acucar","açúcar refinado"], 397, 0.16, 99, 0, 5, "5 g", "tbca_verified", "TBCA BRC0007K (consulta 23/10/2026)"),
+  F("acucar-cristal", "Açúcar cristal", ["açúcar cristal","acucar cristal"], 400, 0.32, 99.6, 0, 5, "5 g", "tbca_verified", "TBCA BRC0005K (consulta 23/10/2026)"),
+  F("acucar-mascavo", "Açúcar mascavo", ["açúcar mascavo","acucar mascavo"], 382, 0.76, 94.5, 0.09, 5, "5 g", "tbca_verified", "TBCA BRC0006K (consulta 23/10/2026)"),
+  F("mel", "Mel de abelha", ["mel","mel de abelha"], 324, 0.17, 80.9, 0, 15, "15 g", "tbca_verified", "TBCA BRC0028K (consulta 23/10/2026)"),
 
   // =========================================================
   // BEBIDAS

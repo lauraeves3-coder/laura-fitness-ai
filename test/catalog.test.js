@@ -179,3 +179,75 @@ test("NC-04: confiança só é 'high' com fonte verificada", () => {
   const estimate = estimateMealFromText("comi farinha de mandioca");
   assert.notEqual(estimate.confidence, "high");
 });
+
+// ---------- CAT-03 / NUT-08 / CAT-06: cortes, preparos e fontes (TBCA, 23/10/2026) ----------
+
+const item = (id) => FOOD_CATALOG.find((food) => food.id === id);
+const firstId = (message) => ids(estimateMealFromText(message))[0];
+
+test("CAT-06: itens com referência apontam para um código TBCA e data de consulta", () => {
+  const referenced = FOOD_CATALOG.filter((food) => food.reference);
+  assert.ok(referenced.length >= 60, String(referenced.length));
+  for (const food of referenced) {
+    assert.match(food.reference, /^TBCA BRC\d{4}[A-Z]\b.*consulta 23\/10\/2026/, food.id);
+    assert.equal(food.source, "tbca_verified", food.id);
+  }
+});
+
+test("CAT-03: cortes bovinos com valores da TBCA", () => {
+  const expected = {
+    "patinho-grelhado": [211, 36.0, 7.5], "patinho-cru": [114, 21.1, 3.33], "alcatra-grelhada": [236, 32.6, 11.7],
+    "contrafile-grelhado": [187, 35.9, 4.49], "picanha-grelhada": [281, 26.3, 19.5], "cupim-assado": [321, 28.2, 23.1],
+    "musculo-cozido": [183, 30.8, 6.6], "maminha-grelhada": [141, 30.7, 2.04], "carne-seca-cozida": [259, 37.4, 12.2]
+  };
+  for (const [id, [kcal, protein, fat]] of Object.entries(expected)) {
+    assert.deepEqual([item(id).kcal, item(id).protein, item(id).fat], [kcal, protein, fat], id);
+  }
+});
+
+test("CAT-03: cortes reconhecidos pelo nome", () => {
+  for (const [message, id] of [
+    ["comi 150 g de patinho", "patinho-grelhado"], ["comi 150 g de cupim", "cupim-assado"],
+    ["comi 150 g de picanha sem gordura", "picanha-sem-gordura-grelhada"], ["comi 100 g de carne seca", "carne-seca-cozida"],
+    ["comi 150 g de coxão duro", "coxao-duro-cozido"], ["comi 150 g de miolo de alcatra", "alcatra-grelhada"]
+  ]) assert.equal(firstId(message), id, message);
+});
+
+test("NUT-08: o preparo citado escolhe o item certo", () => {
+  for (const [message, id] of [
+    ["comi 150 g de patinho frito", "patinho-frito"], ["comi 150 g de patinho cru", "patinho-cru"],
+    ["comi 150 g de bife de patinho frito", "patinho-frito"], ["comi 150 g de alcatra frita", "alcatra-frita"],
+    ["comi 150 g de frango cozido", "peito-de-frango-cozido"], ["comi 150 g de frango frito", "peito-de-frango-frito"],
+    ["comi 150 g de peito de frango assado", "peito-de-frango-assado"], ["comi 150 g de tilápia cozida", "tilapia-cozida"],
+    ["comi 2 ovos fritos", "ovo-frito"], ["comi 2 ovos mexidos", "ovo-mexido"], ["comi 150 g de mandioca frita", "mandioca-frita"],
+    ["comi 150 g de batata cozida", "batata-cozida"], ["comi 100 g de fígado frito", "figado-bovino-frito"]
+  ]) assert.equal(firstId(message), id, message);
+});
+
+test("NUT-08: sem preparo citado, vale o preparo padrão do item (DEC-13)", () => {
+  assert.equal(firstId("comi 150 g de frango"), "peito-de-frango-grelhado");
+  assert.equal(firstId("comi 2 ovos"), "ovo-inteiro");
+  assert.equal(item("ovo-inteiro").name, "Ovo cozido");
+});
+
+test("NUT-08: preparo muda as calorias (fritura > grelhado > cru)", () => {
+  const kcal = (message) => estimateMealFromText(message).calories;
+  assert.ok(kcal("comi 100 g de patinho frito") > kcal("comi 100 g de patinho grelhado"));
+  assert.ok(kcal("comi 100 g de patinho grelhado") > kcal("comi 100 g de patinho cru"));
+  assert.equal(kcal("comi 100 g de batata cozida"), 52);
+});
+
+test("itens comuns: açúcar e mel com valores da TBCA", () => {
+  assert.equal(firstId("coloquei 10 g de açúcar"), "acucar-refinado");
+  assert.equal(firstId("comi 15 g de mel"), "mel");
+  assert.equal(estimateMealFromText("comi 10 g de açúcar mascavo").calories, Math.round(382 * 0.1));
+  assert.equal(estimateMealFromText("comi 15 g de mel").calories, Math.round(324 * 0.15));
+});
+
+test("CAT-06: docs/fontes-tbca.md está em sincronia com o catálogo", async () => {
+  const { readFileSync } = await import("node:fs");
+  const doc = readFileSync(new URL("../docs/fontes-tbca.md", import.meta.url), "utf8");
+  for (const food of FOOD_CATALOG.filter((entry) => entry.reference)) {
+    assert.match(doc, new RegExp(`\| ${food.id} \| [^|]+\| ${food.reference.match(/BRC\d{4}[A-Z]/)[0]} \| ${food.kcal} \|`), food.id);
+  }
+});
