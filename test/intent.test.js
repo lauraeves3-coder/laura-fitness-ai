@@ -22,17 +22,28 @@ test("regressão: 'nao tenho ovo' rejeita ovo", () => {
 test("EX-01: 'não quero frango' (com acento) rejeita frango", () => {
   assert.deepEqual(ai.extractExcludedFoods("não quero frango"), ["frango"]);
 });
-test("EX-01: 'nao quero feijao' rejeita feijão", { todo: "EX-01" }, () => {
-  assert.equal(ai.extractExcludedFoods("nao quero feijao").length, 1);
+test("EX-01: 'nao quero feijao' rejeita feijão", () => {
+  assert.deepEqual(ai.extractExcludedFoods("nao quero feijao"), ["feijão"]);
+  assert.deepEqual(ai.extractExcludedFoods("não quero feijão"), ["feijão"]);
 });
 test("EX-01: 'Não gosto de banana' rejeita banana", () => {
   assert.deepEqual(ai.extractExcludedFoods("Não gosto de banana"), ["banana"]);
 });
-test("EX-01: 'sem pão' rejeita pão", { todo: "EX-01" }, () => {
-  assert.equal(ai.extractExcludedFoods("sem pão").length, 1);
+test("EX-01: 'sem pão' rejeita pão", () => {
+  assert.deepEqual(ai.extractExcludedFoods("sem pão"), ["pão"]);
+  assert.deepEqual(ai.extractExcludedFoods("arroz sem feijão"), ["feijão"]);
 });
-test("EX-01: negativa não contamina o alimento seguinte", { todo: "EX-01" }, () => {
+test("EX-01: negativa não contamina o alimento seguinte", () => {
   assert.deepEqual(ai.extractExcludedFoods("nao quero frango hoje, quero arroz"), ["frango"]);
+  assert.deepEqual(ai.extractExcludedFoods("não tenho tempo, mas tenho frango"), []);
+});
+test("EX-01: listas negadas com 'nem' e 'e'", () => {
+  assert.deepEqual(ai.extractExcludedFoods("não quero frango nem arroz"), ["frango", "arroz"]);
+  assert.deepEqual(ai.extractExcludedFoods("não quero frango e arroz"), ["frango", "arroz"]);
+});
+test("EX-01: 'sem' só afeta alimento logo em seguida e respeita compostos", () => {
+  assert.deepEqual(ai.extractExcludedFoods("frango sem pele"), []);
+  assert.deepEqual(ai.extractExcludedFoods("sem pão de queijo"), []);
 });
 
 // ---------- EX-04 / restrições de perfil ----------
@@ -55,12 +66,40 @@ test("regressão: 'não quero whey com água' = whey + água", () => {
 test("regressão: 'nao quero arroz com feijao' = arroz + feijão", () => {
   assert.deepEqual(ai.detectExplicitExcludedCompositions("nao quero arroz com feijao")[0].ingredients, ["arroz", "feijao"]);
 });
-test("EX-02: forma contextual associa ao alimento mais próximo", { todo: "EX-02" }, () => {
-  const [composition] = ai.detectExplicitExcludedCompositions("tenho banana, aveia e leite, mas nao quero tomar com agua");
-  assert.deepEqual(composition.ingredients, ["leite", "agua"]);
+test("EX-02: forma contextual com um só alimento possível", () => {
+  const [composition] = ai.detectExplicitExcludedCompositions("tenho whey em casa, mas nao quero tomar com agua");
+  assert.deepEqual(composition.ingredients, ["whey", "agua"]);
 });
-test("AI-06: resposta de composição não é fixa em whey + água", { todo: "AI-06" }, () => {
+test("EX-02: forma contextual ambígua não registra combinação e pergunta", () => {
+  const message = "tenho banana, aveia e leite, mas nao quero tomar com agua";
+  assert.deepEqual(ai.detectExplicitExcludedCompositions(message), []);
+  const ambiguous = ai.detectAmbiguousCompositionExclusion(message);
+  assert.deepEqual(ambiguous, { other: "agua", candidates: ["banana", "aveia", "leite"] });
+  assert.equal(ai.buildAmbiguousCompositionQuestion(ambiguous),
+    "Com qual alimento você não quer água: banana, aveia ou leite? Assim registro só essa combinação.");
+});
+test("EX-02: frase anterior não entra no contexto", () => {
+  const [composition] = ai.detectExplicitExcludedCompositions("Comprei banana. Tenho whey, mas nao quero tomar com agua");
+  assert.deepEqual(composition.ingredients, ["whey", "agua"]);
+});
+const compositionReply = (message) => ai.buildCompositionExclusionReply(
+  ai.detectExplicitExcludedCompositions(message),
+  ai.detectWheyAvailability(message)
+);
+
+test("AI-06: resposta de composição não é fixa em whey + água", () => {
   assert.ok(!aiSource.includes("nao vou sugerir whey com agua."));
+  assert.equal(compositionReply("tenho whey em casa, mas nao quero tomar com agua"),
+    "Entendi. Vou considerar o whey disponível, mas não vou sugerir whey com água. Whey e água continuam liberados em outras combinações.");
+});
+test("AI-06: arroz com feijão e banana com leite", () => {
+  assert.equal(compositionReply("nao quero arroz com feijao"),
+    "Entendi. Não vou sugerir arroz com feijão. Arroz e feijão continuam liberados em outras combinações.");
+  assert.doesNotMatch(compositionReply("nao quero banana com leite"), /whey|água/);
+});
+test("AI-06: combinação não reconhecida não gera confirmação inventada", () => {
+  assert.deepEqual(ai.detectExplicitExcludedCompositions("nao quero tofu com shoyu"), []);
+  assert.equal(ai.detectAmbiguousCompositionExclusion("nao quero tofu com shoyu"), null);
 });
 
 // ---------- EX-03: normalização de listas ----------

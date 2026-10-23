@@ -1084,21 +1084,81 @@ function normalizeToolFoodList(value) {
     .map((item) => aliases.get(item.toLocaleLowerCase("pt-BR")) || item))];
 }
 
+// Alimentos reconhecidos em combinações rejeitadas, como alternância de regex
+// sobre texto já sem acentos.
+function compositionFoodPattern() {
+  const foods = [
+    "whey protein", "proteina em po", "whey",
+    "leite", "agua", "banana", "aveia", "iogurte", "queijo",
+    "pao integral", "pao", "arroz", "feijao", "frango", "ovo", "ovos",
+    "carne", "batata", "atum", "tomate", "pasta de amendoim", "amendoim", "salada"
+  ];
+  return `(?:${foods.slice().sort((a, b) => b.length - a.length).join("|")})`;
+}
+
+/*
+ * Forma contextual: "Tenho whey em casa, mas não quero tomar com água."
+ * O primeiro alimento vem antes da negativa, na mesma frase. Retorna, para cada
+ * negativa, o alimento citado depois dela e os candidatos citados antes.
+ */
+function findContextualCompositionExclusions(message) {
+  const text = normalizeRequestText(message);
+  const foodPattern = compositionFoodPattern();
+  const negation = new RegExp(
+    `\\bnao\\s+(?:quero|queria)\\s+(?:tomar|usar|beber|comer)\\s+(?:com|e\\s+com)\\s+(?:o|a|um|uma)?\\s*(${foodPattern})\\b`,
+    "g"
+  );
+  return [...text.matchAll(negation)].map((match) => {
+    const sentenceStart = Math.max(...[".", "!", "?", "\n"].map((mark) => text.lastIndexOf(mark, match.index))) + 1;
+    const window = text.slice(Math.max(sentenceStart, match.index - 100), match.index);
+    const [other] = normalizeToolFoodList([match[1]]);
+    const mentioned = [...window.matchAll(new RegExp(`\\b(${foodPattern})\\b`, "g"))].map((found) => found[1]);
+    const candidates = normalizeToolFoodList(mentioned).filter((food) => food !== other);
+    return { other, candidates };
+  });
+}
+
+// Negativa contextual com mais de um alimento possível ("tenho banana e leite, mas não
+// quero tomar com água"): não registra nada e devolve o que perguntar.
+function detectAmbiguousCompositionExclusion(message) {
+  return findContextualCompositionExclusions(message)
+    .find(({ candidates }) => candidates.length > 1) || null;
+}
+
+function displayFoodName(food) {
+  const accented = {
+    agua: "água", feijao: "feijão", pao: "pão", "pao integral": "pão integral",
+    "proteina em po": "proteína em pó"
+  };
+  return accented[food] || food;
+}
+
+function joinWithE(items) {
+  return items.length <= 1
+    ? items.join("")
+    : `${items.slice(0, -1).join(", ")} e ${items[items.length - 1]}`;
+}
+
+// AI-06: a confirmação cita exatamente as combinações detectadas na mensagem.
+function buildCompositionExclusionReply(compositions, wheyAvailability = null) {
+  const combinations = compositions.map((composition) =>
+    composition.ingredients.map(displayFoodName).join(" com "));
+  const ingredients = [...new Set(compositions.flatMap((composition) => composition.ingredients))]
+    .map(displayFoodName);
+  const prefix = wheyAvailability === true ? "Entendi. Vou considerar o whey disponível, mas" : "Entendi.";
+  const action = wheyAvailability === true ? "não vou sugerir" : "Não vou sugerir";
+  const released = joinWithE(ingredients);
+  return `${prefix} ${action} ${joinWithE(combinations)}. ${released.charAt(0).toLocaleUpperCase("pt-BR")}${released.slice(1)} continuam liberados em outras combinações.`;
+}
+
+function buildAmbiguousCompositionQuestion({ other, candidates }) {
+  const options = candidates.map(displayFoodName);
+  return `Com qual alimento você não quer ${displayFoodName(other)}: ${options.slice(0, -1).join(", ")} ou ${options[options.length - 1]}? Assim registro só essa combinação.`;
+}
+
 function detectExplicitExcludedCompositions(message) {
   const text = normalizeRequestText(message);
-  const foods = [
-    "whey protein", "proteína em pó", "proteina em po", "whey",
-    "leite", "água", "agua", "banana", "aveia", "iogurte", "queijo",
-    "pão integral", "pao integral", "pão", "pao", "arroz", "feijão",
-    "feijao", "frango", "ovo", "ovos", "carne", "batata", "atum",
-    "tomate", "pasta de amendoim", "amendoim", "salada"
-  ];
-  const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const foodPattern = `(?:${foods
-    .slice()
-    .sort((a, b) => b.length - a.length)
-    .map(escapeRegex)
-    .join("|")})`;
+  const foodPattern = compositionFoodPattern();
   const pattern = new RegExp(
     `\\b(?:nao|não)\\s+(?:quero|queria|gosto\\s+de|vou\\s+usar|vou\\s+tomar|vou\\s+comer)\\s+(?:o|a|um|uma)?\\s*(${foodPattern})\\s+(?:com|e\\s+com)\\s+(?:o|a|um|uma)?\\s*(${foodPattern})\\b`,
     "gi"
@@ -1114,21 +1174,10 @@ function detectExplicitExcludedCompositions(message) {
     });
   }
 
-  /*
-   * Forma contextual:
-   * "Tenho whey em casa, mas não quero tomar com água."
-   *
-   * O primeiro alimento foi informado antes da negativa.
-   * A segunda parte pode omitir esse alimento.
-   */
-  const contextualPattern = new RegExp(
-    `\\b(${foodPattern})\\b[\\s\\S]{0,100}?\\b(?:nao)\\s+(?:quero|queria)\\s+(?:tomar|usar|beber|comer)\\s+(?:com|e\\s+com)\\s+(?:o|a|um|uma)?\\s*(${foodPattern})\\b`,
-    "gi"
-  );
-
-  for (const match of text.matchAll(contextualPattern)) {
-    const ingredients = normalizeToolFoodList([match[1], match[2]]);
-    if (ingredients.length < 2) continue;
+  // Forma contextual: só quando há exatamente um alimento possível antes da negativa.
+  for (const { other, candidates } of findContextualCompositionExclusions(message)) {
+    if (candidates.length !== 1) continue;
+    const ingredients = [candidates[0], other];
 
     const description = ingredients.join(" + ");
 
@@ -1392,18 +1441,32 @@ function extractExcludedFoods(message) {
     "peixe", "atum", "tomate", "leite", "maçã", "salada", "pasta de amendoim",
     "tofu", "lentilha", "grão-de-bico", "homus", "bebida de soja", "iogurte de soja", "edamame", "cenoura", "amendoim",
     "salmão", "tilápia", "peito de frango", "arroz integral", "batata-doce", "batata doce", "carne moída",
-    "whey protein", "whey", "proteína em pó", "proteina em po"
+    "whey protein", "whey", "proteína em pó", "proteina em po", "pão"
   ];
-  const text = message.toLocaleLowerCase("pt-BR");
-  const rejected = foods.filter((food) => {
-    const escaped = food.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp(`(?:não|nao)\\s+(?:tenho|tem|quero|gosto de)(?:\\s+usar)?[^\\n]{0,25}\\b${escaped}\\b`).test(text)
-      || new RegExp(`\\b(?:sem|troca|substitui)\\s+(?:o|a)?\\s*${escaped}\\b`).test(text);
-  });
-  if (/\b(?:nao|não)\s+(?:tenho|quero|uso|vou usar)\s+(?:whey|suplemento|suplementos)\b/.test(text)) {
+  const text = normalizeRequestText(message);
+  const rejected = [];
+
+  // "não quero/tenho/gosto de ...": todos os alimentos até o fim da frase ou até uma
+  // virada positiva ("..., quero arroz", "mas tenho ovo"), em no máximo 60 caracteres.
+  const listNegation = /\bnao\s+(?:tenho|tem|quero|queria|gosto\s+de|como|posso\s+comer|uso|vou\s+usar|vou\s+comer)\b/g;
+  const clauseEnd = /[.;!?\n]|(?<!\b(?:nem|nao)\s)\b(?:mas|porem|so\s+que|quero|queria|prefiro|gostaria|pode\s+ser|tenho|tem)\b/;
+  for (const match of text.matchAll(listNegation)) {
+    const following = text.slice(match.index + match[0].length, match.index + match[0].length + 60);
+    const end = following.search(clauseEnd);
+    rejected.push(...findFoodNames(end >= 0 ? following.slice(0, end) : following, foods));
+  }
+
+  // "sem X", "troca o X", "substitui a X": só o alimento logo em seguida.
+  for (const match of text.matchAll(/\b(?:sem|troca(?:r)?|substitui(?:r)?)\s+(?:o\s+|a\s+)?/g)) {
+    const [first] = findFoodNames(text.slice(match.index + match[0].length, match.index + match[0].length + 30), foods);
+    const startsRightAfter = first && text.slice(match.index + match[0].length).startsWith(normalizeRequestText(first).split(/[\s-]/)[0]);
+    if (startsRightAfter) rejected.push(first);
+  }
+
+  if (/\bnao\s+(?:tenho|quero|uso|vou usar)\s+(?:whey|suplemento|suplementos)\b/.test(text)) {
     rejected.push("whey");
   }
-  return rejected;
+  return [...new Set(rejected)];
 }
 
 function getRecentSuggestedOptions(events) {
@@ -2724,7 +2787,19 @@ const summaryIntent = classifySummaryIntent(message);
     if (
       explicitMealFacts.explicitExcludedCompositions.length > 0
     ) {
-      return "Entendi. Vou considerar o whey disponivel, mas nao vou sugerir whey com agua.";
+      return buildCompositionExclusionReply(
+        explicitMealFacts.explicitExcludedCompositions,
+        wheyAvailability
+      );
+    }
+
+    const ambiguousComposition =
+      detectAmbiguousCompositionExclusion(message);
+
+    if (ambiguousComposition) {
+      return buildAmbiguousCompositionQuestion(
+        ambiguousComposition
+      );
     }
 
     if (wheyAvailability === true) {

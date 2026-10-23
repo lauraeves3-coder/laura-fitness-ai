@@ -22,7 +22,9 @@ function extractFunction(name) {
 const NAMES = [
   "normalizeDesiredFood", "detectDesiredFood", "detectRequestedServings", "detectRequestedGrams", "detectRequestedJapaneseSubtype",
   "detectDesiredComposition", "normalizeRequestText", "normalizeToolFoodList",
-  "detectExplicitExcludedCompositions", "extractExcludedFoods", "getFoodRestrictions",
+  "detectExplicitExcludedCompositions", "extractExcludedFoods",
+  "compositionFoodPattern", "findContextualCompositionExclusions", "detectAmbiguousCompositionExclusion",
+  "displayFoodName", "joinWithE", "buildCompositionExclusionReply", "buildAmbiguousCompositionQuestion", "getFoodRestrictions",
   "hasDesiredFoodAvailable", "extractAvailableFoods", "detectWheyAvailability"
 ];
 

@@ -4,7 +4,7 @@ Data: 22/10/2026 · Branch: `audit/nutrition-tests` · Correções aplicadas em 
 
 Como reproduzir: `npm test` (node:test, sem API OpenAI, sem `fitness.db`).
 Testes marcados `# TODO <ID>` reproduzem um defeito confirmado; ao corrigir, remova o `todo`.
-Resultado atual: 85 testes · 77 passando · 8 defeitos ainda reproduzidos · `fitness.db`/WAL com hash idêntico antes e depois.
+Resultado atual: 91 testes · 88 passando · 3 defeitos ainda reproduzidos · `fitness.db`/WAL com hash idêntico antes e depois.
 
 ## Estado do repositório (risco)
 
@@ -54,6 +54,8 @@ Mantidos como hipóteses/limitações (sem teste ainda): NC-03 (19 grupos de mod
 - **Etapa 5, comida japonesa (resolvido: AI-02, NC-02):** a categoria continua `japonesa`, mas o subtipo é preservado (`detectJapaneseSubtype` + `detectRequestedJapaneseSubtype`) e o gerador filtra por ele (`scopeJapaneseTemplates`). "Sushi" = peças de arroz (niguiri, uramaki, hossomaki, hot roll); "8 peças" sem tipo também. Recheio citado ("de salmão") filtra as opções; recheio inexistente no subtipo ("sushi de kani") devolve nenhuma opção em vez de trocar de preparação. Removido código morto: `DESIRED_FOODS.sushi` (valores de 4 peças sem fonte), variantes `sushi:` e a divisão por 4. Plural "rolls" corrigido no matcher.
   - Sashimi: o gerador agora deriva a fatia do item `sashimi-salmao` do catálogo (52 kcal, 25 g); antes eram 20,8 kcal (≈10 g). Fonte: kcal/100 g = USDA FoodData Central 175167 (208 kcal, salmão do Atlântico de cativeiro, cru). **O peso de 25 g por fatia não tem fonte oficial**: a TBCA não retornou registros para "sashimi" nem "salmão" na busca de 10/2026; o FatSecret (não oficial) implica ~28 g por unidade. Peso mantido e marcado como estimativa no código — confirmar com fonte quando disponível.
   - Observação de dados: o uramaki de salmão usa 60 g por peça (comentário TBCA no código), o que dá 8 peças = 688 kcal; vale conferir essa gramagem na TBCA.
+
+- **Etapa 6, restrições e combinações (resolvido: EX-01, EX-02, AI-06):** `extractExcludedFoods` normaliza acentos, nega todos os alimentos da cláusula ("não quero frango nem arroz") e para na virada positiva ("..., quero arroz", "mas tenho frango"); "sem X" só afeta o alimento logo em seguida e respeita compostos ("frango sem pele", "sem pão de queijo" não rejeitam nada). Combinação contextual só é registrada com um único alimento possível na mesma frase; com vários ("tenho banana, aveia e leite, mas não quero tomar com água") nada é registrado e o agente pergunta qual. A confirmação é montada a partir das combinações detectadas ("Não vou sugerir arroz com feijão. Arroz e feijão continuam liberados…"); combinação não reconhecida não gera confirmação.
 
 ## Plano de correção (ordem por dependência)
 
