@@ -75,9 +75,25 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | peito-de-frango-cru | Peito de frango cru | BRC0133F | 105 | 21.1 | 0 | 2.29 | — |
 | coxa-de-frango-cozida | Coxa de frango cozida | BRC0109F | 160 | 26.8 | 0 | 5.85 | — |
 | sobrecoxa-de-frango-assada | Sobrecoxa de frango assada | BRC0116F | 232 | 29.2 | 1.7 | 12 | — |
+| bacon-frito | Bacon frito | BRC0941F | 655 | 26 | 1.06 | 61.2 | toucinho defumado frito c/ alho e alecrim (único bacon frito na TBCA) |
+| calabresa-grelhada | Linguiça calabresa grelhada | BRC0899F | 280 | 14.9 | 3.33 | 21.9 | assada no forno s/ óleo |
+| presunto-cozido | Presunto cozido | BRC0199F | 121 | 15.1 | 2.32 | 5.7 | média de amostras |
+| peito-de-peru-fatiado | Peito de peru fatiado | BRC0196F | 124 | 19.6 | 2.93 | 3.8 | defumado |
+| mortadela | Mortadela | BRC0193F | 269 | 13.7 | 16.1 | 16.6 | — |
+| salame | Salame | BRC0208F | 401 | 26 | 2.45 | 31.9 | média de tipos |
+| salmao-grelhado | Salmão grelhado | BRC0067E | 234 | 26 | 0 | 14.4 | s/ pele, grelhado s/ óleo |
+| salmao-cru | Salmão cru | BRC0065E | 165 | 19.4 | 0 | 9.7 | s/ pele |
 | tilapia-grelhada | Tilápia grelhada | BRC0486E | 90 | 18.5 | 0 | 1.73 | — |
 | tilapia-cozida | Tilápia cozida | BRC0098E | 108 | 22.2 | 0 | 2.07 | — |
 | tilapia-crua | Tilápia crua | BRC0031E | 93 | 18.1 | 0 | 2.3 | — |
+| atum-fresco-grelhado | Atum fresco grelhado | BRC0129E | 149 | 34.7 | 0 | 1.18 | assado/grelhado s/ óleo |
+| atum-enlatado-oleo | Atum em óleo | BRC0040E | 171 | 26.3 | 1.58 | 6.63 | conserva em óleo, média de marcas, sólido e ralado |
+| sardinha-assada | Sardinha assada | BRC0068E | 176 | 27 | 10.3 | 2.99 | — |
+| bacalhau-cozido | Bacalhau cozido | BRC0365E | 84 | 20.4 | 0 | 0.25 | dessalgado e cozido |
+| merluza-grelhada | Merluza grelhada | BRC0062E | 117 | 26.6 | 0.51 | 0.92 | filé assado s/ óleo |
+| pescada-grelhada | Pescada grelhada | BRC0153E | 136 | 20.8 | 0.05 | 5.84 | branca, assada/grelhada s/ óleo |
+| camarao-cozido | Camarão cozido | BRC0001E | 82 | 17.7 | 0.01 | 1.28 | s/ casca, cozido e drenado |
+| polvo-cozido | Polvo cozido | BRC0226E | 156 | 29.8 | 4.4 | 2.08 | cozido e drenado; dado importado pela TBCA |
 | ovo-inteiro | Ovo cozido | BRC0010J | 125 | 10.4 | 1.38 | 8.7 | — |
 | ovo-frito | Ovo frito | BRC0015J | 235 | 15.6 | 1.19 | 18.6 | — |
 | ovo-mexido | Ovo mexido | BRC0065J | 146 | 12.2 | 2.3 | 9.77 | — |
@@ -127,10 +143,21 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | maracuja-polpa | Maracujá (polpa) | BRC0026C | 74 | 1.99 | 12.3 | 2.1 | amarelo |
 | acai-polpa-sem-xarope | Açaí polpa sem xarope | BRC0003C | 68 | 0.9 | 7.66 | 5.01 | polpa, média de amostras |
 | abacate | Abacate | BRC0001C | 76 | 1.15 | 5.84 | 6.21 | variedades brasileiras; o Hass importado tem mais gordura |
+| azeite | Azeite de oliva | BRC0002D | 900 | 0 | 0 | 100 | oliva |
+| oleo-soja | Óleo de soja | BRC0030D | 900 | 0 | 0 | 100 | — |
+| manteiga | Manteiga | BRC0004D | 673 | 0.39 | 0.52 | 74.4 | média de amostras c/ e s/ sal |
+| pasta-de-amendoim | Pasta de amendoim | BRC0290T | 615 | 26.5 | 21.6 | 48.4 | integral |
+| amendoim | Amendoim torrado | BRC0021T | 626 | 27.5 | 16.9 | 51.8 | torrado, c/ sal |
+| castanha-de-caju | Castanha-de-caju | BRC0002U | 617 | 20.7 | 24 | 49.6 | torrada, c/ sal |
+| castanha-do-para | Castanha-do-pará | BRC0003U | 674 | 14.5 | 15.1 | 63.5 | castanha-do-brasil crua |
+| nozes | Nozes | BRC0009U | 649 | 14 | 18.4 | 59.4 | crua |
+| chia | Semente de chia | BRC0402A | 443 | 16.5 | 42.1 | 30.7 | semente seca; dado importado pela TBCA |
+| linhaça | Linhaça | BRC0006U | 453 | 14.1 | 43.3 | 32.3 | semente |
+| sashimi-salmao | Sashimi de salmão | BRC0065E | 165 | 19.4 | 0 | 9.7 | salmão cru s/ pele; fatia de 25 g é estimativa |
 | mandioca-frita | Mandioca frita | BRC0091B | 304 | 1.38 | 50.3 | 11.2 | — |
 | acucar-refinado | Açúcar refinado | BRC0007K | 397 | 0.16 | 99 | 0 | — |
 | acucar-cristal | Açúcar cristal | BRC0005K | 400 | 0.32 | 99.6 | 0 | — |
 | acucar-mascavo | Açúcar mascavo | BRC0006K | 382 | 0.76 | 94.5 | 0.09 | — |
 | mel | Mel de abelha | BRC0028K | 324 | 0.17 | 80.9 | 0 | — |
 
-Total: 123 itens.
+Total: 150 itens.

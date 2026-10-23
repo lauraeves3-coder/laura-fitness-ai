@@ -127,30 +127,31 @@ export const FOOD_CATALOG = [
   F("lombo-suino-assado", "Lombo suíno assado", ["lombo suíno", "lombo suino", "lombo"], 205, 29.0, 0.0, 9.0, 150, "150 g", "curated_estimate"),
   F("pernil-suino-assado", "Pernil suíno assado", ["pernil", "pernil suíno"], 245, 27.0, 0.0, 15.0, 150, "150 g", "curated_estimate"),
   F("bisteca-suina-grelhada", "Bisteca suína grelhada", ["bisteca suína", "bisteca suina", "bisteca"], 250, 27.0, 0.0, 16.0, 150, "150 g", "curated_estimate"),
-  F("bacon-frito", "Bacon frito", ["bacon"], 541, 37.0, 1.4, 42.0, 30, "30 g", "curated_estimate"),
-  F("calabresa-grelhada", "Linguiça calabresa grelhada", ["calabresa", "linguiça calabresa"], 330, 14.0, 2.0, 29.0, 80, "80 g", "curated_estimate"),
+  F("bacon-frito", "Bacon frito", ["bacon"], 655, 26, 1.06, 61.2, 30, "30 g", "tbca_verified", "TBCA BRC0941F, toucinho defumado frito c/ alho e alecrim (único bacon frito na TBCA) (consulta 23/10/2026)"),
+  F("calabresa-grelhada", "Linguiça calabresa grelhada", ["calabresa", "linguiça calabresa"], 280, 14.9, 3.33, 21.9, 80, "80 g", "tbca_verified", "TBCA BRC0899F, assada no forno s/ óleo (consulta 23/10/2026)"),
   F("linguica-toscana-assada", "Linguiça toscana assada", ["linguiça toscana", "linguica toscana"], 320, 15.0, 2.0, 28.0, 100, "100 g", "curated_estimate"),
-  F("presunto-cozido", "Presunto cozido", ["presunto"], 120, 18.0, 1.5, 5.0, 60, "60 g", "curated_estimate"),
-  F("peito-de-peru-fatiado", "Peito de peru fatiado", ["peito de peru", "peito de peru frio"], 110, 18.0, 3.0, 3.0, 60, "60 g", "curated_estimate"),
-  F("mortadela", "Mortadela", ["mortadela"], 310, 11.0, 2.0, 28.0, 50, "50 g", "curated_estimate"),
-  F("salame", "Salame", ["salame"], 410, 20.0, 2.0, 35.0, 40, "40 g", "curated_estimate"),
+  F("presunto-cozido", "Presunto cozido", ["presunto"], 121, 15.1, 2.32, 5.7, 60, "60 g", "tbca_verified", "TBCA BRC0199F, média de amostras (consulta 23/10/2026)"),
+  F("peito-de-peru-fatiado", "Peito de peru fatiado", ["peito de peru", "peito de peru frio"], 124, 19.6, 2.93, 3.8, 60, "60 g", "tbca_verified", "TBCA BRC0196F, defumado (consulta 23/10/2026)"),
+  F("mortadela", "Mortadela", ["mortadela"], 269, 13.7, 16.1, 16.6, 50, "50 g", "tbca_verified", "TBCA BRC0193F (consulta 23/10/2026)"),
+  F("salame", "Salame", ["salame"], 401, 26, 2.45, 31.9, 40, "40 g", "tbca_verified", "TBCA BRC0208F, média de tipos (consulta 23/10/2026)"),
 
   // =========================================================
   // PEIXES / FRUTOS DO MAR
   // =========================================================
-  F("salmao-grelhado", "Salmão grelhado", ["salmão", "salmao", "salmão grelhado"], 206, 22.1, 0.0, 12.4, 150, "150 g", "curated_estimate"),
-  F("salmao-cru", "Salmão cru", ["salmão cru", "salmao cru"], 208, 20.5, 0.0, 13.4, 100, "100 g", "curated_estimate"),
+  F("salmao-grelhado", "Salmão grelhado", ["salmão", "salmao", "salmão grelhado"], 234, 26, 0, 14.4, 150, "150 g", "tbca_verified", "TBCA BRC0067E, s/ pele, grelhado s/ óleo (consulta 23/10/2026)"),
+  F("salmao-cru", "Salmão cru", ["salmão cru", "salmao cru"], 165, 19.4, 0, 9.7, 100, "100 g", "tbca_verified", "TBCA BRC0065E, s/ pele (consulta 23/10/2026)"),
   F("tilapia-grelhada", "Tilápia grelhada", ["tilápia","tilapia","tilápia grelhada","filé de tilápia"], 90, 18.5, 0, 1.73, 150, "150 g", "tbca_verified", "TBCA BRC0486E (consulta 23/10/2026)"),
   F("tilapia-cozida", "Tilápia cozida", ["tilápia cozida","tilapia cozida"], 108, 22.2, 0, 2.07, 150, "150 g", "tbca_verified", "TBCA BRC0098E (consulta 23/10/2026)"),
   F("tilapia-crua", "Tilápia crua", ["tilápia crua","tilapia crua"], 93, 18.1, 0, 2.3, 150, "150 g", "tbca_verified", "TBCA BRC0031E (consulta 23/10/2026)"),
-  F("atum-fresco-grelhado", "Atum fresco grelhado", ["atum fresco"], 184, 29.9, 0.0, 6.3, 150, "150 g", "curated_estimate"),
+  F("atum-fresco-grelhado", "Atum fresco grelhado", ["atum fresco"], 149, 34.7, 0, 1.18, 150, "150 g", "tbca_verified", "TBCA BRC0129E, assado/grelhado s/ óleo (consulta 23/10/2026)"),
   F("atum-enlatado-agua", "Atum em água", ["atum em água", "atum enlatado", "atum natural"], 116, 25.5, 0.0, 0.8, 120, "120 g", "curated_estimate"),
-  F("sardinha-assada", "Sardinha assada", ["sardinha"], 208, 24.6, 0.0, 11.5, 120, "120 g", "curated_estimate"),
-  F("bacalhau-cozido", "Bacalhau cozido", ["bacalhau"], 105, 23.0, 0.0, 0.9, 150, "150 g", "curated_estimate"),
-  F("merluza-grelhada", "Merluza grelhada", ["merluza"], 120, 24.0, 0.0, 2.5, 150, "150 g", "curated_estimate"),
-  F("pescada-grelhada", "Pescada grelhada", ["pescada"], 120, 24.0, 0.0, 2.5, 150, "150 g", "curated_estimate"),
-  F("camarao-cozido", "Camarão cozido", ["camarão", "camarao"], 99, 24.0, 0.2, 0.3, 120, "120 g", "curated_estimate"),
-  F("polvo-cozido", "Polvo cozido", ["polvo"], 82, 15.6, 2.2, 1.0, 120, "120 g", "curated_estimate"),
+  F("atum-enlatado-oleo", "Atum em óleo", ["atum em óleo", "atum em oleo", "atum em conserva", "atum em conserva em óleo"], 171, 26.3, 1.58, 6.63, 120, "120 g", "tbca_verified", "TBCA BRC0040E, conserva em óleo, média de marcas, sólido e ralado (consulta 23/10/2026)"),
+  F("sardinha-assada", "Sardinha assada", ["sardinha"], 176, 27, 10.3, 2.99, 120, "120 g", "tbca_verified", "TBCA BRC0068E (consulta 23/10/2026)"),
+  F("bacalhau-cozido", "Bacalhau cozido", ["bacalhau"], 84, 20.4, 0, 0.25, 150, "150 g", "tbca_verified", "TBCA BRC0365E, dessalgado e cozido (consulta 23/10/2026)"),
+  F("merluza-grelhada", "Merluza grelhada", ["merluza"], 117, 26.6, 0.51, 0.92, 150, "150 g", "tbca_verified", "TBCA BRC0062E, filé assado s/ óleo (consulta 23/10/2026)"),
+  F("pescada-grelhada", "Pescada grelhada", ["pescada"], 136, 20.8, 0.05, 5.84, 150, "150 g", "tbca_verified", "TBCA BRC0153E, branca, assada/grelhada s/ óleo (consulta 23/10/2026)"),
+  F("camarao-cozido", "Camarão cozido", ["camarão", "camarao"], 82, 17.7, 0.01, 1.28, 120, "120 g", "tbca_verified", "TBCA BRC0001E, s/ casca, cozido e drenado (consulta 23/10/2026)"),
+  F("polvo-cozido", "Polvo cozido", ["polvo"], 156, 29.8, 4.4, 2.08, 120, "120 g", "tbca_verified", "TBCA BRC0226E, cozido e drenado; dado importado pela TBCA (consulta 23/10/2026)"),
 
   // =========================================================
   // OVOS / LATICÍNIOS
@@ -229,16 +230,16 @@ export const FOOD_CATALOG = [
   // =========================================================
   // GORDURAS / CASTANHAS / PASTAS
   // =========================================================
-  F("azeite", "Azeite de oliva", ["azeite", "azeite de oliva"], 884, 0.0, 0.0, 100.0, 10, "10 g", "curated_estimate"),
-  F("oleo-soja", "Óleo de soja", ["óleo", "oleo", "óleo de soja"], 884, 0.0, 0.0, 100.0, 10, "10 g", "curated_estimate"),
-  F("manteiga", "Manteiga", ["manteiga"], 717, 0.9, 0.1, 81.1, 10, "10 g", "curated_estimate"),
-  F("pasta-de-amendoim", "Pasta de amendoim", ["pasta de amendoim", "paçoca cremosa"], 588, 25.0, 20.0, 50.0, 15, "15 g", "curated_estimate"),
-  F("amendoim", "Amendoim torrado", ["amendoim"], 567, 25.8, 16.1, 49.2, 20, "20 g", "curated_estimate"),
-  F("castanha-de-caju", "Castanha-de-caju", ["castanha de caju", "castanha-de-caju"], 553, 18.2, 30.2, 43.9, 20, "20 g", "curated_estimate"),
-  F("castanha-do-para", "Castanha-do-pará", ["castanha do pará", "castanha-do-para"], 659, 14.3, 11.7, 67.1, 15, "15 g", "curated_estimate"),
-  F("nozes", "Nozes", ["nozes"], 654, 15.2, 13.7, 65.2, 20, "20 g", "curated_estimate"),
-  F("chia", "Semente de chia", ["chia"], 486, 16.5, 42.1, 30.7, 15, "15 g", "curated_estimate"),
-  F("linhaça", "Linhaça", ["linhaça", "linhaca"], 534, 18.3, 28.9, 42.2, 15, "15 g", "curated_estimate"),
+  F("azeite", "Azeite de oliva", ["azeite", "azeite de oliva"], 900, 0, 0, 100, 10, "10 g", "tbca_verified", "TBCA BRC0002D, oliva (consulta 23/10/2026)"),
+  F("oleo-soja", "Óleo de soja", ["óleo", "oleo", "óleo de soja"], 900, 0, 0, 100, 10, "10 g", "tbca_verified", "TBCA BRC0030D (consulta 23/10/2026)"),
+  F("manteiga", "Manteiga", ["manteiga"], 673, 0.39, 0.52, 74.4, 10, "10 g", "tbca_verified", "TBCA BRC0004D, média de amostras c/ e s/ sal (consulta 23/10/2026)"),
+  F("pasta-de-amendoim", "Pasta de amendoim", ["pasta de amendoim", "paçoca cremosa"], 615, 26.5, 21.6, 48.4, 15, "15 g", "tbca_verified", "TBCA BRC0290T, integral (consulta 23/10/2026)"),
+  F("amendoim", "Amendoim torrado", ["amendoim"], 626, 27.5, 16.9, 51.8, 20, "20 g", "tbca_verified", "TBCA BRC0021T, torrado, c/ sal (consulta 23/10/2026)"),
+  F("castanha-de-caju", "Castanha-de-caju", ["castanha de caju", "castanha-de-caju"], 617, 20.7, 24, 49.6, 20, "20 g", "tbca_verified", "TBCA BRC0002U, torrada, c/ sal (consulta 23/10/2026)"),
+  F("castanha-do-para", "Castanha-do-pará", ["castanha do pará", "castanha-do-para"], 674, 14.5, 15.1, 63.5, 15, "15 g", "tbca_verified", "TBCA BRC0003U, castanha-do-brasil crua (consulta 23/10/2026)"),
+  F("nozes", "Nozes", ["nozes"], 649, 14, 18.4, 59.4, 20, "20 g", "tbca_verified", "TBCA BRC0009U, crua (consulta 23/10/2026)"),
+  F("chia", "Semente de chia", ["chia"], 443, 16.5, 42.1, 30.7, 15, "15 g", "tbca_verified", "TBCA BRC0402A, semente seca; dado importado pela TBCA (consulta 23/10/2026)"),
+  F("linhaça", "Linhaça", ["linhaça", "linhaca"], 453, 14.1, 43.3, 32.3, 15, "15 g", "tbca_verified", "TBCA BRC0006U, semente (consulta 23/10/2026)"),
 
   // =========================================================
   // DOCES / ULTRAPROCESSADOS / REFEIÇÃO LIVRE
@@ -308,10 +309,10 @@ export const FOOD_CATALOG = [
   F("temaki-philadelphia-sem-shoyu", "Temaki de salmão com cream cheese sem shoyu", ["temaki sem shoyu"], 165, 8.69, 21.5, 4.99, 90, "1 unidade", "tbca_verified"),
   F("hot-roll-philadelphia", "Hot Philadelphia (Hot Roll)", ["hot philadelphia", "hot roll", "hotroll", "hot filadélfia"], 282, 9.06, 30.4, 14.5, 30, "1 peça de 30 g", "tbca_verified"),
   F("uramaki-salmao-pepino", "Uramaki de salmão com pepino e cream cheese", ["uramaki de salmão com pepino", "uramaki salmão", "uramaki salmao", "uramaki philadelphia", "uramakis", "uramaki"], 144, 6.72, 20.2, 4.67, 60, "1 unidade de 60 g", "tbca_verified"),
-  // Sashimi: kcal por 100 g iguais ao USDA FoodData Central 175167 (salmão do Atlântico de
-  // cativeiro, cru: 208 kcal). Fatia de 25 g é estimativa curada sem fonte oficial
-  // (TBCA sem registro de sashimi em 10/2026). Também usado pelo gerador em nutrition.js.
-  F("sashimi-salmao", "Sashimi de salmão", ["sashimi salmão", "sashimi salmao", "sashimi"], 208, 20.5, 0.0, 13.4, 25, "1 fatia", "curated_estimate"),
+  // Sashimi: valores por 100 g do salmão cru s/ pele da TBCA (BRC0065E); antes usava o
+  // USDA 175167 (208 kcal). Fatia de 25 g segue estimativa sem fonte oficial (TBCA sem
+  // registro de sashimi em 10/2026). Também usado pelo gerador em nutrition.js.
+  F("sashimi-salmao", "Sashimi de salmão", ["sashimi salmão", "sashimi salmao", "sashimi"], 165, 19.4, 0, 9.7, 25, "1 fatia", "tbca_verified", "TBCA BRC0065E, salmão cru s/ pele; fatia de 25 g é estimativa (consulta 23/10/2026)"),
   F("nigiri-salmao", "Nigiri de salmão", ["niguiris de salmão", "nigiris de salmão", "nigiri de salmão", "niguiri de salmão", "nigiri salmão", "niguiri salmao", "niguiris", "nigiris", "nigiri", "niguiri"], 165, 8.5, 22.0, 4.0, 35, "1 peça", "curated_estimate"),
   F("hossomaki-salmao", "Hossomaki de salmão", ["hossomaki de salmão", "hossomaki salmão", "hossomaki salmao", "hosomaki"], 165, 7.0, 25.0, 3.0, 25, "1 peça", "curated_estimate"),
   F("uramaki-california", "Uramaki Califórnia", ["california", "uramaki california"], 160, 5.0, 26.0, 4.5, 30, "1 peça", "curated_estimate"),

@@ -278,3 +278,18 @@ test("CAT-11: nome do modelo bate com o preparo usado", () => {
   const scrambled = EXPANDED_TEMPLATES["lanche da tarde"].find((template) => template.name === "Ovos mexidos com pão");
   assert.ok(scrambled.foods.includes("Ovo mexido"));
 });
+
+test("CAT-10: gorduras, oleaginosas, embutidos e peixes com valores da TBCA", () => {
+  const values = (id) => { const food = FOOD_CATALOG.find((entry) => entry.id === id); return [food.kcal, food.protein, food.fat]; };
+  assert.deepEqual(values("azeite"), [900, 0, 100]);
+  assert.deepEqual(values("manteiga"), [673, 0.39, 74.4]);
+  assert.deepEqual(values("castanha-do-para"), [674, 14.5, 63.5]);
+  assert.deepEqual(values("presunto-cozido"), [121, 15.1, 5.7]);
+  assert.deepEqual(values("camarao-cozido"), [82, 17.7, 1.28]);
+  assert.deepEqual(values("sashimi-salmao"), values("salmao-cru"));
+});
+
+test("CAT-10: atum em óleo e atum em água são itens distintos", () => {
+  assert.equal(firstId("comi 120 g de atum em óleo"), "atum-enlatado-oleo");
+  assert.equal(firstId("comi 120 g de atum em água"), "atum-enlatado-agua");
+});
