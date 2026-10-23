@@ -138,7 +138,7 @@ export const FOOD_CATALOG = [
   // =========================================================
   F("batata-cozida", "Batata inglesa cozida", ["batata cozida", "batata inglesa cozida", "batata inglesa"], 87, 1.9, 20.1, 0.1, 180, "180 g", "tbca_aligned"),
   F("batata-assada", "Batata assada", ["batata assada"], 93, 2.5, 21.0, 0.1, 180, "180 g", "curated_estimate"),
-  F("batata-frita", "Batata frita", ["batata", "batata frita", "fritas"], 312, 3.4, 41.0, 15.0, 100, "100 g", "curated_estimate"),
+  F("batata-frita", "Batata frita", ["batata frita", "fritas"], 312, 3.4, 41.0, 15.0, 100, "100 g", "curated_estimate"),
   F("batata-doce-cozida", "Batata-doce cozida", ["batata-doce", "batata doce"], 76, 1.4, 18.2, 0.1, 150, "150 g", "curated_estimate"),
   F("mandioca-cozida", "Mandioca cozida", ["mandioca", "aipim", "macaxeira"], 125, 1.0, 30.0, 0.3, 150, "150 g", "tbca_aligned"),
   F("mandioquinha-cozida", "Mandioquinha cozida", ["mandioquinha", "batata-baroa"], 80, 0.9, 18.0, 0.2, 150, "150 g", "curated_estimate"),
@@ -587,23 +587,59 @@ export function normalizeText(value) {
     .trim();
 }
 
+// Termos genéricos que não definem preparo ou corte. Um nome mais específico na mesma
+// posição vence ("batata frita", "bife acebolado"); sozinhos, pedem esclarecimento em
+// vez de escolher silenciosamente uma das opções.
+const GENERIC_FOOD_TERMS = [
+  { term: "batata", options: ["batata-cozida", "batata-assada", "batata-frita", "batata-rustica"] },
+  { term: "bife", options: ["patinho-grelhado", "alcatra-grelhada", "bife-acebolado"] }
+];
+
 let catalogEntries = null;
 let catalogById = null;
 
 // Ocorrências de alimentos do catálogo em um texto já normalizado, por palavra inteira,
-// sem sobreposição (o nome mais longo vence) e em ordem de posição.
+// sem sobreposição (o nome mais longo vence) e em ordem de posição. Ocorrências de
+// termos genéricos vêm com `generic` em vez de `item`.
 function findFoodOccurrences(text) {
   if (!catalogEntries) {
-    catalogEntries = FOOD_CATALOG.map((item) => ({ key: item.id, terms: [item.name, ...(item.aliases || [])] }));
+    catalogEntries = [
+      ...FOOD_CATALOG.map((item) => ({ key: item.id, terms: [item.name, ...(item.aliases || [])] })),
+      ...GENERIC_FOOD_TERMS.map(({ term }) => ({ key: `generic:${term}`, terms: [term] }))
+    ];
     catalogById = new Map(FOOD_CATALOG.map((item) => [item.id, item]));
   }
   return matchFoodTerms(text, catalogEntries, { normalized: true })
-    .map((occurrence) => ({ ...occurrence, item: catalogById.get(occurrence.key) }));
+    .map((occurrence) => occurrence.key.startsWith("generic:")
+      ? { ...occurrence, generic: GENERIC_FOOD_TERMS.find(({ term }) => `generic:${term}` === occurrence.key) }
+      : { ...occurrence, item: catalogById.get(occurrence.key) });
+}
+
+// Trechos negados: "não comi X", "nem bebi Y" até o fim da frase ou a próxima afirmação
+// ("não comi arroz, comi batata"); "sem X" cobre só o alimento logo em seguida.
+function findNegatedRanges(text) {
+  const ranges = [];
+  const negation = /\b(?:nao|nem)\s+(?:comi|bebi|tomei|almocei|jantei|lanchei|consumi|comemos)\b/g;
+  const affirmation = /[.;!?\n]|(?<!\b(?:nao|nem)\s)\b(?:comi|bebi|tomei|almocei|jantei|lanchei|consumi|mas|so|apenas|somente)\b/;
+  for (const match of text.matchAll(negation)) {
+    const start = match.index + match[0].length;
+    const end = text.slice(start).search(affirmation);
+    ranges.push([start, end >= 0 ? start + end : text.length]);
+  }
+  for (const match of text.matchAll(/\bsem\s+(?:o\s+|a\s+)?/g)) {
+    ranges.push([match.index + match[0].length, match.index + match[0].length + 1]);
+  }
+  return ranges;
+}
+
+function isNegated(occurrence, ranges) {
+  return ranges.some(([start, end]) => occurrence.index >= start && occurrence.index < end);
 }
 
 export function findFoodCandidates(message) {
   const seen = new Set();
   return findFoodOccurrences(normalizeText(message))
+    .filter(({ item }) => item)
     .map(({ item }) => item)
     .filter((item) => !seen.has(item.id) && seen.add(item.id));
 }
@@ -682,9 +718,30 @@ function extractQuantity(text, item, fromIndex = 0, { allowDefault = true, endIn
 // Agrupa as ocorrências por alimento. A primeira menção vale mesmo sem quantidade;
 // menções seguintes só somam quando trazem quantidade explícita
 // ("uma banana e depois mais duas bananas" = 3; "comi arroz, o arroz estava frio" = 1).
+// Também separa alimentos negados ("não comi arroz") e termos genéricos que precisam de
+// esclarecimento ("batata", "bife"); nenhum dos dois entra na contagem.
 function groupOccurrencesByFood(text) {
   const groups = new Map();
+  const negated = [];
+  const clarifications = [];
+  const negatedRanges = findNegatedRanges(text);
   for (const occurrence of findFoodOccurrences(text)) {
+    if (isNegated(occurrence, negatedRanges)) {
+      negated.push(occurrence.item?.name || occurrence.generic.term);
+      continue;
+    }
+    if (occurrence.generic) {
+      if (!clarifications.some(({ term }) => term === occurrence.generic.term)) {
+        clarifications.push({
+          term: occurrence.generic.term,
+          options: occurrence.generic.options
+            .map((id) => catalogById.get(id))
+            .filter(Boolean)
+            .map(({ id, name }) => ({ id, name }))
+        });
+      }
+      continue;
+    }
     const details = extractQuantityDetails(text, occurrence.item, occurrence.index, { endIndex: occurrence.end });
     const group = groups.get(occurrence.item.id) || { item: occurrence.item, position: occurrence.index, mentions: [] };
     group.mentions.push({
@@ -694,12 +751,12 @@ function groupOccurrencesByFood(text) {
     });
     groups.set(occurrence.item.id, group);
   }
-  return [...groups.values()];
+  return { groups: [...groups.values()], negated: [...new Set(negated)], clarifications };
 }
 
 export function getMissingMealQuantities(message) {
   const text = normalizeText(message);
-  return groupOccurrencesByFood(text)
+  return groupOccurrencesByFood(text).groups
     .filter(({ mentions }) => !mentions.some((mention) => mention.explicitGrams))
     .map(({ item, position }) => ({
       id: item.id,
@@ -713,8 +770,8 @@ export function getMissingMealQuantities(message) {
 
 export function estimateMealFromText(message, options = {}) {
   const text = normalizeText(message);
-  const groups = groupOccurrencesByFood(text);
-  if (!groups.length) return null;
+  const { groups, negated, clarifications } = groupOccurrencesByFood(text);
+  if (!groups.length && !clarifications.length) return null;
 
   if (options.requireExplicitQuantities) {
     const missing = getMissingMealQuantities(message);
@@ -749,7 +806,7 @@ export function estimateMealFromText(message, options = {}) {
     });
   }
 
-  if (!matched.length) return null;
+  if (!matched.length && !clarifications.length) return null;
 
   const totals = matched.reduce((acc, item) => {
     acc.calories += item.calories;
@@ -777,7 +834,10 @@ export function estimateMealFromText(message, options = {}) {
     fat_g: Math.round(totals.fat_g * 10) / 10,
     estimated: true,
     confidence,
-    matched_items: matched
+    matched_items: matched,
+    // Quem registra a refeição não deve gravar enquanto houver esclarecimento pendente.
+    ...(clarifications.length ? { needs_clarification: clarifications } : {}),
+    ...(negated.length ? { negated_items: negated } : {})
   };
 }
 

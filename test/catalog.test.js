@@ -139,11 +139,25 @@ test("NC-06: medida caseira genérica é marcada como aproximação", () => {
 
 // ---------- NC-10: negação e preparações ----------
 
-test("NC-10: 'não comi arroz' não registra arroz", { todo: "NC-10" }, () => {
-  assert.ok(!ids(estimateMealFromText("não comi arroz, comi batata")).includes("arroz-branco-cozido"));
+test("NC-10: 'não comi arroz' não registra arroz", () => {
+  const estimate = estimateMealFromText("não comi arroz, comi batata cozida");
+  assert.deepEqual(ids(estimate), ["batata-cozida"]);
+  assert.deepEqual(estimate.negated_items, ["Arroz branco cozido"]);
 });
-test("NC-10: 'batata' sem preparo não vira batata frita", { todo: "NC-10" }, () => {
-  assert.ok(!ids(estimateMealFromText("comi batata")).includes("batata-frita"));
+test("NC-10: negação cobre a lista até a próxima afirmação", () => {
+  assert.deepEqual(ids(estimateMealFromText("não comi arroz nem feijão, só frango")), ["peito-de-frango-grelhado"]);
+  assert.equal(estimateMealFromText("não comi arroz, feijão e carne"), null);
+});
+test("NC-10: 'sem X' não conta X e não quebra itens compostos", () => {
+  assert.deepEqual(ids(estimateMealFromText("comi arroz sem feijão")), ["arroz-branco-cozido"]);
+  assert.deepEqual(ids(estimateMealFromText("tomei café sem açúcar")), ["cafe-sem-acucar"]);
+});
+test("NC-10: 'batata' sem preparo não vira batata frita e pede esclarecimento", () => {
+  const estimate = estimateMealFromText("comi batata");
+  assert.ok(!ids(estimate).includes("batata-frita"));
+  assert.deepEqual(estimate.needs_clarification.map(({ term }) => term), ["batata"]);
+  assert.deepEqual(ids(estimateMealFromText("comi batata frita")), ["batata-frita"]);
+  assert.deepEqual(ids(estimateMealFromText("comi 2 batatas cozidas")), ["batata-cozida"]);
 });
 
 // ---------- NC-11: cobertura de plurais / itens comuns ----------
@@ -151,8 +165,12 @@ test("NC-10: 'batata' sem preparo não vira batata frita", { todo: "NC-10" }, ()
 test("NC-11: '2 pães franceses' é reconhecido", () => {
   assert.ok(ids(estimateMealFromText("comi 2 pães franceses")).includes("pao-frances"));
 });
-test("NC-11: 'bife' é reconhecido em prato feito", { todo: "NC-11" }, () => {
-  assert.equal(ids(estimateMealFromText("comi um prato de arroz com feijão e bife")).length, 3);
+test("NC-11: 'bife' é reconhecido em prato feito e pede o corte", () => {
+  const estimate = estimateMealFromText("comi um prato de arroz com feijão e bife");
+  assert.deepEqual(ids(estimate), ["arroz-branco-cozido", "feijao-carioca-cozido"]);
+  assert.deepEqual(estimate.needs_clarification[0].options.map(({ id }) => id),
+    ["patinho-grelhado", "alcatra-grelhada", "bife-acebolado"]);
+  assert.deepEqual(ids(estimateMealFromText("comi bife de patinho")), ["patinho-grelhado"]);
 });
 
 // ---------- NC-04: confiança ----------

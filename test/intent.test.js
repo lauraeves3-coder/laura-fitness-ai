@@ -122,3 +122,13 @@ test("AI-04: 'pão de queijo' não declara queijo disponível", () => {
 test("AI-04: 'carne de soja' não declara carne", () => {
   assert.ok(!ai.extractAvailableFoods("tenho carne de soja").includes("carne"));
 });
+
+// ---------- NC-10: pergunta de esclarecimento ----------
+
+test("NC-10: pergunta lista as opções sem registrar", () => {
+  const question = ai.buildMealClarificationQuestion({
+    needs_clarification: [{ term: "bife", options: [{ name: "Patinho grelhado" }, { name: "Alcatra grelhada" }] }]
+  });
+  assert.match(question, /bife: patinho grelhado ou alcatra grelhada\?/);
+  assert.match(question, /Ainda não registrei nada/);
+});

@@ -1125,6 +1125,24 @@ function detectAmbiguousCompositionExclusion(message) {
     .find(({ candidates }) => candidates.length > 1) || null;
 }
 
+// NC-10: termo genérico ("batata", "bife") sem preparo ou corte. Nada é registrado
+// até o usuário especificar.
+function buildMealClarificationQuestion(estimate) {
+  const lines = estimate.needs_clarification.map(({ term, options }) =>
+    `• ${term}: ${joinWithOu(options.map(({ name }) => name.toLocaleLowerCase("pt-BR")))}?`);
+  return [
+    "Antes de registrar, preciso saber o preparo ou o corte:",
+    ...lines,
+    "Reenvie a refeição com esse detalhe (ex.: \"comi arroz, feijão e bife de patinho\"). Ainda não registrei nada."
+  ].join("\n");
+}
+
+function joinWithOu(items) {
+  return items.length <= 1
+    ? items.join("")
+    : `${items.slice(0, -1).join(", ")} ou ${items[items.length - 1]}`;
+}
+
 function displayFoodName(food) {
   const accented = {
     agua: "água", feijao: "feijão", pao: "pão", "pao integral": "pão integral",
@@ -2633,6 +2651,10 @@ const summaryIntent = classifySummaryIntent(message);
     ) {
       const estimatedMeal = estimateMealFromText(message);
 
+      if (estimatedMeal?.needs_clarification) {
+        return buildMealClarificationQuestion(estimatedMeal);
+      }
+
       if (estimatedMeal) {
         return processMessage(
           userId,
@@ -3002,6 +3024,10 @@ const summaryIntent = classifySummaryIntent(message);
 
             if (!estimatedMeal) {
               return "Para registrar essa refeição diretamente, preciso de uma descrição que eu consiga estimar com segurança ou dos valores informados de calorias, proteínas, carboidratos e gorduras. Não registrei a refeição.";
+            }
+
+            if (estimatedMeal.needs_clarification) {
+              return buildMealClarificationQuestion(estimatedMeal);
             }
 
             data = {

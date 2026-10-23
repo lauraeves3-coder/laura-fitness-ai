@@ -4,7 +4,7 @@ Data: 22/10/2026 · Branch: `audit/nutrition-tests` · Correções aplicadas em 
 
 Como reproduzir: `npm test` (node:test, sem API OpenAI, sem `fitness.db`).
 Testes marcados `# TODO <ID>` reproduzem um defeito confirmado; ao corrigir, remova o `todo`.
-Resultado atual: 91 testes · 88 passando · 3 defeitos ainda reproduzidos · `fitness.db`/WAL com hash idêntico antes e depois.
+Resultado atual: 94 testes · 94 passando · 0 defeitos reproduzidos · `fitness.db`/WAL com hash idêntico antes e depois.
 
 ## Estado do repositório (risco)
 
@@ -56,6 +56,8 @@ Mantidos como hipóteses/limitações (sem teste ainda): NC-03 (19 grupos de mod
   - Observação de dados: o uramaki de salmão usa 60 g por peça (comentário TBCA no código), o que dá 8 peças = 688 kcal; vale conferir essa gramagem na TBCA.
 
 - **Etapa 6, restrições e combinações (resolvido: EX-01, EX-02, AI-06):** `extractExcludedFoods` normaliza acentos, nega todos os alimentos da cláusula ("não quero frango nem arroz") e para na virada positiva ("..., quero arroz", "mas tenho frango"); "sem X" só afeta o alimento logo em seguida e respeita compostos ("frango sem pele", "sem pão de queijo" não rejeitam nada). Combinação contextual só é registrada com um único alimento possível na mesma frase; com vários ("tenho banana, aveia e leite, mas não quero tomar com água") nada é registrado e o agente pergunta qual. A confirmação é montada a partir das combinações detectadas ("Não vou sugerir arroz com feijão. Arroz e feijão continuam liberados…"); combinação não reconhecida não gera confirmação.
+
+- **Etapa 7, negação e preparo no registro (resolvido: NC-10, NC-11):** `estimateMealFromText` ignora alimentos em trechos negados ("não comi arroz, comi…", "não comi arroz nem feijão, só frango", "arroz sem feijão") e os lista em `negated_items`. Removido o alias genérico "batata" da batata frita; "batata" e "bife" sem preparo/corte entram em `needs_clarification` com as opções do catálogo, e `ai.js` pergunta antes de registrar (antes, "arroz, feijão e bife" gravava 206 kcal ignorando o bife). "bife de patinho", "bife acebolado", "batata frita", "batatas cozidas" continuam diretos.
 
 ## Plano de correção (ordem por dependência)
 

@@ -24,7 +24,7 @@ const NAMES = [
   "detectDesiredComposition", "normalizeRequestText", "normalizeToolFoodList",
   "detectExplicitExcludedCompositions", "extractExcludedFoods",
   "compositionFoodPattern", "findContextualCompositionExclusions", "detectAmbiguousCompositionExclusion",
-  "displayFoodName", "joinWithE", "buildCompositionExclusionReply", "buildAmbiguousCompositionQuestion", "getFoodRestrictions",
+  "displayFoodName", "joinWithE", "joinWithOu", "buildMealClarificationQuestion", "buildCompositionExclusionReply", "buildAmbiguousCompositionQuestion", "getFoodRestrictions",
   "hasDesiredFoodAvailable", "extractAvailableFoods", "detectWheyAvailability"
 ];
 
