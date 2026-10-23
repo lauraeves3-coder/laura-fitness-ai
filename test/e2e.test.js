@@ -247,3 +247,140 @@ test("NUT-13: 'de novo' registra a repetição intencional", async () => {
   await send(userId, "comi banana de novo: 90 kcal, 1 g de proteína, 21 g de carboidratos e 0 g de gordura", fakeModel([toolCall("record_meal", args), finalText("ok")]));
   assert.equal(db.getTodayMeals(userId).length, 2);
 });
+
+// ---------- NUT-18 / NUT-12 / NUT-15: plano, escolha, confirmação e saldo ----------
+
+function userWithTargets() {
+  const userId = newUser();
+  db.updateUserProfile(userId, { age_years: 30, sex: "female", height_cm: 165, weight_kg: 65, goal: "maintain", activity_level: "moderate" });
+  db.calculateAndSaveNutritionTargets(userId);
+  return userId;
+}
+const today = (userId) => db.getDailySummary(userId).date;
+
+async function createPlan(userId) {
+  const reply = await send(userId, "monte um plano alimentar para hoje", fakeModel([
+    toolCall("create_daily_meal_plan", { current_meal_period: null }),
+    finalText("ok")
+  ]));
+  return { reply, plan: db.getMealPlan(userId, today(userId)) };
+}
+
+test("NUT-18: plano diário é criado e salvo sem registrar consumo", async () => {
+  const userId = userWithTargets();
+  const { reply, plan } = await createPlan(userId);
+  assert.match(reply, /Plano alimentar de hoje/);
+  assert.ok(plan, "plano salvo");
+  assert.ok(plan.plan.meals.length >= 1);
+  for (const meal of plan.plan.meals) assert.ok(meal.options.length >= 1, meal.period);
+  assert.equal(db.getTodayMeals(userId).length, 0);
+  assert.equal(db.getDailySummary(userId).calories, 0);
+});
+
+test("NUT-18: orçamentos das refeições não passam do saldo do dia", async () => {
+  const userId = userWithTargets();
+  await send(userId, "comi 2 ovos");
+  const { plan } = await createPlan(userId);
+  const remaining = db.getDailySummary(userId).calorie_remaining;
+  const totalBudget = plan.plan.meals.reduce((sum, meal) => sum + Number(meal.calorie_budget || 0), 0);
+  assert.ok(totalBudget <= remaining + plan.plan.meals.length, `${totalBudget} > ${remaining}`);
+});
+
+test("NUT-18: sem meta calórica o plano não é criado", async () => {
+  const userId = newUser();
+  const { reply, plan } = await createPlan(userId);
+  assert.match(reply, /preciso primeiro da sua meta diária/);
+  assert.equal(plan, null);
+});
+
+test("NUT-18: plano sem pedido explícito não é criado", async () => {
+  const userId = userWithTargets();
+  await send(userId, "o que acha da minha alimentação?", fakeModel([
+    toolCall("create_daily_meal_plan", { current_meal_period: null }),
+    finalText("ok")
+  ]));
+  assert.equal(db.getMealPlan(userId, today(userId)), null);
+});
+
+test("NUT-18: 'sim' após o plano registra a intenção de seguir", async () => {
+  const userId = userWithTargets();
+  await createPlan(userId);
+  const reply = await send(userId, "sim", fakeModel([toolCall("set_meal_plan_intent", { intends_to_follow: true }), finalText("ok")]));
+  assert.match(reply, /Vou usar o plano como referência/);
+  assert.equal(db.getMealPlan(userId, today(userId)).status, "intended");
+  assert.equal(db.getTodayMeals(userId).length, 0);
+});
+
+async function chooseFirstOption(userId) {
+  const { plan } = await createPlan(userId);
+  const meal = plan.plan.meals[0];
+  const reply = await send(userId, "escolho a opção 1", fakeModel([
+    toolCall("choose_meal_option", { meal_period: meal.period, option_index: 1 }),
+    finalText("ok")
+  ]));
+  return { meal, option: meal.options[0], reply };
+}
+
+test("NUT-12: escolher uma opção não registra consumo", async () => {
+  const userId = userWithTargets();
+  const { reply } = await chooseFirstOption(userId);
+  assert.ok(db.getLatestMealPlanEvent(userId, "option_chosen"), reply);
+  assert.equal(db.getTodayMeals(userId).length, 0);
+});
+
+test("NUT-12 / NUT-15: confirmação registra a opção escolhida e atualiza o saldo", async () => {
+  const userId = userWithTargets();
+  const before = db.getDailySummary(userId);
+  const { option } = await chooseFirstOption(userId);
+  const reply = await send(userId, "comi a opção 1");
+  assert.match(reply, /Registrei como consumida/);
+  const meals = db.getTodayMeals(userId);
+  assert.equal(meals.length, 1);
+  assert.equal(meals[0].calories, option.calories);
+  const after = db.getDailySummary(userId);
+  assert.equal(after.calories, option.calories);
+  assert.equal(Math.round(after.calorie_remaining), Math.round(before.calorie_remaining - option.calories));
+});
+
+test("NUT-12: confirmar duas vezes não duplica", async () => {
+  const userId = userWithTargets();
+  await chooseFirstOption(userId);
+  await send(userId, "comi a opção 1");
+  await send(userId, "comi a opção 1");
+  assert.equal(db.getTodayMeals(userId).length, 1);
+});
+
+test("NUT-12: confirmação sem escolha prévia não registra nada", async () => {
+  const userId = userWithTargets();
+  await send(userId, "comi a opção 1", fakeModel([finalText("Resposta simulada.")]));
+  assert.equal(db.getTodayMeals(userId).length, 0);
+});
+
+test("NUT-15: saldo acompanha registro, correção e exclusão", async () => {
+  const userId = userWithTargets();
+  const target = db.getDailySummary(userId).calorie_target;
+  await send(userId, "comi uma banana");
+  const [meal] = db.getTodayMeals(userId);
+  assert.equal(Math.round(db.getDailySummary(userId).calorie_remaining), Math.round(target - meal.calories));
+
+  await send(userId, `corrija a refeição #${meal.id} para 150 kcal, 2 g de proteína, 34 g de carboidratos e 0,5 g de gordura`, fakeModel([
+    toolCall("correct_meal", { meal_id: meal.id, calories: 150, protein_g: 2, carbs_g: 34, fat_g: 0.5 }),
+    finalText("ok")
+  ]));
+  assert.equal(db.getDailySummary(userId).calories, 150);
+  assert.equal(Math.round(db.getDailySummary(userId).calorie_remaining), Math.round(target - 150));
+
+  await send(userId, `apague a refeição #${meal.id}`);
+  await send(userId, "sim, excluir");
+  assert.equal(db.getDailySummary(userId).calories, 0);
+  assert.equal(Math.round(db.getDailySummary(userId).calorie_remaining), Math.round(target));
+});
+
+test("NUT-15: resumo pelo agente mostra consumo e saldo atuais", async () => {
+  const userId = userWithTargets();
+  await send(userId, "comi 2 ovos");
+  const summary = db.getDailySummary(userId);
+  const reply = await send(userId, "como está o meu dia?", fakeModel([toolCall("get_nutrition_state", {}), finalText("ok")]));
+  assert.match(reply, new RegExp(String(Math.round(summary.calories))));
+  assert.match(reply, new RegExp(String(Math.round(summary.calorie_remaining))));
+});

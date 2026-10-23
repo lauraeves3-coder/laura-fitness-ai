@@ -3536,9 +3536,11 @@ const summaryIntent = classifySummaryIntent(message);
       summary: dailySummary,
       currentPeriod,
 
+      // explicitExcludedFoods só existe no bloco de sugestões; aqui as exclusões
+      // vêm dos fatos explícitos da própria mensagem.
       dislikes: [
         ...getFoodRestrictions(user),
-        ...explicitExcludedFoods
+        ...explicitMealFacts.explicitExcludedFoods
       ],
 
       availableFoods,
