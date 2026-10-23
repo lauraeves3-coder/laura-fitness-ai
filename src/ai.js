@@ -41,7 +41,7 @@ import { runAgent } from "./agent/agent.js";
 import { createAgentToolRegistry } from "./agent/tools.js";
 
 /* =========================================================
-   NORMALIZAÃ‡ÃƒO
+   NORMALIZAÇÃO
 ========================================================= */
 
 function normalizeNumber(
@@ -103,7 +103,7 @@ function normalizeAIResult(result) {
         description:
           String(
             data.description ||
-            "RefeiÃ§Ã£o"
+            "Refeição"
           ),
 
         calories:
@@ -143,7 +143,7 @@ function normalizeAIResult(result) {
       action,
       data: {
         meal_id: normalizeNumber(data.meal_id, null),
-        description: String(data.description || "RefeiÃ§Ã£o corrigida"),
+        description: String(data.description || "Refeição corrigida"),
         calories: data.calories === null || data.calories === undefined ? null : normalizeNumber(data.calories, null),
         protein_g: data.protein_g === null || data.protein_g === undefined ? null : normalizeNumber(data.protein_g, null),
         carbs_g: data.carbs_g === null || data.carbs_g === undefined ? null : normalizeNumber(data.carbs_g, null),
@@ -423,7 +423,7 @@ function normalizeAIResult(result) {
 }
 
 /* =========================================================
-   PERÍODO DA REFEIÃ‡ÃƒO
+   PERÍODO DA REFEIÇÃO
 ========================================================= */
 
 function getMealPeriod(date = new Date()) {
@@ -439,7 +439,7 @@ function getMealPeriod(date = new Date()) {
   );
 
   if (hour >= 5 && hour < 10) {
-    return "café da manhÃ£";
+    return "café da manhã";
   }
 
   if (hour >= 10 && hour < 15) {
@@ -710,7 +710,7 @@ function buildContext(
 }
 
 /* =========================================================
-   RESPOSTA PROJETADA DA SUGESTÃƒO
+   RESPOSTA PROJETADA DA SUGESTÃO
 ========================================================= */
 
 function buildMealProjectionReply(
@@ -734,11 +734,11 @@ function buildMealProjectionReply(
 
   const projected = calculateNutritionBalance(targets, consumed, result.data);
   const lines = [
-    `🍽️ ${result.data.name || result.data.meal || "SugestÃ£o para agora"}`,
+    `🍽️ ${result.data.name || result.data.meal || "Sugestão para agora"}`,
     ...(result.data.foods || []).map((food) => `• ${food}`),
     `🔥 Aproximadamente ${Math.round(result.data.calories)} kcal · 🥩 ${Math.round(result.data.protein_g)} g proteína · 🍚 ${Math.round(result.data.carbs_g)} g carboidratos · 🥑 ${Math.round(result.data.fat_g)} g gorduras`,
     "",
-    "📊 ProjeÃ§Ã£o da opÃ§Ã£o escolhida (ainda nÃ£o registrada como consumo):"
+    "📊 Projeção da opção escolhida (ainda não registrada como consumo):"
   ];
 
   const labels = {
@@ -759,22 +759,22 @@ function buildMealProjectionReply(
         : `ultrapassaria em ${Math.round(Math.abs(remaining))} ${unit}`;
     lines.push(`${label}: ${status}`);
     if (result.data.explicit_overage) {
-      lines.push(`  ProjeÃ§Ã£o: ${Math.round(metric.projected_consumed)} / ${Math.round(metric.target)} ${unit}`);
+      lines.push(`  Projeção: ${Math.round(metric.projected_consumed)} / ${Math.round(metric.target)} ${unit}`);
     }
   }
 
   if (projected.macros_compatible === false && !budgetAnalysis?.incompatible) {
-    lines.push("ℹ️ As metas atuais de calorias e macros nÃ£o sÃ£o matematicamente compatíveis; nÃ£o é possível atingir todas simultaneamente.");
+    lines.push("ℹ️ As metas atuais de calorias e macros não são matematicamente compatíveis; não é possível atingir todas simultaneamente.");
   }
 
   if (budgetAnalysis?.incompatible) {
     const remainingCalories = Math.round(budgetAnalysis.calorie_remaining);
     const requiredCalories = Math.round(budgetAnalysis.macro_calorie_requirement_kcal);
     lines.push("");
-    lines.push(`� ️ Restam ${remainingCalories} kcal, mas atingir os macros ainda pendentes exigiria cerca de ${requiredCalories} kcal. NÃ£o é possível completar tudo sem ultrapassar a meta calórica.`);
+    lines.push(`⚠️ Restam ${remainingCalories} kcal, mas atingir os macros ainda pendentes exigiria cerca de ${requiredCalories} kcal. Não é possível completar tudo sem ultrapassar a meta calórica.`);
     lines.push(budgetAnalysis.priority === "protein"
-      ? "Vou priorizar proteína e manter esta sugestÃ£o dentro do limite de calorias; carboidratos e gorduras ficam como metas secundárias."
-      : "Vou respeitar o limite de calorias e nÃ£o tentar aumentar um macro que já atingiu ou ultrapassou a meta.");
+      ? "Vou priorizar proteína e manter esta sugestão dentro do limite de calorias; carboidratos e gorduras ficam como metas secundárias."
+      : "Vou respeitar o limite de calorias e não tentar aumentar um macro que já atingiu ou ultrapassou a meta.");
   }
 
   lines.push("\nSe quiser, posso registrar quando você confirmar que comeu.");
@@ -846,22 +846,22 @@ function normalizeMealPeriod(period, fallback = getMealPeriod()) {
 function extractAvailableFoods(message) {
   const explicitAvailability = /\b(tenho|tem em casa|dispon[ií]vel|s[oó] tenho|aqui tem)\b/i.test(message);
   const foods = [
-    "frango", "arroz", "feijÃ£o", "ovos", "ovo", "pÃ£o integral", "banana",
+    "frango", "arroz", "feijão", "ovos", "ovo", "pão integral", "banana",
     "iogurte", "aveia", "tapioca", "queijo", "carne", "batata", "legumes",
-    "peixe", "atum", "tomate", "leite", "maÃ§Ã£", "salada", "pasta de amendoim",
-    "tofu", "lentilha", "grÃ£o-de-bico", "homus", "bebida de soja", "iogurte de soja", "edamame", "cenoura", "amendoim",
-    "salmÃ£o", "tilápia", "peito de frango", "arroz integral", "batata-doce", "batata doce", "carne moída",
-    "whey protein", "whey", "proteína em pó", "proteina em po", "macarrÃ£o", "macarrao", "massa",
-    "batata inglesa", "pÃ£o", "mamÃ£o", "mamao", "laranja", "carne bovina", "carne moida", "ovo cozido"
+    "peixe", "atum", "tomate", "leite", "maçã", "salada", "pasta de amendoim",
+    "tofu", "lentilha", "grão-de-bico", "homus", "bebida de soja", "iogurte de soja", "edamame", "cenoura", "amendoim",
+    "salmão", "tilápia", "peito de frango", "arroz integral", "batata-doce", "batata doce", "carne moída",
+    "whey protein", "whey", "proteína em pó", "proteina em po", "macarrão", "macarrao", "massa",
+    "batata inglesa", "pão", "mamão", "mamao", "laranja", "carne bovina", "carne moida", "ovo cozido"
   ];
   const normalized = message.toLocaleLowerCase("pt-BR");
   const excluded = new Set(extractExcludedFoods(message));
   const aliases = {
-    "salmÃ£o": "peixe", "tilápia": "peixe", "peito de frango": "frango",
+    "salmão": "peixe", "tilápia": "peixe", "peito de frango": "frango",
     "arroz integral": "arroz", "batata-doce": "batata", "batata doce": "batata",
     "whey protein": "whey", "proteína em pó": "whey", "proteina em po": "whey",
     "carne moída": "carne moída", "carne moida": "carne moida",
-    "macarrao": "macarrÃ£o", "mamao": "mamÃ£o"
+    "macarrao": "macarrão", "mamao": "mamão"
   };
   const commonAvailable = explicitAvailability
     ? foods.filter((food) => normalized.includes(food) && !excluded.has(food))
@@ -945,7 +945,7 @@ function detectDesiredFood(message, modelValue = "") {
    *   "quero chocolate" -> chocolate
    *   "quero whey"     -> ""
    *
-   * Whey é tratado pelo gerador normal, nÃ£o como craving.
+   * Whey é tratado pelo gerador normal, não como craving.
    */
   return normalizeDesiredFood(message)
     || normalizeDesiredFood(modelValue)
@@ -1079,7 +1079,7 @@ function normalizeToolFoodList(value) {
   const aliases = new Map([
     ["whey protein", "whey"], ["proteína em pó", "whey"], ["proteina em po", "whey"],
     ["ovo", "ovos"], ["arroz integral", "arroz"], ["peito de frango", "frango"],
-    ["tilápia", "peixe"], ["tilapia", "peixe"], ["salmÃ£o", "peixe"], ["salmao", "peixe"]
+    ["tilápia", "peixe"], ["tilapia", "peixe"], ["salmão", "peixe"], ["salmao", "peixe"]
   ]);
   return [...new Set(value
     .filter((item) => typeof item === "string")
@@ -1093,7 +1093,7 @@ function detectExplicitExcludedCompositions(message) {
   const foods = [
     "whey protein", "proteína em pó", "proteina em po", "whey",
     "leite", "água", "agua", "banana", "aveia", "iogurte", "queijo",
-    "pÃ£o integral", "pao integral", "pÃ£o", "pao", "arroz", "feijÃ£o",
+    "pão integral", "pao integral", "pão", "pao", "arroz", "feijão",
     "feijao", "frango", "ovo", "ovos", "carne", "batata", "atum",
     "tomate", "pasta de amendoim", "amendoim", "salada"
   ];
@@ -1104,7 +1104,7 @@ function detectExplicitExcludedCompositions(message) {
     .map(escapeRegex)
     .join("|")})`;
   const pattern = new RegExp(
-    `\\b(?:nao|nÃ£o)\\s+(?:quero|queria|gosto\\s+de|vou\\s+usar|vou\\s+tomar|vou\\s+comer)\\s+(?:o|a|um|uma)?\\s*(${foodPattern})\\s+(?:com|e\\s+com)\\s+(?:o|a|um|uma)?\\s*(${foodPattern})\\b`,
+    `\\b(?:nao|não)\\s+(?:quero|queria|gosto\\s+de|vou\\s+usar|vou\\s+tomar|vou\\s+comer)\\s+(?:o|a|um|uma)?\\s*(${foodPattern})\\s+(?:com|e\\s+com)\\s+(?:o|a|um|uma)?\\s*(${foodPattern})\\b`,
     "gi"
   );
 
@@ -1159,9 +1159,9 @@ function buildExplicitMealRequestFacts(message) {
   const explicitExcludedCompositions = detectExplicitExcludedCompositions(message);
 
   /*
-   * Uma exclusÃ£o de composiÃ§Ã£o nÃ£o transforma seus ingredientes em
-   * alimentos proibidos. Ex.: "nÃ£o quero whey com água" mantém whey
-   * disponível e proíbe somente a combinaÃ§Ã£o whey + água.
+   * Uma exclusão de composição não transforma seus ingredientes em
+   * alimentos proibidos. Ex.: "não quero whey com água" mantém whey
+   * disponível e proíbe somente a combinação whey + água.
    */
   const compositionIngredients = new Set(
     explicitExcludedCompositions.flatMap((composition) => composition.ingredients)
@@ -1232,8 +1232,8 @@ function mergeExplicitMealSuggestionData(data, explicitFacts) {
 
   /*
    * Se o usuário declarou explicitamente que possui um alimento,
-   * uma interpretaÃ§Ã£o do modelo nÃ£o pode transformá-lo em proibido.
-   * A única exceÃ§Ã£o é uma exclusÃ£o explícita do próprio usuário.
+   * uma interpretação do modelo não pode transformá-lo em proibido.
+   * A única exceção é uma exclusão explícita do próprio usuário.
    */
   const excludedFoods = union(
     modelData.explicit_excluded_foods,
@@ -1267,13 +1267,13 @@ function mergeExplicitMealSuggestionData(data, explicitFacts) {
     explicit_excluded_compositions: excludedCompositions,
 
     /*
-     * "Só tenho X e Y" e "quero algo rápido" sÃ£o restrições
-     * determinísticas. O modelo nÃ£o pode inventá-las nem removê-las.
+     * "Só tenho X e Y" e "quero algo rápido" são restrições
+     * determinísticas. O modelo não pode inventá-las nem removê-las.
      */
     only_available_foods: explicitFacts.onlyAvailableFoods === true,
 
     /*
-     * NÃ£o pedido explicitamente = nÃ£o é quick_only.
+     * Não pedido explicitamente = não é quick_only.
      */
     quick_only: explicitFacts.quickOnly === true,
 
@@ -1314,13 +1314,13 @@ function hasDesiredFoodAvailable(message, desiredFood) {
   }
 
   /*
-   * Considera somente o trecho da declaraÃ§Ã£o de disponibilidade.
+   * Considera somente o trecho da declaração de disponibilidade.
    *
    * Ex.:
    *   "Tenho pizza" -> pizza disponível
    *
    *   "Tenho whey, mas quero pizza"
-   *      -> pizza NÃƒO é considerada disponível
+   *      -> pizza NÃO é considerada disponível
    */
   const availabilityText = text
     .slice(match.index + match[0].length)
@@ -1337,27 +1337,27 @@ function buildDesiredFoodReply(options, desiredFood, budget, budgetAnalysis, { a
   const lines = [`Vou tentar encaixar ${names[desiredFood] || desiredFood} no orçamento desta refeição.`];
   if (!options.length) {
     if (availabilityOnly) {
-      lines.push(`NÃ£o encontrei uma composiÃ§Ã£o de ${names[desiredFood] || desiredFood} que use apenas os alimentos informados e caiba no orçamento de aproximadamente ${Math.round(budget)} kcal.`);
-      lines.push("Diga se você pode incluir algum ingrediente ou enviar os dados da porÃ§Ã£o desejada para eu recalcular.");
+      lines.push(`Não encontrei uma composição de ${names[desiredFood] || desiredFood} que use apenas os alimentos informados e caiba no orçamento de aproximadamente ${Math.round(budget)} kcal.`);
+      lines.push("Diga se você pode incluir algum ingrediente ou enviar os dados da porção desejada para eu recalcular.");
       return lines.join("\n");
     }
-    lines.push(`NÃ£o encontrei referência suficiente para uma porÃ§Ã£o plausível de ${names[desiredFood] || desiredFood} com os alimentos e restrições informados.`);
-    lines.push("Se você enviar a porÃ§Ã£o, ingredientes ou os dados do rótulo/cardápio, calculo o impacto sem inventar valores.");
+    lines.push(`Não encontrei referência suficiente para uma porção plausível de ${names[desiredFood] || desiredFood} com os alimentos e restrições informados.`);
+    lines.push("Se você enviar a porção, ingredientes ou os dados do rótulo/cardápio, calculo o impacto sem inventar valores.");
     return lines.join("\n");
   }
   const availableCalories = Number(budgetAnalysis?.calorie_remaining ?? budget);
-  lines.push(`Referência atual: cerca de ${Math.round(availableCalories)} kcal restantes no dia. As porções abaixo sÃ£o plausíveis; nÃ£o reduzi a unidade para forçar o encaixe.`);
+  lines.push(`Referência atual: cerca de ${Math.round(availableCalories)} kcal restantes no dia. As porções abaixo são plausíveis; não reduzi a unidade para forçar o encaixe.`);
   options.forEach((option, index) => {
-    lines.push(`\n🍽️ OpÃ§Ã£o ${index + 1} — ${option.name}`);
+    lines.push(`\n🍽️ Opção ${index + 1} — ${option.name}`);
     for (const food of option.foods) lines.push(`• ${food}`);
     lines.push(`🔥 ${option.calories} kcal · 🥩 ${option.protein_g} g proteína · 🍚 ${option.carbs_g} g carboidratos · 🥑 ${option.fat_g} g gorduras`);
     const dailyOver = Math.round(option.daily_calorie_overage || 0);
-    if (dailyOver > 0) lines.push(`� ️ Excederia o saldo diário em aproximadamente ${dailyOver} kcal.`);
+    if (dailyOver > 0) lines.push(`⚠️ Excederia o saldo diário em aproximadamente ${dailyOver} kcal.`);
     const excess = option.macro_overages || {};
     const macroLines = [["protein_g", "proteína"], ["carbs_g", "carboidratos"], ["fat_g", "gorduras"]]
       .filter(([key]) => Number(excess[key]) > 0.5)
       .map(([key, label]) => `${label}: +${Math.round(excess[key] * 10) / 10} g sobre o saldo`);
-    if (macroLines.length) lines.push(`� ️ Excedente de macros: ${macroLines.join("; ")}.`);
+    if (macroLines.length) lines.push(`⚠️ Excedente de macros: ${macroLines.join("; ")}.`);
     if (option.explicit_overage && summary) {
       const projection = calculateNutritionBalance({
         calorie_target: summary.calorie_target,
@@ -1375,36 +1375,36 @@ function buildDesiredFoodReply(options, desiredFood, budget, budgetAnalysis, { a
         const status = calories.remaining >= 0
           ? `${Math.round(calories.remaining)} kcal abaixo da meta`
           : `${Math.round(Math.abs(calories.remaining))} kcal acima da meta`;
-        lines.push(`📊 ProjeÃ§Ã£o diária: ${Math.round(calories.projected_consumed)} / ${Math.round(calories.target)} kcal (${status}).`);
+        lines.push(`📊 Projeção diária: ${Math.round(calories.projected_consumed)} / ${Math.round(calories.target)} kcal (${status}).`);
       }
     }
   });
   if (options.length === 1) {
-    lines.push("Esta foi a única composiÃ§Ã£o plausível disponível no catálogo para as restrições atuais.");
+    lines.push("Esta foi a única composição plausível disponível no catálogo para as restrições atuais.");
   }
   if (budgetAnalysis?.incompatible) {
     lines.push(`\nAs metas pendentes exigiriam aproximadamente ${Math.round(budgetAnalysis.macro_calorie_requirement_kcal)} kcal, acima das ${Math.round(budgetAnalysis.calorie_remaining)} kcal restantes. Mantive calorias como limite e priorizei proteína nas opções compatíveis.`);
   }
-  lines.push("\nEscolher uma opÃ§Ã£o só mostra a projeÃ§Ã£o. O consumo só será registrado após sua confirmaÃ§Ã£o explícita.");
+  lines.push("\nEscolher uma opção só mostra a projeção. O consumo só será registrado após sua confirmação explícita.");
   return lines.join("\n");
 }
 
 function extractExcludedFoods(message) {
   const foods = [
-    "frango", "arroz", "feijÃ£o", "ovos", "ovo", "pÃ£o integral", "banana",
+    "frango", "arroz", "feijão", "ovos", "ovo", "pão integral", "banana",
     "iogurte", "aveia", "tapioca", "queijo", "carne", "batata", "legumes",
-    "peixe", "atum", "tomate", "leite", "maÃ§Ã£", "salada", "pasta de amendoim",
-    "tofu", "lentilha", "grÃ£o-de-bico", "homus", "bebida de soja", "iogurte de soja", "edamame", "cenoura", "amendoim",
-    "salmÃ£o", "tilápia", "peito de frango", "arroz integral", "batata-doce", "batata doce", "carne moída",
+    "peixe", "atum", "tomate", "leite", "maçã", "salada", "pasta de amendoim",
+    "tofu", "lentilha", "grão-de-bico", "homus", "bebida de soja", "iogurte de soja", "edamame", "cenoura", "amendoim",
+    "salmão", "tilápia", "peito de frango", "arroz integral", "batata-doce", "batata doce", "carne moída",
     "whey protein", "whey", "proteína em pó", "proteina em po"
   ];
   const text = message.toLocaleLowerCase("pt-BR");
   const rejected = foods.filter((food) => {
     const escaped = food.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp(`(?:nÃ£o|nao)\\s+(?:tenho|tem|quero|gosto de)(?:\\s+usar)?[^\\n]{0,25}\\b${escaped}\\b`).test(text)
+    return new RegExp(`(?:não|nao)\\s+(?:tenho|tem|quero|gosto de)(?:\\s+usar)?[^\\n]{0,25}\\b${escaped}\\b`).test(text)
       || new RegExp(`\\b(?:sem|troca|substitui)\\s+(?:o|a)?\\s*${escaped}\\b`).test(text);
   });
-  if (/\b(?:nao|nÃ£o)\s+(?:tenho|quero|uso|vou usar)\s+(?:whey|suplemento|suplementos)\b/.test(text)) {
+  if (/\b(?:nao|não)\s+(?:tenho|quero|uso|vou usar)\s+(?:whey|suplemento|suplementos)\b/.test(text)) {
     rejected.push("whey");
   }
   return rejected;
@@ -1425,10 +1425,10 @@ function getFoodRestrictions(user) {
   const rejected = rawDislikes
     .split(/[,;]+/).map((item) => item.trim()).filter(Boolean);
   const knownFoods = [
-    "frango", "arroz", "feijÃ£o", "ovos", "ovo", "pÃ£o integral", "banana",
+    "frango", "arroz", "feijão", "ovos", "ovo", "pão integral", "banana",
     "iogurte", "aveia", "tapioca", "queijo", "carne", "batata", "legumes",
-    "peixe", "atum", "tomate", "leite", "maÃ§Ã£", "salada", "tofu", "lentilha",
-    "grÃ£o-de-bico", "homus", "edamame", "amendoim"
+    "peixe", "atum", "tomate", "leite", "maçã", "salada", "tofu", "lentilha",
+    "grão-de-bico", "homus", "edamame", "amendoim"
   ];
   const normalizedDislikes = rawDislikes.toLocaleLowerCase("pt-BR");
   for (const food of knownFoods) {
@@ -1438,7 +1438,7 @@ function getFoodRestrictions(user) {
   if (/vegano|vegan/.test(preferences)) rejected.push("frango", "carne", "peixe", "atum", "ovo", "queijo", "iogurte", "leite", "whey");
   else if (/vegetarian|vegetar/.test(preferences)) rejected.push("frango", "carne", "peixe", "atum");
   if (/sem lactose|lactose free|intoler.ncia . lactose/.test(preferences)) rejected.push("leite", "iogurte", "queijo", "whey");
-  if (/sem gl[uú]ten|cel[ií]ac/.test(preferences)) rejected.push("pÃ£o integral");
+  if (/sem gl[uú]ten|cel[ií]ac/.test(preferences)) rejected.push("pão integral");
   return rejected;
 }
 
@@ -1452,12 +1452,12 @@ function formatPlanReply(plan) {
     });
   }
   if (plan.note) lines.push(`\n📌 ${plan.note}`);
-  lines.push("\nVocê pretende seguir esse plano como referência? Diga sim ou nÃ£o. Escolher uma opÃ§Ã£o nÃ£o registra consumo.");
+  lines.push("\nVocê pretende seguir esse plano como referência? Diga sim ou não. Escolher uma opção não registra consumo.");
   return lines.join("\n");
 }
 
 /* =========================================================
-   SALVAR AÃ‡ÃƒO
+   SALVAR AÇÃO
 ========================================================= */
 
 function saveAction(
@@ -1672,7 +1672,7 @@ function buildSpecificNutritionSummary(summary, metrics) {
     const target = summary[definition.target];
     const remaining = summary[definition.remaining];
     const detail = target === null || target === undefined
-      ? "meta diária nÃ£o definida"
+      ? "meta diária não definida"
       : `meta ${Math.round(target)} ${definition.unit} · ${formatRemainingStatus(remaining, definition.unit)}`;
     lines.push(`${definition.label}: ${Math.round(consumed)} ${definition.unit} ${definition.consumedLabel} · ${detail}`);
   }
@@ -1719,7 +1719,7 @@ function buildSummaryReply(
   );
 
   /* =======================================================
-     MANUTENÃ‡ÃƒO E META
+     MANUTENÇÃO E META
   ======================================================= */
 
   if (
@@ -1728,7 +1728,7 @@ function buildSummaryReply(
     lines.push("");
 
     lines.push(
-      `🔥 ManutenÃ§Ã£o estimada: ${Math.round(summary.maintenance_calories)} kcal`
+      `🔥 Manutenção estimada: ${Math.round(summary.maintenance_calories)} kcal`
     );
   }
 
@@ -2044,7 +2044,7 @@ function buildHistoryReply(recentHistory) {
 }
 
 /* =========================================================
-   REFEI��O LIVRE
+   REFEIÇÃO LIVRE
 ========================================================= */
 
 function isYesMessage(message) {
@@ -2664,12 +2664,12 @@ const summaryIntent = classifySummaryIntent(message);
    * A mensagem original é a fonte de verdade para restrições
    * declaradas pelo usuário.
    *
-   * O modelo pode interpretar a intenÃ§Ã£o, mas nÃ£o pode
+   * O modelo pode interpretar a intenção, mas não pode
    * contradizer fatos explícitos como:
    *
    * "tenho whey"
-   * "nÃ£o tenho whey"
-   * "nÃ£o quero whey com água"
+   * "não tenho whey"
+   * "não quero whey com água"
    * "quero algo rápido"
    * "só tenho banana e iogurte"
    *
@@ -2765,7 +2765,7 @@ const summaryIntent = classifySummaryIntent(message);
               message
             )
           ) {
-            return "NÃ£o alterei o perfil porque a mensagem nÃ£o informou uma atualizaÃ§Ã£o explícita.";
+            return "Não alterei o perfil porque a mensagem não informou uma atualização explícita.";
           }
 
           if (
@@ -2778,7 +2778,7 @@ const summaryIntent = classifySummaryIntent(message);
               }
             )
           ) {
-            return "NÃ£o alterei sua meta: confirme uma nova meta calórica com o valor desejado.";
+            return "Não alterei sua meta: confirme uma nova meta calórica com o valor desejado.";
           }
 
           if (
@@ -2788,7 +2788,7 @@ const summaryIntent = classifySummaryIntent(message);
               data
             )
           ) {
-            return "NÃ£o alterei suas metas de macros: informe explicitamente cada macro e o valor desejado.";
+            return "Não alterei suas metas de macros: informe explicitamente cada macro e o valor desejado.";
           }
 
           const normalizedMessage =
@@ -2816,7 +2816,7 @@ const summaryIntent = classifySummaryIntent(message);
               message
             )
           ) {
-            return "NÃ£o criei um plano porque nÃ£o houve um pedido explícito para montar um.";
+            return "Não criei um plano porque não houve um pedido explícito para montar um.";
           }
 
           const latestPlanEvent =
@@ -2844,7 +2844,7 @@ const summaryIntent = classifySummaryIntent(message);
               pendingPlanDecision
             )
           ) {
-            return "NÃ£o alterei a intenÃ§Ã£o do plano. Diga explicitamente se pretende segui-lo.";
+            return "Não alterei a intenção do plano. Diga explicitamente se pretende segui-lo.";
           }
 
           if (
@@ -2854,7 +2854,7 @@ const summaryIntent = classifySummaryIntent(message);
               data.option_index
             )
           ) {
-            return "Diga o número da opÃ§Ã£o que escolheu. Ainda nÃ£o registrei nenhuma escolha.";
+            return "Diga o número da opção que escolheu. Ainda não registrei nenhuma escolha.";
           }
 
           if (
@@ -2863,7 +2863,7 @@ const summaryIntent = classifySummaryIntent(message);
               message
             )
           ) {
-            return "Só corrijo uma refeição quando você pedir explicitamente uma correÃ§Ã£o. NÃ£o alterei o registro.";
+            return "Só corrijo uma refeição quando você pedir explicitamente uma correção. Não alterei o registro.";
           }
 
           if (
@@ -2877,7 +2877,7 @@ const summaryIntent = classifySummaryIntent(message);
               );
 
             if (!existing) {
-              return "NÃ£o encontrei esse registro de refeição hoje; nÃ£o alterei nenhum dado.";
+              return "Não encontrei esse registro de refeição hoje; não alterei nenhum dado.";
             }
 
             if (
@@ -2898,7 +2898,7 @@ const summaryIntent = classifySummaryIntent(message);
                 }
               )
             ) {
-              return "NÃ£o apliquei a correÃ§Ã£o porque os valores nutricionais nÃ£o correspondem aos números informados na mensagem. Envie os valores corretos; mantive o registro como estava.";
+              return "Não apliquei a correção porque os valores nutricionais não correspondem aos números informados na mensagem. Envie os valores corretos; mantive o registro como estava.";
             }
           }
 
@@ -2908,7 +2908,7 @@ const summaryIntent = classifySummaryIntent(message);
               message
             )
           ) {
-            return "A escolha só pode ser registrada como consumo após uma confirmaÃ§Ã£o clara de que você comeu. NÃ£o registrei nada.";
+            return "A escolha só pode ser registrada como consumo após uma confirmação clara de que você comeu. Não registrei nada.";
           }
 
           if (
@@ -2917,7 +2917,7 @@ const summaryIntent = classifySummaryIntent(message);
               message
             )
           ) {
-            return "Só registro uma refeição quando você confirmar que já consumiu. NÃ£o registrei nada.";
+            return "Só registro uma refeição quando você confirmar que já consumiu. Não registrei nada.";
           }
 
           if (
@@ -3029,7 +3029,7 @@ const summaryIntent = classifySummaryIntent(message);
         },
 
         /*
-         * Os fatos explícitos sÃ£o entregues ao registry para
+         * Os fatos explícitos são entregues ao registry para
          * que o resultado produzido pelo modelo seja mesclado
          * com as informações determinísticas da mensagem.
          */
@@ -3052,7 +3052,7 @@ const summaryIntent = classifySummaryIntent(message);
    * =======================================================
    * MESCLAGEM DE FATOS EXPLÍCITOS
    *
-   * O modelo continua responsável por interpretar a intenÃ§Ã£o,
+   * O modelo continua responsável por interpretar a intenção,
    * mas fatos explícitos da mensagem têm precedência.
    * =======================================================
    */
@@ -3071,9 +3071,9 @@ const summaryIntent = classifySummaryIntent(message);
    * "quick_only" só pode ser verdadeiro quando:
    *
    * 1. o usuário pediu explicitamente preparo rápido; ou
-   * 2. uma aÃ§Ã£o interna já trouxe esse sinal explicitamente.
+   * 2. uma ação interna já trouxe esse sinal explicitamente.
    *
-   * O modelo nÃ£o deve transformar uma refeição qualquer em
+   * O modelo não deve transformar uma refeição qualquer em
    * "preparo rápido" por conta própria.
    */
   const structuredQuickOnly =
@@ -3120,7 +3120,7 @@ const summaryIntent = classifySummaryIntent(message);
       dailySummary.calorie_target ===
       null
     ) {
-      return "Ainda nÃ£o tenho uma meta diária de calorias para calcular um orçamento seguro para a sugestÃ£o. Complete seu perfil ou informe sua meta.";
+      return "Ainda não tenho uma meta diária de calorias para calcular um orçamento seguro para a sugestão. Complete seu perfil ou informe sua meta.";
     }
 
     const remainingMealPeriods =
@@ -3241,7 +3241,7 @@ const summaryIntent = classifySummaryIntent(message);
 
     /*
      * Disponibilidade declarada explicitamente pelo usuário
-     * tem precedência sobre uma interpretaÃ§Ã£o incompleta
+     * tem precedência sobre uma interpretação incompleta
      * do modelo.
      */
     if (
@@ -3279,7 +3279,7 @@ const summaryIntent = classifySummaryIntent(message);
 
     /*
      * O alimento desejado deve vir da mensagem explícita quando
-     * existir. A interpretaÃ§Ã£o do modelo é apenas fallback.
+     * existir. A interpretação do modelo é apenas fallback.
      */
     /*
      * desired_food só pode assumir uma categoria reconhecida
@@ -3335,7 +3335,7 @@ const summaryIntent = classifySummaryIntent(message);
             )
         )
       ) {
-        return `Entendi que você quer ${desiredFood}, mas esse alimento consta como rejeitado/restrito no seu perfil ou nesta conversa. NÃ£o vou sugeri-lo. Se a restriÃ§Ã£o nÃ£o se aplica mais, atualize sua preferência e tento encaixá-lo.`;
+        return `Entendi que você quer ${desiredFood}, mas esse alimento consta como rejeitado/restrito no seu perfil ou nesta conversa. Não vou sugeri-lo. Se a restrição não se aplica mais, atualize sua preferência e tento encaixá-lo.`;
       }
 
       const desiredOptions =
@@ -3412,7 +3412,7 @@ const summaryIntent = classifySummaryIntent(message);
         desiredOptions ===
         null
       ) {
-        return `Ainda nÃ£o tenho uma referência nutricional confiável para ${result.data.desired_food || desiredFood}. Envie a porÃ§Ã£o e os dados do rótulo/cardápio ou os ingredientes para eu calcular o encaixe sem inventar valores.`;
+        return `Ainda não tenho uma referência nutricional confiável para ${result.data.desired_food || desiredFood}. Envie a porção e os dados do rótulo/cardápio ou os ingredientes para eu calcular o encaixe sem inventar valores.`;
       }
 
       const offer =
@@ -3608,12 +3608,12 @@ const summaryIntent = classifySummaryIntent(message);
     ) {
       const explanation =
         quickPreparationRequest
-          ? "NÃ£o encontrei uma opÃ§Ã£o de preparo rápido que passe pelas validações e restrições atuais. "
+          ? "Não encontrei uma opção de preparo rápido que passe pelas validações e restrições atuais. "
           : budgetAnalysis.incompatible
-            ? `Restam ${Math.round(budgetAnalysis.calorie_remaining)} kcal no dia, mas os macros restantes exigiriam cerca de ${Math.round(budgetAnalysis.macro_calorie_requirement_kcal)} kcal. ${budgetAnalysis.priority === "protein" ? "Vou manter o limite calórico e priorizar proteína. " : "Vou manter o limite calórico e nÃ£o aumentar macros já atingidos. "}`
+            ? `Restam ${Math.round(budgetAnalysis.calorie_remaining)} kcal no dia, mas os macros restantes exigiriam cerca de ${Math.round(budgetAnalysis.macro_calorie_requirement_kcal)} kcal. ${budgetAnalysis.priority === "protein" ? "Vou manter o limite calórico e priorizar proteína. " : "Vou manter o limite calórico e não aumentar macros já atingidos. "}`
             : mealBudget.calories <
                 120
-              ? `O orçamento desta refeição é de aproximadamente ${Math.round(mealBudget.calories)} kcal, insuficiente para uma porÃ§Ã£o prática. `
+              ? `O orçamento desta refeição é de aproximadamente ${Math.round(mealBudget.calories)} kcal, insuficiente para uma porção prática. `
               : "Com as restrições e o orçamento atuais, ";
 
       return `${explanation}${buildMealSuggestionReply([], budgetAnalysis)}`;
@@ -3741,7 +3741,7 @@ const summaryIntent = classifySummaryIntent(message);
       ? formatPlanReply(
           currentPlan.plan
         )
-      : "Ainda nÃ£o há um plano alimentar salvo para hoje. Quer que eu monte um agora?";
+      : "Ainda não há um plano alimentar salvo para hoje. Quer que eu monte um agora?";
   }
 
   if (
@@ -3751,7 +3751,7 @@ const summaryIntent = classifySummaryIntent(message);
       "meal_plan_decline"
   ) {
     if (!currentPlan) {
-      return "Ainda nÃ£o há um plano salvo para hoje. Quer que eu monte um?";
+      return "Ainda não há um plano salvo para hoje. Quer que eu monte um?";
     }
 
     const status =
@@ -3781,8 +3781,8 @@ const summaryIntent = classifySummaryIntent(message);
 
     return status ===
       "intended"
-      ? "Combinado! Vou usar o plano como referência. A escolha de uma opÃ§Ã£o ainda nÃ£o registra consumo; me confirme quando comer."
-      : "Tudo bem — nÃ£o vou tratar o plano como consumo. Posso montar outro mais adequado �  sua rotina ou ao que você tem disponível.";
+      ? "Combinado! Vou usar o plano como referência. A escolha de uma opção ainda não registra consumo; me confirme quando comer."
+      : "Tudo bem — não vou tratar o plano como consumo. Posso montar outro mais adequado à sua rotina ou ao que você tem disponível.";
   }
 
   if (
@@ -3915,7 +3915,7 @@ const summaryIntent = classifySummaryIntent(message);
         }
       ).valid
     ) {
-      return `NÃ£o encontrei essa opÃ§Ã£o em ${period}. Qual número da opÃ§Ã£o você escolheu?`;
+      return `Não encontrei essa opção em ${period}. Qual número da opção você escolheu?`;
     }
 
     recordMealPlanEvent(
@@ -4037,7 +4037,7 @@ const summaryIntent = classifySummaryIntent(message);
         .length &&
       !selectedEvent
     ) {
-      return "Escolha primeiro o número de uma das opções. NÃ£o registrei consumo; depois da escolha, confirme quando tiver comido.";
+      return "Escolha primeiro o número de uma das opções. Não registrei consumo; depois da escolha, confirme quando tiver comido.";
     }
 
     const consumption =
@@ -4062,10 +4062,10 @@ const summaryIntent = classifySummaryIntent(message);
         result.action ===
         "meal_consumed"
       ) {
-        return "NÃ£o encontrei uma opÃ§Ã£o escolhida para registrar. Diga qual refeição você comeu e eu registro o consumo real.";
+        return "Não encontrei uma opção escolhida para registrar. Diga qual refeição você comeu e eu registro o consumo real.";
       }
 
-      return "NÃ£o encontrei uma opÃ§Ã£o escolhida para confirmar como consumida. Se você comeu outra refeição, descreva o que consumiu e eu registro isso separadamente.";
+      return "Não encontrei uma opção escolhida para confirmar como consumida. Se você comeu outra refeição, descreva o que consumiu e eu registro isso separadamente.";
     }
 
     if (
@@ -4095,7 +4095,7 @@ const summaryIntent = classifySummaryIntent(message);
       );
 
     if (!before) {
-      return "NÃ£o consegui identificar com segurança qual refeição de hoje corrigir. Confira o ID no resumo ou me diga a descriÃ§Ã£o e o horário.";
+      return "Não consegui identificar com segurança qual refeição de hoje corrigir. Confira o ID no resumo ou me diga a descrição e o horário.";
     }
 
     result.data = {
@@ -4125,7 +4125,7 @@ const summaryIntent = classifySummaryIntent(message);
       );
 
     if (!corrected) {
-      return "NÃ£o encontrei esse registro para corrigir.";
+      return "Não encontrei esse registro para corrigir.";
     }
 
     recordMealPlanEvent(
@@ -4298,7 +4298,7 @@ const summaryIntent = classifySummaryIntent(message);
       balance.macros_compatible ===
       false
     ) {
-      return `${result.reply || "Meta personalizada salva."}\n\n� ️ As metas atuais de calorias e macros sÃ£o matematicamente incompatíveis (${Math.round(balance.macro_calorie_total)} kcal pelos macros para uma meta de ${Math.round(updated.daily_calorie_target)} kcal). Mantive os valores escolhidos sem ajustá-los silenciosamente.`;
+      return `${result.reply || "Meta personalizada salva."}\n\n⚠️ As metas atuais de calorias e macros são matematicamente incompatíveis (${Math.round(balance.macro_calorie_total)} kcal pelos macros para uma meta de ${Math.round(updated.daily_calorie_target)} kcal). Mantive os valores escolhidos sem ajustá-los silenciosamente.`;
     }
   }
 

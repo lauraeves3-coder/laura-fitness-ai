@@ -2,12 +2,16 @@
 // Testes com `todo` documentam defeitos confirmados (ver AUDITORIA-NUTRICAO.md).
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { ai, aiSource } from "./helpers/aiPure.js";
 
 // ---------- ENC-01: corrupção real de UTF-8 ----------
 
-test("ENC-01: src/ai.js sem texto duplamente codificado (Ã£, Ã§, �)", { todo: "ENC-01" }, () => {
-  assert.ok(!/Ã[£§¡©³ºª­µ]|�/.test(aiSource));
+test("ENC-01: src/ai.js e src/agent/agent.js sem texto duplamente codificado", () => {
+  const agentSource = readFileSync(new URL("../src/agent/agent.js", import.meta.url), "utf8");
+  for (const source of [aiSource, agentSource]) {
+    assert.ok(!/Ã[£§¡©³ºª­µ]|00e220ac|FFFD/.test(source));
+  }
 });
 
 // ---------- EX-01: alimentos rejeitados ----------
@@ -15,13 +19,13 @@ test("ENC-01: src/ai.js sem texto duplamente codificado (Ã£, Ã§, �)", { to
 test("regressão: 'nao tenho ovo' rejeita ovo", () => {
   assert.deepEqual(ai.extractExcludedFoods("nao tenho ovo"), ["ovo"]);
 });
-test("EX-01: 'não quero frango' (com acento) rejeita frango", { todo: "EX-01" }, () => {
+test("EX-01: 'não quero frango' (com acento) rejeita frango", () => {
   assert.deepEqual(ai.extractExcludedFoods("não quero frango"), ["frango"]);
 });
 test("EX-01: 'nao quero feijao' rejeita feijão", { todo: "EX-01" }, () => {
   assert.equal(ai.extractExcludedFoods("nao quero feijao").length, 1);
 });
-test("EX-01: 'Não gosto de banana' rejeita banana", { todo: "EX-01" }, () => {
+test("EX-01: 'Não gosto de banana' rejeita banana", () => {
   assert.deepEqual(ai.extractExcludedFoods("Não gosto de banana"), ["banana"]);
 });
 test("EX-01: 'sem pão' rejeita pão", { todo: "EX-01" }, () => {
@@ -61,7 +65,7 @@ test("AI-06: resposta de composição não é fixa em whey + água", { todo: "AI
 
 // ---------- EX-03: normalização de listas ----------
 
-test("EX-03: equivalências respeitam caixa e acento", { todo: "EX-03" }, () => {
+test("EX-03: equivalências de whey e salmão", () => {
   assert.deepEqual(ai.normalizeToolFoodList(["Whey Protein", "whey", "Salmão", "salmao"]), ["whey", "peixe"]);
 });
 

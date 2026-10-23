@@ -4,7 +4,7 @@ Data: 22/10/2026 · Branch: `audit/nutrition-tests` · Nenhum arquivo de `src/` 
 
 Como reproduzir: `npm test` (node:test, sem API OpenAI, sem `fitness.db`).
 Testes marcados `# TODO <ID>` reproduzem um defeito confirmado; ao corrigir, remova o `todo`.
-Resultado atual: 57 testes · 21 regressões passando · 36 defeitos reproduzidos · `fitness.db`/WAL com hash idêntico antes e depois.
+Resultado atual: 60 testes · 28 passando · 32 defeitos ainda reproduzidos · `fitness.db`/WAL com hash idêntico antes e depois.
 
 ## Estado do repositório (risco)
 
@@ -40,6 +40,10 @@ Resultado atual: 57 testes · 21 regressões passando · 36 defeitos reproduzido
 | NC-04 | confiança | "temaki de salmão" escolhe silenciosamente `temaki-philadelphia` com confiança `high`. | Confiança enganosa. |
 
 Mantidos como hipóteses/limitações (sem teste ainda): NC-03 (19 grupos de modelos repetidos), NC-08 (refeições livres agregadas), AI-05 (lista fixa de disponibilidade), `makeMealTemplate` filtra componentes silenciosamente, `saveMeal` sem validação. `src/ai.before-workout-fix.js` segue fora do runtime, não tocado.
+
+## Correções aplicadas
+
+- **ENC-01 (resolvido):** `scripts/fix-mojibake.mjs` reparou 191 sequências em `ai.js` e 168 em `agent/agent.js` (prompt de sistema). As 7 linhas com `U+FFFD` foram restauradas manualmente (`⚠️`, `à sua`, `REFEIÇÃO`). Os demais arquivos ativos não tinham ocorrências. Efeito colateral positivo: "não quero frango" e "Não gosto de banana" passaram a ser reconhecidos (EX-01 parcial), "pão integral" para celíacos voltou a ser legível (EX-04 ainda incompleto) e "Salmão" volta a ser normalizado (EX-03 parcial).
 
 ## Plano de correção (ordem por dependência)
 
