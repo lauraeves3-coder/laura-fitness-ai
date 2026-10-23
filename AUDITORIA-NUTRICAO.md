@@ -1,9 +1,9 @@
 # Auditoria da nutrição — FitPulse AI
 
-Data: 22/10/2026 · Branch: `audit/nutrition-tests` · Correções aplicadas em etapas (ver "Correções aplicadas").
+Data: 22–23/10/2026 · Branch: `audit/nutrition-tests` (8 commits locais, sem push) · Plano de correção local concluído.
 
 Como reproduzir: `npm test` (node:test, sem API OpenAI, sem `fitness.db`).
-Testes marcados `# TODO <ID>` reproduzem um defeito confirmado; ao corrigir, remova o `todo`.
+Novos defeitos podem ser registrados como teste `{ todo: "<ID>" }` até serem corrigidos.
 Resultado atual: 94 testes · 94 passando · 0 defeitos reproduzidos · `fitness.db`/WAL com hash idêntico antes e depois.
 
 ## Estado do repositório (risco)
@@ -59,15 +59,25 @@ Mantidos como hipóteses/limitações (sem teste ainda): NC-03 (19 grupos de mod
 
 - **Etapa 7, negação e preparo no registro (resolvido: NC-10, NC-11):** `estimateMealFromText` ignora alimentos em trechos negados ("não comi arroz, comi…", "não comi arroz nem feijão, só frango", "arroz sem feijão") e os lista em `negated_items`. Removido o alias genérico "batata" da batata frita; "batata" e "bife" sem preparo/corte entram em `needs_clarification` com as opções do catálogo, e `ai.js` pergunta antes de registrar (antes, "arroz, feijão e bife" gravava 206 kcal ignorando o bife). "bife de patinho", "bife acebolado", "batata frita", "batatas cozidas" continuam diretos.
 
-## Plano de correção (ordem por dependência)
+- **Etapa 8, organização:** as 23 funções puras de interpretação saíram de `ai.js` para `src/mealIntent.js` sem alteração de corpo (verificado por script). `test/helpers/aiPure.js` agora importa o módulo diretamente; `ai.js` continua sem ser importado nos testes porque abre `fitness.db`. Checagem de vínculo de `ai.js` com `db.js`/agente substituídos por stubs: todos os imports resolvem.
 
-1. **Higiene do repositório** — commitar `nutrition.js`, `nutritionCatalog.js`, `agent/` e os testes; ampliar `.gitignore` para `*.db`, backups e cópias. (Depende de aprovação.)
-2. **ENC-01** — reparar o mojibake com script determinístico (latin1→utf8 apenas nas sequências `Ã.`), revisar diff manual das 6 linhas com `U+FFFD`. Desbloqueia EX-01/03/04.
-3. **Matcher único** — criar `src/foodMatching.js` com normalização + busca por limite de palavra + alias mais longo primeiro + todas as ocorrências. Usar em `findFoodCandidates`, `extractAvailableFoods`, `extractExcludedFoods`, `getFoodRestrictions`, filtros de `nutrition.js` e `normalizeDesiredFood` (NC-01, NC-05, NC-07, AI-04, AI-07, EX-04, EX-05, AI-01).
-4. **Quantidades** — frações/"meia", "colher de sopa", números por extenso com acento, gramas para qualquer categoria (NC-06, NC-09, AI-03).
-5. **Comida japonesa** — manter `japonesa` como categoria mas preservar o subtipo (sushi/sashimi/temaki) para composição e porções; "peças" sem tipo → pedir esclarecimento; alinhar sashimi entre módulos com fonte registrada (AI-02, NC-02).
-6. **Restrições e respostas** — negativa por cláusula, composição pelo alimento mais próximo, resposta de AI-06 gerada da composição detectada.
-7. **Negação/preparo no registro** — "não comi X", "batata" sem preparo → perguntar (NC-10).
-8. Mover as funções puras de `ai.js` para módulo importável e trocar `test/helpers/aiPure.js` por import direto.
+## Commits (branch `audit/nutrition-tests`, sem push)
 
-Só depois: testes pagos mínimos de API e WhatsApp (Fase 5).
+| Commit | Etapa |
+|---|---|
+| `204e500` | Versiona nutrition.js, catálogo, agente, testes; `.gitignore` |
+| `9438687` | ENC-01 encoding |
+| `67a1ab9` | Matcher único (NC-01, NC-05, NC-07, AI-04, AI-07, EX-04, EX-05, AI-01) |
+| `65141a3` | Quantidades (NC-09, NC-06, AI-03) |
+| `465cce2` | Comida japonesa (AI-02, NC-02) |
+| `6aeda9d` | Restrições e combinações (EX-01, EX-02, AI-06) |
+| `5836e7e` | Negação e termos genéricos (NC-10, NC-11) |
+| etapa 8 | Funções puras em `mealIntent.js` |
+
+## Pendências (fora do plano executado)
+
+- **Dados com fonte:** peso da fatia de sashimi (25 g sem fonte oficial); uramaki de salmão a 60 g/peça; conversões de medida caseira por alimento/densidade; itens cujo `default_g` vale mais de uma unidade (pão de queijo).
+- **Auditoria não convertida em correção:** NC-03 (modelos repetidos), NC-04 (critérios explícitos de confiança por fonte), NC-08 (refeições livres agregadas), AI-05 (lista fixa de disponibilidade), `makeMealTemplate` descartando componentes em silêncio, `saveMeal` sem validação nutricional.
+- **Esclarecimentos sem estado:** as perguntas de "batata/bife" e da combinação ambígua pedem que o usuário reenvie a frase; não há ainda memória da pergunta pendente.
+- **Fase 5 (requer autorização, consome créditos):** testes mínimos de API OpenAI e WhatsApp. Nada desta auditoria foi validado contra o modelo ou o webhook real.
+- `aliasMap` em `nutritionCatalog.js` é construído e nunca usado.

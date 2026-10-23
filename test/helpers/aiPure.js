@@ -1,39 +1,9 @@
-// Carrega funções puras de src/ai.js sem importar o módulo.
-// ai.js importa db.js, que abre fitness.db; os testes não podem tocar no banco real
-// nem na API da OpenAI. Quando essas funções forem movidas para um módulo próprio,
-// este helper deve ser substituído por um import direto.
+// Funções de interpretação usadas pelos testes. Vivem em src/mealIntent.js, que não
+// importa db.js nem a API da OpenAI; src/ai.js (que abre fitness.db) não é importado.
 import { readFileSync } from "node:fs";
-import * as foodMatching from "../../src/foodMatching.js";
+import * as mealIntent from "../../src/mealIntent.js";
 
-const source = readFileSync(new URL("../../src/ai.js", import.meta.url), "utf8");
+export const ai = mealIntent;
 
-function extractFunction(name) {
-  const start = source.search(new RegExp(`(?:^|\\n)function ${name}\\(`));
-  if (start < 0) throw new Error(`Função não encontrada em src/ai.js: ${name}`);
-  let depth = 0;
-  let index = source.indexOf("{", source.indexOf(")", start));
-  for (; index < source.length; index++) {
-    if (source[index] === "{") depth++;
-    else if (source[index] === "}" && --depth === 0) break;
-  }
-  return source.slice(start, index + 1);
-}
-
-const NAMES = [
-  "normalizeDesiredFood", "detectDesiredFood", "detectRequestedServings", "detectRequestedGrams", "detectRequestedJapaneseSubtype",
-  "detectDesiredComposition", "normalizeRequestText", "normalizeToolFoodList",
-  "detectExplicitExcludedCompositions", "extractExcludedFoods",
-  "compositionFoodPattern", "findContextualCompositionExclusions", "detectAmbiguousCompositionExclusion",
-  "displayFoodName", "joinWithE", "joinWithOu", "buildMealClarificationQuestion", "buildCompositionExclusionReply", "buildAmbiguousCompositionQuestion", "getFoodRestrictions",
-  "hasDesiredFoodAvailable", "extractAvailableFoods", "detectWheyAvailability"
-];
-
-// Dependências importadas por ai.js que as funções extraídas usam.
-const dependencies = { ...foodMatching };
-
-export const ai = new Function(
-  ...Object.keys(dependencies),
-  `${NAMES.map(extractFunction).join("\n")}\nreturn { ${NAMES.join(", ")} };`
-)(...Object.values(dependencies));
-
-export const aiSource = source;
+// Fonte de ai.js para verificações estáticas (encoding, textos fixos).
+export const aiSource = readFileSync(new URL("../../src/ai.js", import.meta.url), "utf8");
