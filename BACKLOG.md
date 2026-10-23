@@ -219,10 +219,10 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
-| SEG-01 | `.env` nunca lido, impresso ou versionado | P0 | IMPLEMENTADO NÃO TESTADO | — | `.gitignore`; regra de processo |
+| SEG-01 | `.env` nunca lido, impresso ou versionado | P0 | IMPLEMENTADO E TESTADO | — | `test/safety.test.js`: `.env`/bancos fora do Git, `.gitignore`, `.env.example` sem valores reais, nenhum token em arquivo versionado, só `server.js` carrega o `.env` |
 | SEG-02 | Banco real nunca alterado sem autorização; testes isolados | P0 | IMPLEMENTADO E TESTADO | — | testes de banco só em arquivo temporário (asserção em `test/db.test.js`); hash do `fitness.db` conferido a cada etapa |
 | SEG-03 | Assinatura do webhook do WhatsApp validada | P0 | IMPLEMENTADO E TESTADO | — | `app.js` HMAC SHA-256 com `WHATSAPP_APP_SECRET` (sem assinatura, segredo errado, malformada, corpo alterado, sem segredo → 503); `test/app.test.js`. App separado de `server.js` para os testes não lerem `.env` |
-| SEG-04 | Não gastar créditos em testes evitáveis | P0 | IMPLEMENTADO NÃO TESTADO | — | regra de processo; suíte local sem API |
+| SEG-04 | Não gastar créditos em testes evitáveis | P0 | IMPLEMENTADO E TESTADO | — | `test/safety.test.js`: nenhum teste importa `server.js`; testes que carregam `ai.js`/`app.js` removem a chave e usam banco temporário; cliente OpenAI só sob demanda |
 | SEG-05 | Marcar implementado só com teste reproduzível | P0 | IMPLEMENTADO NÃO TESTADO | — | este documento |
 
 ---
