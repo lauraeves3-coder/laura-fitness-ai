@@ -48,6 +48,18 @@ export const DESIRED_FOOD_ALIASES = [
   ["bolo", "bolo"], ["massa", "massa"], ["macarrao", "massa"]
 ];
 
+// Subtipos dentro da categoria "japonesa". "sushi" é o termo genérico usado no Brasil para
+// peças de arroz (niguiri, uramaki, hossomaki, hot roll); temaki, sashimi e pratos não entram.
+export const JAPANESE_SUBTYPE_ALIASES = [
+  ["sushi", "sushi"], ["sashimi", "sashimi"], ["temaki", "temaki"],
+  ["nigiri", "nigiri"], ["niguiri", "nigiri"], ["uramaki", "uramaki"],
+  ["hossomaki", "hossomaki"], ["hot roll", "hot roll"], ["hotroll", "hot roll"],
+  ["hot philadelphia", "hot roll"], ["hot filadelfia", "hot roll"],
+  ["guioza", "guioza"], ["gyoza", "guioza"], ["yakisoba", "yakisoba"], ["tempura", "tempura"]
+];
+
+export const JAPANESE_FILLINGS = ["salmão", "atum", "kani", "camarão", "skin", "shimeji", "cream cheese"];
+
 export function normalizeFoodText(value) {
   // Hífen vira espaço sem mudar o comprimento do texto já sem acentos.
   return String(value || "")
@@ -95,7 +107,7 @@ function wordPattern(word) {
   if (CONNECTORS.has(word)) return escapeRegex(word);
   if (word.length <= 2) return escapeRegex(word);
   if (word.endsWith("ao")) return `${escapeRegex(word.slice(0, -2))}(?:ao|aes|oes)`;
-  if (word.endsWith("l")) return `${escapeRegex(word.slice(0, -1))}(?:l|is)`;
+  if (word.endsWith("l")) return `${escapeRegex(word.slice(0, -1))}(?:l|is|ls)`;
   if (word.endsWith("m")) return `${escapeRegex(word.slice(0, -1))}(?:m|ns)`;
   if (/[rsz]$/.test(word)) return `${escapeRegex(word)}(?:es)?`;
   return `${escapeRegex(word)}s?`;
@@ -170,6 +182,16 @@ const DESIRED_FOOD_ENTRIES = DESIRED_FOOD_ALIASES.map(([alias, category]) => ({
 // Categoria do primeiro alimento desejado mencionado, ou "".
 export function detectDesiredFoodCategory(value) {
   return matchFoodTerms(value, DESIRED_FOOD_ENTRIES)[0]?.key || "";
+}
+
+const JAPANESE_SUBTYPE_ENTRIES = JAPANESE_SUBTYPE_ALIASES.map(([alias, subtype]) => ({
+  key: subtype,
+  terms: [alias]
+}));
+
+// Subtipo japonês do primeiro item citado ("8 peças de sushi" -> "sushi"), ou null.
+export function detectJapaneseSubtype(value) {
+  return matchFoodTerms(value, JAPANESE_SUBTYPE_ENTRIES)[0]?.key || null;
 }
 
 // Uma restrição bloqueia a categoria inteira somente quando é o próprio nome da categoria

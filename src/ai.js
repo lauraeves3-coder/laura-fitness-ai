@@ -43,7 +43,9 @@ import {
   restrictionBlocksDesiredFood,
   GLUTEN_FOODS,
   parseQuantity,
-  QUANTITY_PATTERN
+  QUANTITY_PATTERN,
+  detectJapaneseSubtype,
+  JAPANESE_FILLINGS
 } from "./foodMatching.js";
 import { runAgent } from "./agent/agent.js";
 import { createAgentToolRegistry } from "./agent/tools.js";
@@ -950,11 +952,14 @@ function detectRequestedServings(message, desiredFood, modelValue = null) {
   const units = "fatias?|pedacos?|bolas?|porcoes|porcao|unidades?|pratos?|pecas?|temakis?|niguiris?|nigiris?|sashimis?|hossomakis?|uramakis?|hot\\s+rolls?|hotrolls?|guiozas?|gyozas?";
   const match = text.match(new RegExp(`(${QUANTITY_PATTERN})\\s*(?:${units})(?![a-z])`));
   const count = match ? parseQuantity(match[1]) : null;
-  let quantity = count ?? Number(modelValue);
-  if (count && desiredFood === "sushi" && /\bpecas?\b/.test(text)) {
-    quantity = count / 4;
-  }
+  const quantity = count ?? Number(modelValue);
   return Number.isFinite(quantity) && quantity > 0 ? quantity : null;
+}
+
+// Subtipo japonês pedido. "8 peças" sem tipo = peças de sushi, nunca temaki ou pratos.
+function detectRequestedJapaneseSubtype(message) {
+  return detectJapaneseSubtype(message)
+    || (/\bpecas?\b/.test(normalizeRequestText(message)) ? "sushi" : null);
 }
 
 function detectRequestedGrams(message) {
@@ -1022,11 +1027,6 @@ function detectDesiredComposition(message, desiredFood) {
     hamburger: [
       [/\bhamburguer\s+de\s+frango\b/, "hamburguer-frango"],
       [/\bhamburguer\s+com\s+queijo\b/, "hamburguer-queijo"]
-    ],
-    sushi: [
-      [/\bsushi\s+de\s+salmao\b/, "sushi-salmao"],
-      [/\bsushi\s+de\s+atum\b/, "sushi-atum"],
-      [/\bsushi\s+vegetariano\b/, "sushi-vegetariano"]
     ],
     japonesa: [
       [/\btemaki\s+de\s+salmao\s+com\s+cream\s+cheese\b/, "japonesa-temaki-salmao"],
@@ -1329,7 +1329,7 @@ function hasDesiredFoodAvailable(message, desiredFood) {
 }
 
 function buildDesiredFoodReply(options, desiredFood, budget, budgetAnalysis, { availabilityOnly = false, summary = null } = {}) {
-  const names = { pizza: "pizza", hamburger: "hambúrguer", chocolate: "chocolate", sorvete: "sorvete", sushi: "sushi", bolo: "bolo", massa: "massa", "batata frita": "batata" };
+  const names = { pizza: "pizza", hamburger: "hambúrguer", chocolate: "chocolate", sorvete: "sorvete", japonesa: "comida japonesa", bolo: "bolo", massa: "massa", "batata frita": "batata" };
   const lines = [`Vou tentar encaixar ${names[desiredFood] || desiredFood} no orçamento desta refeição.`];
   if (!options.length) {
     if (availabilityOnly) {
@@ -3383,6 +3383,16 @@ const summaryIntent = classifySummaryIntent(message);
             detectRequestedGrams(
               message
             ),
+
+          japaneseSubtype:
+            desiredFood === "japonesa"
+              ? detectRequestedJapaneseSubtype(message)
+              : null,
+
+          fillings:
+            desiredFood === "japonesa"
+              ? findFoodNames(message, JAPANESE_FILLINGS)
+              : [],
 
           preferredComposition:
             detectDesiredComposition(

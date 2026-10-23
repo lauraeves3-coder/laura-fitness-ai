@@ -267,6 +267,9 @@ export const FOOD_CATALOG = [
   F("temaki-philadelphia-sem-shoyu", "Temaki de salmão com cream cheese sem shoyu", ["temaki sem shoyu"], 165, 8.69, 21.5, 4.99, 90, "1 unidade", "tbca_verified"),
   F("hot-roll-philadelphia", "Hot Philadelphia (Hot Roll)", ["hot philadelphia", "hot roll", "hotroll", "hot filadélfia"], 282, 9.06, 30.4, 14.5, 30, "1 peça de 30 g", "tbca_verified"),
   F("uramaki-salmao-pepino", "Uramaki de salmão com pepino e cream cheese", ["uramaki de salmão com pepino", "uramaki salmão", "uramaki salmao", "uramaki philadelphia", "uramakis", "uramaki"], 144, 6.72, 20.2, 4.67, 60, "1 unidade de 60 g", "tbca_verified"),
+  // Sashimi: kcal por 100 g iguais ao USDA FoodData Central 175167 (salmão do Atlântico de
+  // cativeiro, cru: 208 kcal). Fatia de 25 g é estimativa curada sem fonte oficial
+  // (TBCA sem registro de sashimi em 10/2026). Também usado pelo gerador em nutrition.js.
   F("sashimi-salmao", "Sashimi de salmão", ["sashimi salmão", "sashimi salmao", "sashimi"], 208, 20.5, 0.0, 13.4, 25, "1 fatia", "curated_estimate"),
   F("nigiri-salmao", "Nigiri de salmão", ["niguiris de salmão", "nigiris de salmão", "nigiri de salmão", "niguiri de salmão", "nigiri salmão", "niguiri salmao", "niguiris", "nigiris", "nigiri", "niguiri"], 165, 8.5, 22.0, 4.0, 35, "1 peça", "curated_estimate"),
   F("hossomaki-salmao", "Hossomaki de salmão", ["hossomaki de salmão", "hossomaki salmão", "hossomaki salmao", "hosomaki"], 165, 7.0, 25.0, 3.0, 25, "1 peça", "curated_estimate"),

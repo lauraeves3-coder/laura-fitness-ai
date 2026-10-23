@@ -4,7 +4,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ai } from "./helpers/aiPure.js";
 import { generateDesiredFoodOptions } from "../src/nutrition.js";
-import { FOOD_CATALOG } from "../src/nutritionCatalog.js";
+import { FOOD_CATALOG, estimateMealFromText } from "../src/nutritionCatalog.js";
+import { findFoodNames, JAPANESE_FILLINGS } from "../src/foodMatching.js";
 
 const desired = (message) => ai.detectDesiredFood(message);
 
@@ -30,17 +31,41 @@ test("AI-07: 'bolo de chocolate' é bolo", () => {
 
 // ---------- AI-02: sushi ----------
 
-test("AI-02: 'sushi de salmão' tem composição alcançável", { todo: "AI-02 variantes de sushi inalcançáveis" }, () => {
-  const food = desired("quero sushi de salmão");
-  assert.ok(ai.detectDesiredComposition("quero sushi de salmão", food));
+// Reproduz a chamada de src/ai.js para comida japonesa.
+const japaneseOptions = (message) => generateDesiredFoodOptions({
+  desiredFood: desired(message),
+  calorieBudget: 900,
+  requestedServings: ai.detectRequestedServings(message, desired(message)),
+  preferredComposition: ai.detectDesiredComposition(message, desired(message)),
+  japaneseSubtype: ai.detectRequestedJapaneseSubtype(message),
+  fillings: findFoodNames(message, JAPANESE_FILLINGS)
+}).map((option) => option.name);
+
+test("AI-02: 'sushi de salmão' só oferece peças de salmão", () => {
+  const names = japaneseOptions("quero sushi de salmão");
+  assert.ok(names.length > 0);
+  for (const name of names) assert.match(name, /salmão/i);
+  for (const name of names) assert.doesNotMatch(name, /temaki|sashimi|yakisoba/i);
 });
-test("AI-02: '8 peças de sushi' não vira 8 temakis", { todo: "AI-02/AI-03" }, () => {
-  const food = desired("quero 8 peças de sushi");
-  const servings = ai.detectRequestedServings("quero 8 peças de sushi", food);
-  const options = generateDesiredFoodOptions({ desiredFood: food, calorieBudget: 900, requestedServings: servings });
-  for (const option of options) {
-    assert.ok(!/temaki/i.test(option.name) || option.calories < 400, option.name);
-  }
+test("AI-02: '8 peças de sushi' não vira 8 temakis", () => {
+  const names = japaneseOptions("quero 8 peças de sushi");
+  assert.ok(names.some((name) => /8 peças/.test(name)));
+  for (const name of names) assert.doesNotMatch(name, /temaki|yakisoba|guioza|tempurá|sashimi/i);
+});
+test("AI-02: '8 peças de comida japonesa' também são peças de sushi", () => {
+  for (const name of japaneseOptions("quero 8 peças de comida japonesa")) assert.doesNotMatch(name, /temaki|yakisoba/i);
+});
+test("AI-02: subtipo preservado (sashimi, temaki, hot roll)", () => {
+  assert.deepEqual(japaneseOptions("quero 10 sashimis"), ["Sashimi de salmão — 1 fatia", "Sashimi de salmão — 10 fatias"]);
+  for (const name of japaneseOptions("quero 3 temakis")) assert.match(name, /^Temaki/);
+  assert.deepEqual(japaneseOptions("quero 4 hot rolls"), ["Hot Philadelphia (Hot Roll) — 1 peça", "Hot Philadelphia (Hot Roll) — 4 peças"]);
+});
+test("AI-02: recheio inexistente no subtipo não troca de preparação", () => {
+  assert.deepEqual(japaneseOptions("quero sushi de kani"), []);
+});
+test("AI-02: 'comida japonesa' sem subtipo mantém todas as categorias", () => {
+  assert.equal(ai.detectRequestedJapaneseSubtype("quero comida japonesa"), null);
+  assert.equal(japaneseOptions("quero comida japonesa").length, 3);
 });
 
 // ---------- AI-03: porções ----------
@@ -100,9 +125,10 @@ test("EX-05: restrição curta 'sal' não remove salmão", () => {
 
 // ---------- NC-02: sashimi ----------
 
-test("NC-02: fatia de sashimi igual no catálogo e no gerador", { todo: "NC-02" }, () => {
+test("NC-02: fatia de sashimi igual no catálogo e no gerador", () => {
   const catalog = FOOD_CATALOG.find((item) => item.id === "sashimi-salmao");
   const perSlice = catalog.kcal * catalog.default_g / 100;
   const [option] = generateDesiredFoodOptions({ desiredFood: "japonesa", calorieBudget: 900, preferredComposition: "japonesa-sashimi" });
-  assert.ok(Math.abs(option.calories - perSlice) <= 2, `${option.calories} vs ${perSlice}`);
+  assert.ok(Math.abs(option.calories - perSlice) <= 1, `${option.calories} vs ${perSlice}`);
+  assert.equal(estimateMealFromText("comi 1 sashimi de salmão").calories, option.calories);
 });

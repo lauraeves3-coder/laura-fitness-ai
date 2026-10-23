@@ -4,7 +4,7 @@ Data: 22/10/2026 · Branch: `audit/nutrition-tests` · Correções aplicadas em 
 
 Como reproduzir: `npm test` (node:test, sem API OpenAI, sem `fitness.db`).
 Testes marcados `# TODO <ID>` reproduzem um defeito confirmado; ao corrigir, remova o `todo`.
-Resultado atual: 81 testes · 70 passando · 11 defeitos ainda reproduzidos · `fitness.db`/WAL com hash idêntico antes e depois.
+Resultado atual: 85 testes · 77 passando · 8 defeitos ainda reproduzidos · `fitness.db`/WAL com hash idêntico antes e depois.
 
 ## Estado do repositório (risco)
 
@@ -50,6 +50,10 @@ Mantidos como hipóteses/limitações (sem teste ainda): NC-03 (19 grupos de mod
 
 - **Etapa 4, quantidades (resolvido: NC-09, NC-06, AI-03):** leitor único em `foodMatching.js` (`QUANTITY_PATTERN`/`parseQuantity`): "1/2", "1 1/2", "½", "meia/meio", "1 e meia", números por extenso com e sem acento, sem confundir "algum" com "um". Catálogo aceita kg, litro, colher de sopa/sobremesa/chá e "c. sopa" com qualquer número; medidas caseiras genéricas (colher 15/10/5, concha 100, xícara 150, copo 200, lata 350, garrafa 500) são marcadas `approximate_quantity` + `household_measures` e impedem confiança `high`. `detectRequestedServings` lê contagens de qualquer categoria; gramas vão por `detectRequestedGrams` para o gerador, que converte com `serving_g` — definido só onde o código já documentava a gramagem (chocolates 20 g, batatas 80/180/150 g, temaki de salmão 90 g, uramaki de salmão 60 g, hot roll 30 g, yakisoba 300 g, tempurá 100 g). Sem peso de referência (ex.: "200 g de pizza") os gramas não são convertidos.
   - Pendente fora do escopo: conversões por densidade/alimento (ex.: colher de azeite ≠ colher de arroz) exigem dados de fonte; `default_g` de alguns itens representa mais de uma unidade (pão de queijo = 2 unidades), então "1 unidade" desses itens fica superestimada.
+
+- **Etapa 5, comida japonesa (resolvido: AI-02, NC-02):** a categoria continua `japonesa`, mas o subtipo é preservado (`detectJapaneseSubtype` + `detectRequestedJapaneseSubtype`) e o gerador filtra por ele (`scopeJapaneseTemplates`). "Sushi" = peças de arroz (niguiri, uramaki, hossomaki, hot roll); "8 peças" sem tipo também. Recheio citado ("de salmão") filtra as opções; recheio inexistente no subtipo ("sushi de kani") devolve nenhuma opção em vez de trocar de preparação. Removido código morto: `DESIRED_FOODS.sushi` (valores de 4 peças sem fonte), variantes `sushi:` e a divisão por 4. Plural "rolls" corrigido no matcher.
+  - Sashimi: o gerador agora deriva a fatia do item `sashimi-salmao` do catálogo (52 kcal, 25 g); antes eram 20,8 kcal (≈10 g). Fonte: kcal/100 g = USDA FoodData Central 175167 (208 kcal, salmão do Atlântico de cativeiro, cru). **O peso de 25 g por fatia não tem fonte oficial**: a TBCA não retornou registros para "sashimi" nem "salmão" na busca de 10/2026; o FatSecret (não oficial) implica ~28 g por unidade. Peso mantido e marcado como estimativa no código — confirmar com fonte quando disponível.
+  - Observação de dados: o uramaki de salmão usa 60 g por peça (comentário TBCA no código), o que dá 8 peças = 688 kcal; vale conferir essa gramagem na TBCA.
 
 ## Plano de correção (ordem por dependência)
 

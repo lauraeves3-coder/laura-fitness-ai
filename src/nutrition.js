@@ -1,5 +1,6 @@
 import {
   EXPANDED_TEMPLATES,
+  FOOD_CATALOG,
   estimateMealFromText,
   getMissingMealQuantities,
   generateFreeMealOptions
@@ -9,6 +10,53 @@ import { containsFoodTerm } from "./foodMatching.js";
 const WEIGHTS = {"café da manhã":0.2,almoço:0.3,"lanche da tarde":0.15,jantar:0.25,ceia:0.1};
 const ORDER = Object.keys(WEIGHTS);
 const TEMPLATES = EXPANDED_TEMPLATES;
+
+// Uma fatia de sashimi derivada do item do catálogo, para que registro de consumo e
+// sugestão usem os mesmos valores (NC-02).
+function sashimiTemplate() {
+  const item = FOOD_CATALOG.find((food) => food.id === "sashimi-salmao");
+  const perSlice = (value) => Math.round(value * item.default_g / 100 * 10) / 10;
+  return {
+    name: "Sashimi de salmão",
+    foods: ["sashimi de salmão (1 fatia)"],
+    calories: perSlice(item.kcal),
+    protein_g: perSlice(item.protein),
+    carbs_g: perSlice(item.carbs),
+    fat_g: perSlice(item.fat),
+    serving: "fatia",
+    availability_foods: ["sashimi"],
+    key: "japonesa-sashimi",
+    serving_g: item.default_g
+  };
+}
+
+// Subtipo japonês -> prefixos das chaves de DESIRED_FOODS.japonesa (prefixo terminado
+// em "-" cobre todas as variantes). "sushi" = peças de arroz.
+const JAPANESE_SUBTYPE_KEYS = {
+  sushi: ["japonesa-nigiri", "japonesa-uramaki-", "japonesa-hossomaki-", "japonesa-hot-roll"],
+  sashimi: ["japonesa-sashimi"],
+  temaki: ["japonesa-temaki-"],
+  nigiri: ["japonesa-nigiri"],
+  uramaki: ["japonesa-uramaki-"],
+  hossomaki: ["japonesa-hossomaki-"],
+  "hot roll": ["japonesa-hot-roll"],
+  guioza: ["japonesa-guioza"],
+  yakisoba: ["japonesa-yakisoba"],
+  tempura: ["japonesa-tempura-"]
+};
+
+// Restringe as opções ao subtipo pedido e, se houver, ao recheio citado. Nunca troca
+// silenciosamente por outro subtipo: sem correspondência, não há opções.
+function scopeJapaneseTemplates(templates, subtype, fillings = []) {
+  const prefixes = JAPANESE_SUBTYPE_KEYS[subtype];
+  const bySubtype = prefixes
+    ? templates.filter((template) => prefixes.some((prefix) =>
+      prefix.endsWith("-") ? template.key.startsWith(prefix) : template.key === prefix))
+    : templates;
+  if (!fillings.length) return bySubtype;
+  const byFilling = bySubtype.filter((template) => fillings.some((filling) => mentionsFood(template.name, filling)));
+  return (byFilling.length || prefixes) ? byFilling : bySubtype;
+}
 
 const DESIRED_FOODS = {
   pizza: [
@@ -67,11 +115,6 @@ const DESIRED_FOODS = {
     { name: "Sorvete de fruta", foods: ["sorvete de fruta (1 bola)"], calories: 110, protein_g: 1, carbs_g: 25, fat_g: 1, serving: "bola", availability_foods: ["sorvete"], key: "sorvete-fruta" },
     { name: "Sorvete de chocolate", foods: ["sorvete de chocolate (1 bola)"], calories: 150, protein_g: 3, carbs_g: 19, fat_g: 7, serving: "bola", availability_foods: ["sorvete"], key: "sorvete-chocolate" }
   ],
-  sushi: [
-    { name: "Sushi de salmão", foods: ["sushi de salmão (4 peças)"], calories: 200, protein_g: 12, carbs_g: 28, fat_g: 4, serving: "porção de 4 peças", availability_foods: ["sushi", "arroz", "peixe"], key: "sushi-salmao" },
-    { name: "Sushi de atum", foods: ["sushi de atum (4 peças)"], calories: 180, protein_g: 14, carbs_g: 25, fat_g: 2, serving: "porção de 4 peças", availability_foods: ["sushi", "arroz", "atum"], key: "sushi-atum" },
-    { name: "Sushi vegetariano", foods: ["sushi vegetariano (4 peças)"], calories: 165, protein_g: 5, carbs_g: 31, fat_g: 2, serving: "porção de 4 peças", availability_foods: ["sushi", "arroz", "legumes"], key: "sushi-vegetariano" }
-  ],
   bolo: [
     { name: "Bolo simples", foods: ["bolo simples (1 fatia)"], calories: 230, protein_g: 4, carbs_g: 35, fat_g: 8, serving: "fatia", availability_foods: ["bolo"], key: "bolo-simples" },
     { name: "Bolo de chocolate", foods: ["bolo de chocolate (1 fatia)"], calories: 310, protein_g: 5, carbs_g: 44, fat_g: 13, serving: "fatia", availability_foods: ["bolo"], key: "bolo-chocolate" },
@@ -95,7 +138,8 @@ const DESIRED_FOODS = {
     // Hot Philadelphia TBCA: 30 g por peça.
     { name: "Hot Philadelphia (Hot Roll)", foods: ["hot philadelphia (1 peça)"], calories: 84, protein_g: 2.7, carbs_g: 9.1, fat_g: 4.4, serving: "peça", availability_foods: ["hot roll"], key: "japonesa-hot-roll", serving_g: 30 },
     { name: "Nigiri de salmão", foods: ["nigiri de salmão (1 peça)"], calories: 57.8, protein_g: 3.0, carbs_g: 7.7, fat_g: 1.4, serving: "peça", availability_foods: ["nigiri"], key: "japonesa-nigiri" },
-    { name: "Sashimi de salmão", foods: ["sashimi de salmão (1 fatia)"], calories: 20.8, protein_g: 2.1, carbs_g: 0, fat_g: 1.3, serving: "fatia", availability_foods: ["sashimi"], key: "japonesa-sashimi" },
+    // Sashimi: mesma fonte do catálogo (sashimi-salmao), por fatia de default_g.
+    sashimiTemplate(),
     { name: "Yakisoba brasileiro", foods: ["yakisoba (300 g)"], calories: 366, protein_g: 22.4, carbs_g: 54.6, fat_g: 7.8, serving: "300 g", availability_foods: ["yakisoba"], key: "japonesa-yakisoba", serving_g: 300 },
     { name: "Guioza", foods: ["guioza (1 unidade)"], calories: 134, protein_g: 6.4, carbs_g: 18.6, fat_g: 4.0, serving: "unidade", availability_foods: ["guioza"], key: "japonesa-guioza" },
     { name: "Hossomaki de salmão", foods: ["hossomaki de salmão (1 peça)"], calories: 41, protein_g: 1.8, carbs_g: 6.3, fat_g: 0.8, serving: "peça", availability_foods: ["hossomaki"], key: "japonesa-hossomaki-salmao" },
@@ -115,7 +159,8 @@ export function generateDesiredFoodOptions({
   dislikes = [], availableFoods = [], availabilityOnly = false, requestedServings = null,
   preferredComposition = null, recentOptions = [], limit = 3,
   dailyCalorieBudget = calorieBudget, dailyMacroBudget = macroBudget,
-  excludeRecentOptions = false, requestedGrams = null
+  excludeRecentOptions = false, requestedGrams = null,
+  japaneseSubtype = null, fillings = []
 }) {
   const templates = DESIRED_FOODS[desiredFood];
   if (!templates || !Number.isFinite(Number(calorieBudget)) || !Number.isFinite(Number(dailyCalorieBudget))) return null;
@@ -123,9 +168,13 @@ export function generateDesiredFoodOptions({
   const available = availableFoods.map(normalizeIngredient);
   const countedServings = Number.isFinite(Number(requestedServings)) && requestedServings > 0
     ? Number(requestedServings) : null;
-  const allowedTemplates = templates.filter((template) => !rejected.some((item) =>
-    mentionsFood(template.name, item) || template.foods.some((food) => mentionsFood(food, item))
-  ));
+  const allowedTemplates = scopeJapaneseTemplates(
+    templates.filter((template) => !rejected.some((item) =>
+      mentionsFood(template.name, item) || template.foods.some((food) => mentionsFood(food, item))
+    )),
+    desiredFood === "japonesa" ? japaneseSubtype : null,
+    desiredFood === "japonesa" ? fillings : []
+  );
   const availableMatches = available.length
     ? allowedTemplates.filter((template) => {
         const requiredAvailability = (template.availability_foods || [])
@@ -248,7 +297,6 @@ function formatDesiredServing(template, servings) {
   if (template.key.startsWith("hamburguer-")) return `${quantity} ${quantity === 1 ? "unidade" : "unidades"}`;
   if (template.key.startsWith("chocolate-")) return `${Math.round(quantity * 20)} g`;
   if (template.key.startsWith("sorvete-")) return `${quantity} ${quantity === 1 ? "bola" : "bolas"}`;
-  if (template.key.startsWith("sushi-")) return `${Math.round(quantity * 4)} peças`;
   if (template.key.startsWith("bolo-")) return `${quantity} ${quantity === 1 ? "fatia" : "fatias"}`;
   if (template.key.startsWith("massa-")) return `${quantity} ${quantity === 1 ? "prato" : "pratos"}`;
   if (template.key === "batata-frita") return `${Math.round(quantity * 80)} g`;

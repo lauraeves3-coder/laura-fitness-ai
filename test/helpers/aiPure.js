@@ -20,7 +20,7 @@ function extractFunction(name) {
 }
 
 const NAMES = [
-  "normalizeDesiredFood", "detectDesiredFood", "detectRequestedServings", "detectRequestedGrams",
+  "normalizeDesiredFood", "detectDesiredFood", "detectRequestedServings", "detectRequestedGrams", "detectRequestedJapaneseSubtype",
   "detectDesiredComposition", "normalizeRequestText", "normalizeToolFoodList",
   "detectExplicitExcludedCompositions", "extractExcludedFoods", "getFoodRestrictions",
   "hasDesiredFoodAvailable", "extractAvailableFoods", "detectWheyAvailability"
