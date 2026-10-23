@@ -251,3 +251,26 @@ test("CAT-06: docs/fontes-tbca.md está em sincronia com o catálogo", async () 
     assert.match(doc, new RegExp(`\| ${food.id} \| [^|]+\| ${food.reference.match(/BRC\d{4}[A-Z]/)[0]} \| ${food.kcal} \|`), food.id);
   }
 });
+
+// ---------- CAT-11 / CAT-12: modelos de refeição ----------
+
+test("CAT-12: nenhum componente de modelo foi descartado (id inexistente ou gramagem inválida)", async () => {
+  const { TEMPLATE_ISSUES } = await import("../src/nutritionCatalog.js");
+  assert.deepEqual(TEMPLATE_ISSUES, []);
+});
+
+test("CAT-11: nenhum período tem dois modelos com a mesma composição", () => {
+  for (const [period, templates] of Object.entries(EXPANDED_TEMPLATES)) {
+    const seen = new Map();
+    for (const template of templates) {
+      const key = template.foods.map((food, index) => `${food}@${template.portions[index]}`).sort().join("+");
+      assert.ok(!seen.has(key), `${period}: "${template.name}" repete "${seen.get(key)}"`);
+      seen.set(key, template.name);
+    }
+  }
+});
+
+test("CAT-11: nome do modelo bate com o preparo usado", () => {
+  const scrambled = EXPANDED_TEMPLATES["lanche da tarde"].find((template) => template.name === "Ovos mexidos com pão");
+  assert.ok(scrambled.foods.includes("Ovo mexido"));
+});

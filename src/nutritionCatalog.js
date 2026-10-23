@@ -479,10 +479,18 @@ const BRANDED_FAST_FOOD_CATALOG = [
 FOOD_CATALOG.push(...BRANDED_FAST_FOOD_CATALOG);
 
 
+// CAT-12: componentes com id inexistente ou gramagem inválida não entram no modelo,
+// mas ficam registrados aqui (antes eram descartados em silêncio). Teste exige lista vazia.
+export const TEMPLATE_ISSUES = [];
+
 function makeMealTemplate(name, components, isQuick = false, category = "refeição completa") {
   const resolved = components
-    .map(([id, grams]) => ({ item: FOOD_CATALOG.find((food) => food.id === id), grams }))
-    .filter((entry) => entry.item && Number(entry.grams) > 0);
+    .map(([id, grams]) => ({ id, item: FOOD_CATALOG.find((food) => food.id === id), grams }))
+    .filter((entry) => {
+      const valid = entry.item && Number(entry.grams) > 0;
+      if (!valid) TEMPLATE_ISSUES.push({ template: name, id: entry.id, grams: entry.grams, problem: entry.item ? "gramagem inválida" : "id inexistente" });
+      return valid;
+    });
 
   const totals = resolved.reduce((acc, { item, grams }) => {
     const factor = grams / 100;
@@ -561,18 +569,9 @@ const commonSnack = [
   makeMealTemplate("Whey com morango e aveia", [["whey", 30], ["morango", 150], ["aveia-em-flocos", 20]], true, "preparo rápido"),
   makeMealTemplate("Whey com banana, leite e aveia", [["whey", 30], ["banana-prata", 90], ["leite-integral", 200], ["aveia-em-flocos", 20]], true, "preparo rápido"),
   makeMealTemplate("Whey com banana, morango e iogurte", [["whey", 30], ["banana-prata", 90], ["morango", 100], ["iogurte-natural-integral", 170]], true, "preparo rápido"),
-  makeMealTemplate("Whey com banana", [["whey", 30], ["banana-prata", 90]], true, "preparo rápido"),
-  makeMealTemplate("Whey com banana e aveia", [["whey", 30], ["banana-prata", 90], ["aveia-em-flocos", 20]], true, "preparo rápido"),
-  makeMealTemplate("Whey com morango", [["whey", 30], ["morango", 150]], true, "preparo rápido"),
-  makeMealTemplate("Whey com morango e iogurte", [["whey", 30], ["morango", 150], ["iogurte-natural-integral", 170]], true, "preparo rápido"),
+  // CAT-11: removidas 11 cópias idênticas dos modelos de whey acima (bloco duplicado).
   makeMealTemplate("Whey com banana e iogurte", [["whey", 30], ["banana-prata", 90], ["iogurte-natural-integral", 170]], true, "preparo rápido"),
-  makeMealTemplate("Whey com pasta de amendoim", [["whey", 30], ["pasta-de-amendoim", 15]], true, "preparo rápido"),
-  makeMealTemplate("Whey com banana e pasta de amendoim", [["whey", 30], ["banana-prata", 90], ["pasta-de-amendoim", 15]], true, "preparo rápido"),
-  makeMealTemplate("Whey com leite e aveia", [["whey", 30], ["leite-integral", 200], ["aveia-em-flocos", 20]], true, "preparo rápido"),
-  makeMealTemplate("Whey com morango e aveia", [["whey", 30], ["morango", 150], ["aveia-em-flocos", 20]], true, "preparo rápido"),
-  makeMealTemplate("Whey com banana, leite e aveia", [["whey", 30], ["banana-prata", 90], ["leite-integral", 200], ["aveia-em-flocos", 20]], true, "preparo rápido"),
-  makeMealTemplate("Whey com banana, morango e iogurte", [["whey", 30], ["banana-prata", 90], ["morango", 100], ["iogurte-natural-integral", 170]], true, "preparo rápido"),
-  makeMealTemplate("Ovos mexidos com pão", [["ovo-inteiro", 100], ["pao-integral", 25]], true, "preparo rápido"),
+  makeMealTemplate("Ovos mexidos com pão", [["ovo-mexido", 100], ["pao-integral", 25]], true, "preparo rápido"),
   makeMealTemplate("Tapioca com cottage", [["tapioca-pronta", 60], ["cottage", 60]], true, "preparo rápido"),
   makeMealTemplate("Pão francês com queijo minas", [["pao-frances", 50], ["queijo-minas-frescal", 40]], true, "preparo rápido"),
   makeMealTemplate("Banana com pasta de amendoim", [["banana-prata", 90], ["pasta-de-amendoim", 15]], true, "preparo rápido"),

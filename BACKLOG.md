@@ -48,7 +48,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | NUT-05 | Outros nutrientes (fibras, sódio, açúcares…) | P2 | NÃO IMPLEMENTADO | CAT-08 | catálogo só tem kcal/P/C/G |
 | NUT-06 | Medidas caseiras e conversão específica por alimento/densidade | P1 | PARCIAL | DEC-01 | medidas genéricas marcadas como aproximação (testado); sem fator por alimento |
 | NUT-07 | Vários alimentos e várias ocorrências; sem falsos positivos de alias | P0 | IMPLEMENTADO E TESTADO | — | `foodMatching.js`; `test/foodMatching.test.js`, `test/catalog.test.js` |
-| NUT-08 | Diferenciar cru/cozido/assado/grelhado/frito | P1 | PARCIAL | CAT-01 | testado para cortes bovinos, frango, tilápia, ovos, batata e mandioca (`test/catalog.test.js`); sem preparo citado vale o padrão do item (DEC-13); demais alimentos ainda com um preparo só |
+| NUT-08 | Diferenciar cru/cozido/assado/grelhado/frito | P1 | PARCIAL | CAT-01 | testado para cortes bovinos, frango, tilápia, ovos, batata e mandioca (`test/catalog.test.js`); sem preparo citado vale o padrão do item (DEC-13, decidido); demais alimentos ainda com um preparo só |
 | NUT-09 | Perguntar só o dado ausente; não pedir gramas quando a unidade é conhecida | P0 | IMPLEMENTADO E TESTADO | — | `getQuantityQuestions`/`applyQuantityAnswer` (`nutritionCatalog.js`): pergunta só itens de peso/volume sem quantidade, itens por unidade assumem 1 unidade, whey assume 1 scoop (DEC-12); resposta por item, só a quantidade, número solto em gramas, parcial, "padrão"; estado em `pending_meal_clarification` (15 min); `test/e2e.test.js` |
 | NUT-10 | Corrigir registro sem duplicar | P0 | IMPLEMENTADO E TESTADO | — | `db.js correctMeal` por ID; correção sem descrição mantém a original (bug do texto fixo "Refeição corrigida" corrigido); `test/db.test.js`, `test/e2e.test.js` via ferramenta `correct_meal` simulada |
 | NUT-11 | Excluir registro | P0 | IMPLEMENTADO E TESTADO | — | `db.js deleteMeal` com cópia em `meal_plan_events`, confirmação explícita em 2 passos, cancelamento, isolamento por usuário; `test/db.test.js`, `test/e2e.test.js` |
@@ -81,8 +81,8 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | CAT-08 | Catálogo atualizável sem editar código | P1 | NÃO IMPLEMENTADO | ARQ-01 | catálogo está em código JS |
 | CAT-09 | Alimento desconhecido: perguntar dados, calcular e cadastrar | P1 | NÃO IMPLEMENTADO | CAT-08 | — |
 | CAT-10 | Validar fontes dos ~200 itens "curated_estimate" | P1 | PARCIAL | DEC-01 | 24 itens revalidados na TBCA em 23/10/2026; divergências corrigidas (ex.: batata cozida 87→52 kcal, músculo cozido 216→183, tilápia grelhada 128→90, frango grelhado 165→150, batata frita 312→248); restante pendente |
-| CAT-11 | Remover/justificar modelos de refeição repetidos (NC-03) | P1 | NÃO IMPLEMENTADO | — | 19 grupos repetidos em `EXPANDED_TEMPLATES` |
-| CAT-12 | Validação de modelos que referenciam alimento inexistente | P1 | PARCIAL | — | teste de integridade em `test/catalog.test.js`; `makeMealTemplate` ainda descarta em silêncio |
+| CAT-11 | Remover/justificar modelos de refeição repetidos (NC-03) | P1 | IMPLEMENTADO E TESTADO | — | 11 cópias idênticas de whey no lanche removidas; repetições entre períodos (almoço/jantar, lanche/ceia) mantidas por serem intencionais; "Ovos mexidos com pão" passou a usar ovo mexido; teste impede composição repetida no mesmo período (`test/catalog.test.js`) |
+| CAT-12 | Validação de modelos que referenciam alimento inexistente | P1 | IMPLEMENTADO E TESTADO | — | `makeMealTemplate` registra id inexistente ou gramagem inválida em `TEMPLATE_ISSUES`; teste exige lista vazia |
 
 ## SUP — Suplementos, whey e industrializados
 
@@ -243,7 +243,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | DEC-10 | Se as ~40 cópias de backup soltas podem ser removidas da pasta (estão fora do Git) | ARQ-11 |
 | DEC-11 | Avisar (sem bloquear) metas calóricas muito baixas? A partir de qual valor, e com que texto sobre acompanhamento profissional | NUT-17 |
 | DEC-12 | Quais itens de peso/volume podem assumir a porção padrão sem perguntar (hoje só o whey, 1 scoop de 30 g); ex.: leite em "tomei leite", azeite | NUT-09 |
-| DEC-13 | Sem preparo citado, assumir o preparo padrão (hoje: carnes grelhadas, frango grelhado, "ovo" = ovo cozido) ou perguntar? Fritura muda até ~25% das calorias | NUT-08 |
+| DEC-13 | **Decidido em 23/10/2026:** sem preparo citado, assume o preparo padrão (carnes e frango grelhados, "ovo" = ovo cozido), sem perguntar | NUT-08 |
 
 ## Histórico de status
 
@@ -258,3 +258,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 23/10/2026 | SEG-01, SEG-04 (verificações automáticas em `test/safety.test.js`), CONV-03 (datas relativas) e NUT-14 (histórico por dia e período) → IMPLEMENTADO E TESTADO. Totais: 29 testados, 3 não testados, 25 parciais, 60 não implementados, 2 bloqueados. 186 testes passando. |
 | 23/10/2026 | NUT-19 e MUS-01 → IMPLEMENTADO E TESTADO; CRP-01 reforçado. Bugs corrigidos: frequência de refeição livre no singular e resposta numérica não reconhecidas; treino e peso registrados sem confirmação ("Entendi. Como posso te ajudar?"); treino e peso aceitavam valores impossíveis. Totais: 31 testados, 1 não testado (SEG-05, regra de processo), 25 parciais, 60 não implementados, 2 bloqueados. 200 testes passando. |
 | 23/10/2026 | Catálogo com fonte TBCA: CAT-03 → IMPLEMENTADO E TESTADO; NUT-08, CAT-06 e CAT-10 avançam (PARCIAL). 24 itens revalidados (5 com divergência relevante corrigida) e 43 novos (preparos de cortes bovinos, frango, tilápia, ovos; cupim, carne-seca, açúcares, mel), cada um com código TBCA. Nova decisão DEC-13. Totais: 32 testados, 1 não testado, 25 parciais, 59 não implementados, 2 bloqueados. 208 testes passando. |
+| 23/10/2026 | DEC-13 decidida (manter preparo padrão). CAT-11 e CAT-12 → IMPLEMENTADO E TESTADO. Totais: 34 testados, 1 não testado, 24 parciais, 58 não implementados, 2 bloqueados. 211 testes passando. |
