@@ -577,3 +577,124 @@ test("NUT-14: pedido de sugestão com data não vira consulta de histórico", as
   const reply = await send(userId, "o que posso comer hoje?", fakeModel([finalText("Resposta simulada.")]));
   assert.doesNotMatch(reply, /^📅|^📊/);
 });
+
+// ---------- NUT-19: refeições livres ----------
+
+const WEEKDAY_NAMES = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
+const { weekdayOf } = await import("../src/dates.js");
+
+test("NUT-19: configuração completa numa frase", async () => {
+  const userId = userWithTargets();
+  const reply = await send(userId, "faço 1 refeição livre por semana no sábado no jantar");
+  assert.match(reply, /Sua configuração de refeição livre/);
+  const settings = db.getFreeMealSettings(userId);
+  assert.equal(settings.setup_status, "configured");
+  assert.equal(settings.meals_per_week, 1);
+  assert.deepEqual(settings.days, ["sábado"]);
+  assert.equal(settings.period, "jantar");
+});
+
+test("NUT-19: configuração passo a passo aceita as respostas sugeridas pela própria pergunta", async () => {
+  const userId = userWithTargets();
+  assert.match(await send(userId, "quero configurar a minha refeição livre"), /Quantas refeições livres/);
+  assert.match(await send(userId, "2"), /Em qual dia/);
+  assert.match(await send(userId, "sábado e domingo"), /Em qual refeição/);
+  assert.match(await send(userId, "jantar"), /Sua configuração de refeição livre/);
+  const settings = db.getFreeMealSettings(userId);
+  assert.equal(settings.meals_per_week, 2);
+  assert.deepEqual(settings.days, ["domingo", "sábado"]);
+  assert.equal(settings.period, "jantar");
+});
+
+test("NUT-19: pergunta após completar o perfil; 'não' desativa", async () => {
+  const userId = newUser();
+  db.setFreeMealSettings(userId, { setup_status: "asked" });
+  assert.match(await send(userId, "não"), /Não vou considerar refeição livre/);
+  const settings = db.getFreeMealSettings(userId);
+  assert.equal(settings.enabled, false);
+  assert.equal(settings.setup_status, "disabled");
+});
+
+test("NUT-19: 'não faço refeição livre' desativa", async () => {
+  const userId = userWithTargets();
+  await send(userId, "não faço refeição livre");
+  assert.equal(db.getFreeMealSettings(userId).setup_status, "disabled");
+});
+
+test("NUT-19: consulta da configuração", async () => {
+  const userId = userWithTargets();
+  db.setFreeMealSettings(userId, { setup_status: "configured", enabled: true, meals_per_week: 1, days: ["sábado"], period: "jantar" });
+  const reply = await send(userId, "qual dia é a minha refeição livre?");
+  assert.match(reply, /1 refeição livre por semana/);
+  assert.match(reply, /sábado/);
+});
+
+test("NUT-19: pedido de refeição livre sugere opções, aprende a categoria e não registra consumo", async () => {
+  const userId = userWithTargets();
+  db.setFreeMealSettings(userId, { setup_status: "configured", enabled: true, meals_per_week: 1, days: ["sábado"], period: "jantar" });
+  const reply = await send(userId, "hoje vou fazer a refeição livre com pizza");
+  assert.match(reply, /Sua refeição livre pode ser flexível/);
+  assert.match(reply, /pizza/i);
+  assert.match(reply, /Escolher uma opção não registra consumo/);
+  assert.ok(db.getFreeMealSettings(userId).preferences.includes("pizza"));
+  assert.ok(db.getLatestMealPlanEvent(userId, "suggestion_offered"));
+  assert.equal(db.getTodayMeals(userId).length, 0);
+});
+
+test("NUT-19: no dia da refeição livre, 'o que posso comer?' sugere opções de refeição livre", async () => {
+  const userId = userWithTargets();
+  const todayName = WEEKDAY_NAMES[weekdayOf(today(userId))];
+  db.setFreeMealSettings(userId, { setup_status: "configured", enabled: true, meals_per_week: 1, days: [todayName], period: "jantar" });
+  const reply = await send(userId, "o que posso comer?");
+  assert.match(reply, /Sua refeição livre pode ser flexível/);
+});
+
+// ---------- MUS-01 / CRP-01: séries, repetições, carga e peso ----------
+
+test("MUS-01: treino registra cada exercício com séries, repetições e carga, e confirma", async () => {
+  const userId = newUser();
+  const reply = await send(userId, "fiz musculação hoje: supino 4x8 com 50 kg e agachamento 3x12 com 60 kg", fakeModel([
+    toolCall("record_workout", { workout_type: "musculação", duration_min: 50, exercises: [
+      { name: "supino", sets: 4, reps: 8, weight_kg: 50 },
+      { name: "agachamento", sets: 3, reps: 12, weight_kg: 60 }
+    ] }),
+    finalText("ok")
+  ]));
+  assert.match(reply, /Registrei o treino: musculação — 50 min/);
+  assert.match(reply, /supino: 4 × 8 com 50 kg/);
+  assert.match(reply, /Volume total: 3\.760 kg/);
+  const [workout] = db.getWorkoutsBetween(userId, today(userId), today(userId));
+  assert.deepEqual(workout.exercises, [
+    { name: "supino", sets: 4, reps: 8, weight_kg: 50 },
+    { name: "agachamento", sets: 3, reps: 12, weight_kg: 60 }
+  ]);
+});
+
+test("MUS-01: valores impossíveis são recusados e nada é gravado", async () => {
+  const userId = newUser();
+  const reply = await send(userId, "fiz supino", fakeModel([
+    toolCall("record_workout", { workout_type: "musculação", duration_min: 30, exercises: [{ name: "supino", sets: 300, reps: 8, weight_kg: 40 }] }),
+    finalText("ok")
+  ]));
+  assert.match(reply, /Não registrei o treino/);
+  assert.match(reply, /séries deve ficar entre 0 e 100/);
+  assert.deepEqual(db.getWorkoutsBetween(userId, today(userId), today(userId)), []);
+});
+
+test("MUS-01: treino sem exercícios (cardio) também confirma", async () => {
+  const userId = newUser();
+  const reply = await send(userId, "corri 30 minutos", fakeModel([
+    toolCall("record_workout", { workout_type: "corrida", duration_min: 30, exercises: [] }),
+    finalText("ok")
+  ]));
+  assert.match(reply, /Registrei o treino: corrida — 30 min/);
+  assert.doesNotMatch(reply, /Volume total/);
+});
+
+test("CRP-01: peso confirma; valor implausível é recusado e não altera o perfil", async () => {
+  const userId = newUser();
+  assert.match(await send(userId, "pesei 72,5 kg", fakeModel([toolCall("record_weight", { weight_kg: 72.5 }), finalText("ok")])), /Registrei seu peso: 72,5 kg/);
+  const reply = await send(userId, "pesei 7250 kg", fakeModel([toolCall("record_weight", { weight_kg: 7250 }), finalText("ok")]));
+  assert.match(reply, /Não registrei o peso/);
+  assert.equal(db.getUser(userId).weight_kg, 72.5);
+});

@@ -81,6 +81,7 @@ import {
 } from "./mealIntent.js";
 import { parsePastMealDate, formatDay } from "./dates.js";
 import { getQuantityQuestions, applyQuantityAnswer } from "./nutritionCatalog.js";
+import { validateWorkoutRecord, buildWorkoutReply } from "./workouts.js";
 import { runAgent } from "./agent/agent.js";
 import { createAgentToolRegistry } from "./agent/tools.js";
 
@@ -1884,7 +1885,8 @@ function isNoMessage(message) {
   return /^(?:nao|n|negativo|nao tenho|nao quero)[.! ]*$/.test(text);
 }
 
-function parseFreeMealFrequency(message) {
+// allowBare: resposta à pergunta "Quantas refeições livres…?", que sugere "1, 2 ou 3".
+function parseFreeMealFrequency(message, { allowBare = false } = {}) {
   const text = normalizeRequestText(message);
   const wordNumbers = {
     uma: 1,
@@ -1898,11 +1900,17 @@ function parseFreeMealFrequency(message) {
     sete: 7
   };
 
-  const numeric = text.match(/\b([1-7])\b\s*(?:refeicoes?|vezes?)\s*(?:livres?)?\s*(?:por\s+semana|na\s+semana)?/);
+  // "refeic(?:ao|oes)": o padrão anterior (refeicoes?) não aceitava o singular "1 refeição".
+  const numeric = text.match(/\b([1-7])\b\s*(?:refeic(?:ao|oes)|vez(?:es)?)\s*(?:livres?)?\s*(?:por\s+semana|na\s+semana)?/);
   if (numeric) return Number(numeric[1]);
 
-  const written = text.match(/\b(uma|um|duas|dois|tres|quatro|cinco|seis|sete)\b\s*(?:refeicoes?|vezes?)\s*(?:livres?)?\s*(?:por\s+semana|na\s+semana)?/);
+  const written = text.match(/\b(uma|um|duas|dois|tres|quatro|cinco|seis|sete)\b\s*(?:refeic(?:ao|oes)|vez(?:es)?)\s*(?:livres?)?\s*(?:por\s+semana|na\s+semana)?/);
   if (written) return wordNumbers[written[1]];
+
+  if (allowBare) {
+    const bare = text.trim().match(/^(?:([1-7])|(uma|um|duas|dois|tres|quatro|cinco|seis|sete))(?:\s+por\s+semana|\s+na\s+semana)?[.! ]*$/);
+    if (bare) return bare[1] ? Number(bare[1]) : wordNumbers[bare[2]];
+  }
 
   if (/\b(?:tenho|faco|costumo fazer)\s+(?:uma|um)\s+refeicao\s+livre\b/.test(text)) {
     return 1;
@@ -2097,7 +2105,7 @@ function handleFreeMealConversation({
   }
 
   if (status === "asked_frequency") {
-    const frequency = parseFreeMealFrequency(message);
+    const frequency = parseFreeMealFrequency(message, { allowBare: true });
     if (frequency !== null) {
       const days = parseFreeMealDays(message);
       const period = parseFreeMealPeriod(message);
@@ -4165,11 +4173,35 @@ const summaryIntent = classifySummaryIntent(message);
     }
   }
 
+  if (result.action === "workout") {
+    const workoutCheck =
+      validateWorkoutRecord(
+        result.data
+      );
+
+    if (!workoutCheck.valid) {
+      return `Não registrei o treino porque os dados não são válidos: ${workoutCheck.errors.join("; ")}. Envie os exercícios com séries, repetições e carga.`;
+    }
+  }
+
   const saved =
     saveAction(
       userId,
       result
     );
+
+  // MUS-01 / CRP-01: confirmação explícita (antes caía em "Entendi. Como posso te ajudar?").
+  if (result.action === "workout") {
+    return saved
+      ? buildWorkoutReply(saved)
+      : "Não consegui registrar o treino. Nada foi gravado.";
+  }
+
+  if (result.action === "weight") {
+    return saved
+      ? `⚖️ Registrei seu peso: ${Number(saved.weight_kg).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kg. Seu perfil foi atualizado; as metas automáticas não foram recalculadas.`
+      : "Não registrei o peso: informe um valor válido em kg.";
+  }
 
   if (
     result.action ===

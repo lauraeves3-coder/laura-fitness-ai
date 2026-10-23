@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import { calculateNutritionBalance, validateMealRecord } from "./nutrition.js";
+import { validateWorkoutRecord } from "./workouts.js";
 
 // FITPULSE_DB_PATH permite que os testes usem um banco temporário; sem ela, o
 // comportamento de produção (fitness.db na pasta do projeto) não muda.
@@ -1128,72 +1129,96 @@ export function saveWorkout(
 ) {
   ensureUser(userId);
 
-  const workoutResult =
-    db.prepare(`
-      INSERT INTO workouts (
-        user_id,
-        workout_type,
-        duration_min,
-        notes,
-        trained_at
-      )
-      VALUES (?, ?, ?, ?, ?)
-    `).run(
-      userId,
-      workout.workout_type,
-      workout.duration_min ?? 0,
-      workout.notes ?? null,
-      getBrazilDateTime()
-    );
-
-  const workoutId =
-    workoutResult.lastInsertRowid;
-
-  if (
-    Array.isArray(
-      workout.exercises
-    )
-  ) {
-    const insertExercise =
-      db.prepare(`
-        INSERT INTO exercises (
-          workout_id,
-          name,
-          sets,
-          reps,
-          weight_kg
-        )
-        VALUES (?, ?, ?, ?, ?)
-      `);
-
-    const insertMany =
-      db.transaction(
-        (exercises) => {
-          for (
-            const exercise
-            of exercises
-          ) {
-            insertExercise.run(
-              workoutId,
-              exercise.name,
-              exercise.sets ?? 0,
-              exercise.reps ?? 0,
-              exercise.weight_kg ?? 0
-            );
-          }
-        }
-      );
-
-    insertMany(
-      workout.exercises
-    );
+  // MUS-01: dados inválidos não chegam ao banco; treino e exercícios numa transação.
+  if (!validateWorkoutRecord(workout).valid) {
+    return null;
   }
 
-  return db
-    .prepare(
-      "SELECT * FROM workouts WHERE id = ?"
-    )
-    .get(workoutId);
+  return db.transaction(() => {
+    const workoutResult =
+      db.prepare(`
+        INSERT INTO workouts (
+          user_id,
+          workout_type,
+          duration_min,
+          notes,
+          trained_at
+        )
+        VALUES (?, ?, ?, ?, ?)
+      `).run(
+        userId,
+        workout.workout_type,
+        workout.duration_min ?? 0,
+        workout.notes ?? null,
+        getBrazilDateTime()
+      );
+
+    const workoutId =
+      workoutResult.lastInsertRowid;
+
+    if (
+      Array.isArray(
+        workout.exercises
+      )
+    ) {
+      const insertExercise =
+        db.prepare(`
+          INSERT INTO exercises (
+            workout_id,
+            name,
+            sets,
+            reps,
+            weight_kg
+          )
+          VALUES (?, ?, ?, ?, ?)
+        `);
+
+      const insertMany =
+        db.transaction(
+          (exercises) => {
+            for (
+              const exercise
+              of exercises
+            ) {
+              insertExercise.run(
+                workoutId,
+                exercise.name,
+                exercise.sets ?? 0,
+                exercise.reps ?? 0,
+                exercise.weight_kg ?? 0
+              );
+            }
+          }
+        );
+
+      insertMany(
+        workout.exercises
+      );
+    }
+
+    return getWorkoutWithExercises(workoutId);
+  })();
+}
+
+function getWorkoutWithExercises(workoutId) {
+  const workout = db.prepare("SELECT * FROM workouts WHERE id = ?").get(workoutId);
+  if (!workout) return null;
+  return {
+    ...workout,
+    exercises: db.prepare(
+      "SELECT name, sets, reps, weight_kg FROM exercises WHERE workout_id = ? ORDER BY id"
+    ).all(workoutId)
+  };
+}
+
+// MUS-01: treinos com exercícios entre duas datas "YYYY-MM-DD" (inclusive).
+export function getWorkoutsBetween(userId, startDate, endDate) {
+  ensureUser(userId);
+  return db.prepare(`
+    SELECT id FROM workouts
+    WHERE user_id = ? AND date(trained_at) BETWEEN ? AND ?
+    ORDER BY trained_at, id
+  `).all(userId, startDate, endDate).map(({ id }) => getWorkoutWithExercises(id));
 }
 
 /* =========================================================
@@ -1205,6 +1230,12 @@ export function saveWeight(
   weightKg
 ) {
   ensureUser(userId);
+
+  // CRP-01: peso implausível não entra no histórico nem no perfil (usado nas metas).
+  const weight = Number(weightKg);
+  if (!Number.isFinite(weight) || weight < 20 || weight > 400) {
+    return null;
+  }
 
   db.prepare(`
     INSERT INTO weights (

@@ -59,7 +59,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | NUT-16 | Metas personalizadas, ajuste manual, restaurar automáticas | P0 | IMPLEMENTADO E TESTADO | — | `setCustomCalorieTarget`, `restoreAutomaticNutritionTargets` e a proteção contra alteração sem pedido explícito; `test/e2e.test.js` (metas de macros ainda sem teste) |
 | NUT-17 | Validar coerência das metas e valores zero/negativos | P0 | IMPLEMENTADO E TESTADO | — | recusa calorias ≤ 0 ou > 10.000 e macros < 0 ou > 1.000 g com mensagem explícita (antes: "Entendi. Como posso te ajudar?"); avisa incompatibilidade calorias × macros sem ajuste silencioso; "meta de proteína para 140 g" passou a ser reconhecida; `test/e2e.test.js`. Limiar de aviso para metas muito baixas: DEC-11 |
 | NUT-18 | Plano diário por refeição com orçamento e adaptação ao consumido | P0 | IMPLEMENTADO E TESTADO | — | `buildDailyMealPlan`, `getMealBudget`; tabela `meal_plans`; criação, orçamento ≤ saldo, exigência de meta e de pedido explícito, intenção de seguir (`test/e2e.test.js`). Bug corrigido: criação de plano sempre falhava (variável fora de escopo) |
-| NUT-19 | Refeições livres: frequência, dia/período, categorias favoritas | P1 | IMPLEMENTADO NÃO TESTADO | — | colunas `free_meal_*`; `setFreeMealSettings`; `generateFreeMealOptions` |
+| NUT-19 | Refeições livres: frequência, dia/período, categorias favoritas | P1 | IMPLEMENTADO E TESTADO | — | colunas `free_meal_*`; `setFreeMealSettings`; `generateFreeMealOptions`; configuração numa frase e passo a passo, recusa, consulta, sugestões que aprendem a categoria, dia da refeição livre (`test/e2e.test.js`). Bugs corrigidos: "1 refeição" no singular e a resposta "2" (sugerida pela pergunta) não eram reconhecidas |
 | NUT-20 | Refeições livres com ingredientes, porções e fonte | P1 | NÃO IMPLEMENTADO | CAT-08 | `FREE_MEAL_OPTIONS` só tem totais (NC-08) |
 | NUT-21 | Cravings: priorizar o alimento desejado e encaixar no dia | P0 | IMPLEMENTADO E TESTADO | — | `generateDesiredFoodOptions`; `test/desiredFood.test.js` |
 | NUT-22 | Fome e saciedade (horário, intensidade, padrões) | P3 | NÃO IMPLEMENTADO | — | — |
@@ -149,7 +149,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
-| MUS-01 | Séries, repetições e carga por exercício | P1 | IMPLEMENTADO NÃO TESTADO | ESP-01 | tabela `exercises` (name, sets, reps, weight_kg) |
+| MUS-01 | Séries, repetições e carga por exercício | P1 | IMPLEMENTADO E TESTADO | — | tabela `exercises`; `src/workouts.js` (validação: séries 0–100 inteiras, repetições 0–1000, carga 0–1000 kg, duração 0–1440 min; confirmação com volume); `saveWorkout` em transação; `getWorkoutsBetween`; `test/workouts.test.js`, `test/e2e.test.js`. Bug corrigido: treino registrado respondia "Entendi. Como posso te ajudar?" |
 | MUS-02 | Grupo muscular, RPE/RIR, descanso, técnica, equipamento, fadiga | P2 | NÃO IMPLEMENTADO | MUS-01 | — |
 | MUS-03 | Volume por músculo, progressão e PRs | P2 | NÃO IMPLEMENTADO | MUS-02 | — |
 | MUS-04 | Criar/adaptar treinos por objetivo, nível, divisão, equipamento, limitações | P2 | NÃO IMPLEMENTADO | MUS-02 | — |
@@ -176,7 +176,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
-| CRP-01 | Registrar peso com data e histórico | P1 | IMPLEMENTADO E TESTADO | — | tabela `weights`; `saveWeight` atualiza `users.weight_kg`; `test/e2e.test.js` |
+| CRP-01 | Registrar peso com data e histórico | P1 | IMPLEMENTADO E TESTADO | — | tabela `weights`; `saveWeight` atualiza `users.weight_kg`, recusa peso fora de 20–400 kg e confirma o registro (antes: sem validação e sem confirmação); `test/e2e.test.js` |
 | CRP-02 | Atualizar metas automáticas quando o peso muda | P1 | NÃO IMPLEMENTADO | DEC-07 | `saveWeight` não recalcula metas |
 | CRP-03 | Medidas/circunferências, gráficos e tendências | P2 | NÃO IMPLEMENTADO | — | — |
 | CRP-04 | Fotos privadas de evolução com consentimento | P3 | NÃO IMPLEMENTADO | VIS-04 | — |
@@ -255,3 +255,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 23/10/2026 | NUT-12, NUT-15, NUT-18 → IMPLEMENTADO E TESTADO. Bug pré-existente corrigido: o handler `meal_plan` usava `explicitExcludedFoods` fora do escopo e toda criação de plano falhava com ReferenceError (mascarado como "Não consegui concluir essa ação agora"). Varredura com `tsc --checkJs` (TS2304/TS2552) nos 9 arquivos ativos: nenhum outro identificador indefinido. Totais: 22 testados, 6 não testados, 28 parciais, 61 não implementados, 2 bloqueados. 141 testes passando. |
 | 23/10/2026 | SEG-03 (app Express separado em `app.js`; webhook testado), NUT-17 (limites e mensagens de recusa; "meta de proteína para 140 g") e NUT-09 (pergunta de quantidade com estado) → IMPLEMENTADO E TESTADO. Novas decisões DEC-11 e DEC-12. Mudança de comportamento: "comi arroz e feijão" agora pergunta as quantidades antes de registrar. Totais: 25 testados, 5 não testados, 26 parciais, 61 não implementados, 2 bloqueados. 161 testes passando. |
 | 23/10/2026 | SEG-01, SEG-04 (verificações automáticas em `test/safety.test.js`), CONV-03 (datas relativas) e NUT-14 (histórico por dia e período) → IMPLEMENTADO E TESTADO. Totais: 29 testados, 3 não testados, 25 parciais, 60 não implementados, 2 bloqueados. 186 testes passando. |
+| 23/10/2026 | NUT-19 e MUS-01 → IMPLEMENTADO E TESTADO; CRP-01 reforçado. Bugs corrigidos: frequência de refeição livre no singular e resposta numérica não reconhecidas; treino e peso registrados sem confirmação ("Entendi. Como posso te ajudar?"); treino e peso aceitavam valores impossíveis. Totais: 31 testados, 1 não testado (SEG-05, regra de processo), 25 parciais, 60 não implementados, 2 bloqueados. 200 testes passando. |
