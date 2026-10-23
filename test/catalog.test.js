@@ -56,8 +56,12 @@ test("NC-07: nenhum alias compartilhado entre alimentos diferentes", () => {
 // ---------- Regressões que já funcionam (não podem quebrar) ----------
 
 test("regressão: 'Comi whey' = 123 kcal (30 g)", () => assert.equal(kcal("Comi whey"), 123));
-test("regressão: 'Comi duas bananas' = 176 kcal", () => assert.equal(kcal("Comi duas bananas"), 176));
-test("regressão: 'Comi 200 g de arroz' = 260 kcal", () => assert.equal(kcal("Comi 200 g de arroz"), 260));
+// Valores derivados do catálogo: o teste verifica a contagem/quantidade, não um número
+// fixo que muda quando a fonte nutricional é atualizada.
+const kcalFor = (id, grams) => Math.round(FOOD_CATALOG.find((food) => food.id === id).kcal * grams / 100);
+
+test("regressão: 'Comi duas bananas' = 2 × 90 g", () => assert.equal(kcal("Comi duas bananas"), kcalFor("banana-prata", 180)));
+test("regressão: 'Comi 200 g de arroz' = 200 g", () => assert.equal(kcal("Comi 200 g de arroz"), kcalFor("arroz-branco-cozido", 200)));
 test("regressão: 'pão de queijo' não vira queijo", () => assert.deepEqual(ids(estimateMealFromText("comi um pão de queijo")), ["pao-de-queijo"]));
 test("regressão: '2 ovos e banana' contabiliza 100 g de ovo", () => {
   const ovo = estimateMealFromText("comi 2 ovos e banana").matched_items.find((item) => item.id === "ovo-inteiro");
@@ -77,10 +81,10 @@ test("NC-01: 'novo' não contém ovo; 'casa' não contém asa", () => {
 // ---------- NC-05: várias ocorrências ----------
 
 test("NC-05: 'uma banana e depois mais uma banana' = 2 bananas", () => {
-  assert.equal(kcal("Comi uma banana e depois mais uma banana"), 176);
+  assert.equal(kcal("Comi uma banana e depois mais uma banana"), kcalFor("banana-prata", 180));
 });
 test("NC-05: 'uma banana e depois mais duas bananas' = 3 bananas (270 g)", () => {
-  assert.equal(kcal("Comi uma banana e depois mais duas bananas"), 265);
+  assert.equal(kcal("Comi uma banana e depois mais duas bananas"), kcalFor("banana-prata", 270));
 });
 
 // ---------- NC-07: farofa ----------
