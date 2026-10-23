@@ -10,7 +10,7 @@
   - Valores estimativos curados para itens sem referência específica no catálogo.
 */
 
-import { matchFoodTerms } from "./foodMatching.js";
+import { matchFoodTerms, parseQuantity, QUANTITY_PATTERN } from "./foodMatching.js";
 
 const F = (
   id, name, aliases, kcal, protein, carbs, fat,
@@ -605,7 +605,43 @@ export function findFoodCandidates(message) {
     .filter((item) => !seen.has(item.id) && seen.add(item.id));
 }
 
-function extractQuantity(text, item, fromIndex = 0, { allowDefault = true, endIndex = null } = {}) {
+// Medidas caseiras genéricas (volume aproximado convertido 1:1 em gramas).
+// São aproximações: a densidade e o utensílio mudam o peso real.
+const HOUSEHOLD_MEASURES = [
+  [/^colher(?:es)? (?:de )?sopa$|^c\.? ?(?:de )?sopa$|^cs$/, 15, "colher de sopa"],
+  [/^colher(?:es)? (?:de )?sobremesa$/, 10, "colher de sobremesa"],
+  [/^colher(?:es)? (?:de )?cha$/, 5, "colher de chá"],
+  [/^colher(?:es)?$/, 15, "colher"],
+  [/^conchas?$/, 100, "concha"],
+  [/^xicaras?$/, 150, "xícara"],
+  [/^copos?$/, 200, "copo"],
+  [/^latas?$/, 350, "lata"],
+  [/^garrafas?$/, 500, "garrafa"]
+];
+
+const UNIT_PATTERN = [
+  "kg", "quilos?", "gramas?", "gr", "g",
+  "ml", "mililitros?", "litros?", "l",
+  "colher(?:es)?\\s+(?:de\\s+)?(?:sopa|cha|sobremesa)", "c\\.?\\s*(?:de\\s+)?sopa", "colher(?:es)?", "cs",
+  "conchas?", "xicaras?", "copos?", "latas?", "garrafas?",
+  "fatias?", "unidades?", "unid\\.?", "ovos?", "pecas?", "porcoes", "porcao", "pedacos?", "bolas?", "bifes?"
+].join("|");
+
+function unitToGrams(amount, unit, item) {
+  const u = normalizeText(unit).replace(/\s+/g, " ");
+  if (/^(?:g|gr|gramas?)$/.test(u)) return { grams: amount, measure: null };
+  if (/^(?:kg|quilos?)$/.test(u)) return { grams: amount * 1000, measure: null };
+  if (/^(?:ml|mililitros?)$/.test(u)) return { grams: amount, measure: null };
+  if (/^(?:l|litros?)$/.test(u)) return { grams: amount * 1000, measure: null };
+  for (const [pattern, grams, label] of HOUSEHOLD_MEASURES) {
+    if (pattern.test(u)) return { grams: amount * grams, measure: label };
+  }
+  return { grams: amount * item.default_g, measure: null };
+}
+
+// Quantidade de uma menção de alimento: { grams, measure } ou null.
+// measure indica medida caseira genérica (aproximação), quando usada.
+function extractQuantityDetails(text, item, fromIndex = 0, { endIndex = null } = {}) {
   const normalizedText = normalizeText(text);
   const before = normalizedText.slice(Math.max(0, fromIndex - 120), fromIndex);
   const itemAliases = [item.name, ...(item.aliases || [])]
@@ -615,94 +651,28 @@ function extractQuantity(text, item, fromIndex = 0, { allowDefault = true, endIn
   const matchedAlias = itemAliases.find((alias) => normalizedText.startsWith(alias, fromIndex)) || "";
   const afterStart = endIndex ?? fromIndex + matchedAlias.length;
   const after = normalizedText.slice(afterStart, afterStart + 120);
-  const wordNumbers = {
-    um: 1, uma: 1, dois: 2, duas: 2, tres: 3,
-    quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8,
-    nove: 9, dez: 10
-  };
 
-  const number = `(\\d+(?:[.,]\\d+)?)`;
-  const word = `(um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez)`;
-
-  const readNumber = (value) => Number(String(value).replace(',', '.'));
-  const readWord = (value) => wordNumbers[String(value)] || null;
-
-  const quantityToGrams = (value, unit) => {
-    const amount = typeof value === 'number' ? value : readNumber(value);
-    if (!(amount > 0)) return null;
-    const u = normalizeText(unit);
-
-    if (/^(?:g|grama|gramas|gr)$/.test(u)) return amount;
-    if (/^(?:ml|mililitro|mililitros)$/.test(u)) return amount;
-    if (/^(?:colher|colheres|c sopa|cs)$/.test(u)) return amount * 15;
-    if (/^(?:concha|conchas)$/.test(u)) return amount * 100;
-    if (/^(?:xicara|xicaras)$/.test(u)) return amount * 150;
-    if (/^(?:copo|copos)$/.test(u)) return amount * 200;
-    if (/^(?:lata|latas)$/.test(u)) return amount * 350;
-    if (/^(?:garrafa|garrafas)$/.test(u)) return amount * 500;
-    return amount * item.default_g;
-  };
-
-  const explicitPatterns = [
-    [new RegExp(`${number}\\s*(g|gramas?|gr)\\s*(?:de|do|da)?\\s*$`), 1, 2],
-    [new RegExp(`${number}\\s*(ml|mililitros?)\\s*(?:de|do|da)?\\s*$`), 1, 2],
-    [new RegExp(`${number}\\s*(colheres?|c\\.?\\s*sopa|cs|conchas?|xicaras?|copos?|latas?|garrafas?)\\s*(?:de|do|da)?\\s*$`), 1, 2],
-    [new RegExp(`${number}\\s*(fatias?|unidades?|unid\\.?|ovos?|pecas?|p[eç]as?|por[cç][oõ]es?|pedacos?|bolas?|bifes?)\\s*(?:de|do|da)?\\s*$`), 1, 2],
-    [new RegExp(`${word}\\s*(fatias?|unidades?|ovos?|pecas?|p[eç]as?|por[cç][oõ]es?|pedacos?|bolas?|bifes?|conchas?|colheres?)\\s*(?:de|do|da)?\\s*$`), 1, 2]
-  ];
-
-  for (const [pattern, valueIndex, unitIndex] of explicitPatterns) {
-    const match = before.match(pattern);
-    if (match) {
-      const amount = /^(?:um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez)$/i.test(match[valueIndex])
-        ? readWord(match[valueIndex])
-        : readNumber(match[valueIndex]);
-      const grams = quantityToGrams(amount, match[unitIndex]);
-      if (grams) return grams;
-    }
+  const withUnitBefore = before.match(new RegExp(`(${QUANTITY_PATTERN})\\s*(${UNIT_PATTERN})(?![a-z])\\s*(?:de|do|da)?\\s*$`));
+  const withUnitAfter = after.match(new RegExp(`^\\s*(${QUANTITY_PATTERN})\\s*(${UNIT_PATTERN})(?![a-z])`));
+  for (const match of [withUnitBefore, withUnitAfter]) {
+    const amount = match && parseQuantity(match[1]);
+    if (amount) return unitToGrams(amount, match[2], item);
   }
 
-  const afterPatterns = [
-    [new RegExp(`^\\s*${number}\\s*(g|gramas?|gr)\\b`), 1, 2],
-    [new RegExp(`^\\s*${number}\\s*(ml|mililitros?)\\b`), 1, 2],
-    [new RegExp(`^\\s*${number}\\s*(colheres?|c\\.?\\s*sopa|cs|conchas?|xicaras?|copos?|latas?|garrafas?)\\b`), 1, 2],
-    [new RegExp(`^\\s*${number}\\s*(fatias?|unidades?|unid\\.?|ovos?|pecas?|p[eç]as?|por[cç][oõ]es?|pedacos?|bolas?|bifes?)\\b`), 1, 2],
-    [new RegExp(`^\\s*${word}\\s*(fatias?|unidades?|ovos?|pecas?|p[eç]as?|por[cç][oõ]es?|pedacos?|bolas?|bifes?|conchas?|colheres?)\\b`), 1, 2]
-  ];
-
-  for (const [pattern, valueIndex, unitIndex] of afterPatterns) {
-    const match = after.match(pattern);
-    if (match) {
-      const amount = /^(?:um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez)$/i.test(match[valueIndex])
-        ? readWord(match[valueIndex])
-        : readNumber(match[valueIndex]);
-      const grams = quantityToGrams(amount, match[unitIndex]);
-      if (grams) return grams;
-    }
+  // Contagem direta antes/depois do alimento: "2 bananas", "meia banana", "1/2 mamão".
+  const directBefore = before.match(new RegExp(`(${QUANTITY_PATTERN})\\s*$`));
+  const directAfter = after.match(new RegExp(`^\\s*(${QUANTITY_PATTERN})(?![a-z0-9])`));
+  for (const match of [directBefore, directAfter]) {
+    const amount = match && parseQuantity(match[1]);
+    if (amount) return { grams: amount * item.default_g, measure: null };
   }
 
-  // Contagem direta antes/depois do alimento: "2 bananas", "1 bife".
-  const directBefore = before.match(new RegExp(`${number}\\s*$`));
-  if (directBefore) {
-    const amount = readNumber(directBefore[1]);
-    if (amount > 0) return amount * item.default_g;
-  }
-  const directWordBefore = before.match(new RegExp(`${word}\\s*$`));
-  if (directWordBefore) {
-    const amount = readWord(directWordBefore[1]);
-    if (amount) return amount * item.default_g;
-  }
-  const directAfter = after.match(new RegExp(`^\\s*${number}\\b`));
-  if (directAfter) {
-    const amount = readNumber(directAfter[1]);
-    if (amount > 0) return amount * item.default_g;
-  }
-  const directWordAfter = after.match(new RegExp(`^\\s*${word}\\b`));
-  if (directWordAfter) {
-    const amount = readWord(directWordAfter[1]);
-    if (amount) return amount * item.default_g;
-  }
+  return null;
+}
 
+function extractQuantity(text, item, fromIndex = 0, { allowDefault = true, endIndex = null } = {}) {
+  const details = extractQuantityDetails(text, item, fromIndex, { endIndex });
+  if (details?.grams > 0) return details.grams;
   return allowDefault ? item.default_g : null;
 }
 
@@ -712,12 +682,13 @@ function extractQuantity(text, item, fromIndex = 0, { allowDefault = true, endIn
 function groupOccurrencesByFood(text) {
   const groups = new Map();
   for (const occurrence of findFoodOccurrences(text)) {
-    const explicitGrams = extractQuantity(text, occurrence.item, occurrence.index, {
-      allowDefault: false,
-      endIndex: occurrence.end
-    });
+    const details = extractQuantityDetails(text, occurrence.item, occurrence.index, { endIndex: occurrence.end });
     const group = groups.get(occurrence.item.id) || { item: occurrence.item, position: occurrence.index, mentions: [] };
-    group.mentions.push({ ...occurrence, explicitGrams: explicitGrams > 0 ? explicitGrams : null });
+    group.mentions.push({
+      ...occurrence,
+      explicitGrams: details?.grams > 0 ? details.grams : null,
+      measure: details?.measure || null
+    });
     groups.set(occurrence.item.id, group);
   }
   return [...groups.values()];
@@ -752,6 +723,9 @@ export function estimateMealFromText(message, options = {}) {
 
   for (const { item, mentions } of groups) {
     const override = Number(quantityOverrides[item.id]);
+    const householdMeasures = Number.isFinite(override) && override > 0
+      ? []
+      : [...new Set(mentions.map((mention) => mention.measure).filter(Boolean))];
     const grams = Number.isFinite(override) && override > 0
       ? override
       : mentions.reduce((total, mention, index) =>
@@ -767,7 +741,8 @@ export function estimateMealFromText(message, options = {}) {
       protein_g: item.protein * factor,
       carbs_g: item.carbs * factor,
       fat_g: item.fat * factor,
-      source: item.source
+      source: item.source,
+      ...(householdMeasures.length ? { household_measures: householdMeasures, approximate_quantity: true } : {})
     });
   }
 
@@ -781,8 +756,9 @@ export function estimateMealFromText(message, options = {}) {
     return acc;
   }, { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
 
+  // Medida caseira genérica é aproximação de peso: impede confiança alta.
   const allHighConfidence = matched.every((item) =>
-    item.source === "tbca_verified" || item.source === "official_brand"
+    (item.source === "tbca_verified" || item.source === "official_brand") && !item.approximate_quantity
   );
   const confidence = allHighConfidence
     ? "high"

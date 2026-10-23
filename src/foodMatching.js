@@ -59,6 +59,38 @@ export function normalizeFoodText(value) {
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+// ---------- Quantidades ----------
+// Aplicar sobre texto normalizado (sem acentos, minúsculo): "três" -> "tres".
+
+const WORD_NUMBERS = {
+  um: 1, uma: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5,
+  seis: 6, sete: 7, oito: 8, nove: 9, dez: 10, meia: 0.5, meio: 0.5
+};
+const UNICODE_FRACTIONS = { "½": 0.5, "¼": 0.25, "¾": 0.75 };
+const WORDS = "um|uma|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez";
+const DECIMAL = "\\d+(?:[.,]\\d+)?";
+
+// Um token de quantidade: "2", "1,5", "1/2", "1 1/2", "½", "três", "meia", "1 e meia", "uma e meia".
+// Sem grupo de captura; não casa no meio de palavras ("algum" não contém "um").
+export const QUANTITY_PATTERN = `(?<![a-z0-9/.,])(?:(?:${DECIMAL}|${WORDS})\\s+e\\s+mei[oa]|\\d+\\s+\\d+\\/\\d+|\\d+\\/\\d+|${DECIMAL}|[½¼¾]|${WORDS}|mei[oa])`;
+
+export function parseQuantity(token) {
+  const value = String(token || "").trim();
+  const andHalf = value.match(/^(.+?)\s+e\s+mei[oa]$/);
+  if (andHalf) {
+    const whole = parseQuantity(andHalf[1]);
+    return whole === null ? null : whole + 0.5;
+  }
+  const mixed = value.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+  if (mixed) return Number(mixed[3]) > 0 ? Number(mixed[1]) + Number(mixed[2]) / Number(mixed[3]) : null;
+  const fraction = value.match(/^(\d+)\/(\d+)$/);
+  if (fraction) return Number(fraction[2]) > 0 ? Number(fraction[1]) / Number(fraction[2]) : null;
+  if (value in UNICODE_FRACTIONS) return UNICODE_FRACTIONS[value];
+  if (value in WORD_NUMBERS) return WORD_NUMBERS[value];
+  const number = Number(value.replace(",", "."));
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
 function wordPattern(word) {
   if (CONNECTORS.has(word)) return escapeRegex(word);
   if (word.length <= 2) return escapeRegex(word);

@@ -58,9 +58,9 @@ const DESIRED_FOODS = {
     { name: "Hambúrguer com queijo", foods: ["pão, carne e queijo (1 unidade)"], calories: 500, protein_g: 29, carbs_g: 40, fat_g: 26, serving: "unidade", availability_foods: ["hamburger", "carne", "queijo"], key: "hamburguer-queijo" }
   ],
   chocolate: [
-    { name: "Chocolate amargo", foods: ["chocolate amargo (20 g)"], calories: 120, protein_g: 2, carbs_g: 9, fat_g: 9, serving: "porção de 20 g", availability_foods: ["chocolate"], key: "chocolate-amargo" },
-    { name: "Chocolate ao leite", foods: ["chocolate ao leite (20 g)"], calories: 107, protein_g: 1.5, carbs_g: 12, fat_g: 6, serving: "porção de 20 g", availability_foods: ["chocolate"], key: "chocolate-leite" },
-    { name: "Chocolate meio amargo", foods: ["chocolate meio amargo (20 g)"], calories: 112, protein_g: 1.5, carbs_g: 10, fat_g: 7, serving: "porção de 20 g", availability_foods: ["chocolate"], key: "chocolate-meio-amargo" }
+    { name: "Chocolate amargo", foods: ["chocolate amargo (20 g)"], calories: 120, protein_g: 2, carbs_g: 9, fat_g: 9, serving: "porção de 20 g", availability_foods: ["chocolate"], key: "chocolate-amargo", serving_g: 20 },
+    { name: "Chocolate ao leite", foods: ["chocolate ao leite (20 g)"], calories: 107, protein_g: 1.5, carbs_g: 12, fat_g: 6, serving: "porção de 20 g", availability_foods: ["chocolate"], key: "chocolate-leite", serving_g: 20 },
+    { name: "Chocolate meio amargo", foods: ["chocolate meio amargo (20 g)"], calories: 112, protein_g: 1.5, carbs_g: 10, fat_g: 7, serving: "porção de 20 g", availability_foods: ["chocolate"], key: "chocolate-meio-amargo", serving_g: 20 }
   ],
   sorvete: [
     { name: "Sorvete de creme", foods: ["sorvete de creme (1 bola)"], calories: 140, protein_g: 2.5, carbs_g: 17, fat_g: 7, serving: "bola", availability_foods: ["sorvete"], key: "sorvete-creme" },
@@ -83,20 +83,20 @@ const DESIRED_FOODS = {
     { name: "Massa com molho de queijo", foods: ["massa com molho de queijo (1 prato)"], calories: 520, protein_g: 19, carbs_g: 63, fat_g: 21, serving: "prato", availability_foods: ["massa", "queijo"], key: "massa-queijo" }
   ],
   "batata frita": [
-    { name: "Batata frita (porção pequena)", foods: ["batata frita (80 g)"], calories: 250, protein_g: 3, carbs_g: 33, fat_g: 12, serving: "porção de 80 g", availability_foods: ["batata frita"], key: "batata-frita" },
-    { name: "Batata assada", foods: ["batata assada (180 g)"], calories: 165, protein_g: 4, carbs_g: 37, fat_g: 0.2, serving: "porção de 180 g", availability_foods: ["batata frita"], key: "batata-assada" },
-    { name: "Batata rústica", foods: ["batata rústica (150 g)"], calories: 220, protein_g: 4, carbs_g: 35, fat_g: 7, serving: "porção de 150 g", availability_foods: ["batata frita"], key: "batata-rustica" }
+    { name: "Batata frita (porção pequena)", foods: ["batata frita (80 g)"], calories: 250, protein_g: 3, carbs_g: 33, fat_g: 12, serving: "porção de 80 g", availability_foods: ["batata frita"], key: "batata-frita", serving_g: 80 },
+    { name: "Batata assada", foods: ["batata assada (180 g)"], calories: 165, protein_g: 4, carbs_g: 37, fat_g: 0.2, serving: "porção de 180 g", availability_foods: ["batata frita"], key: "batata-assada", serving_g: 180 },
+    { name: "Batata rústica", foods: ["batata rústica (150 g)"], calories: 220, protein_g: 4, carbs_g: 35, fat_g: 7, serving: "porção de 150 g", availability_foods: ["batata frita"], key: "batata-rustica", serving_g: 150 }
   ],
   japonesa: [
     // Temaki: referência TBCA de 1 unidade média de 90 g.
-    { name: "Temaki de salmão com cream cheese", foods: ["temaki de salmão com cream cheese (1 unidade)"], calories: 144, protein_g: 7.8, carbs_g: 19.8, fat_g: 4.5, serving: "unidade", availability_foods: ["temaki"], key: "japonesa-temaki-salmao" },
+    { name: "Temaki de salmão com cream cheese", foods: ["temaki de salmão com cream cheese (1 unidade)"], calories: 144, protein_g: 7.8, carbs_g: 19.8, fat_g: 4.5, serving: "unidade", availability_foods: ["temaki"], key: "japonesa-temaki-salmao", serving_g: 90 },
     // Uramaki TBCA: unidade média de 60 g.
-    { name: "Uramaki de salmão com pepino e cream cheese", foods: ["uramaki de salmão com pepino e cream cheese (1 unidade)"], calories: 86, protein_g: 4.0, carbs_g: 12.1, fat_g: 2.8, serving: "peça de 60 g", availability_foods: ["uramaki"], key: "japonesa-uramaki-salmao" },
+    { name: "Uramaki de salmão com pepino e cream cheese", foods: ["uramaki de salmão com pepino e cream cheese (1 unidade)"], calories: 86, protein_g: 4.0, carbs_g: 12.1, fat_g: 2.8, serving: "peça de 60 g", availability_foods: ["uramaki"], key: "japonesa-uramaki-salmao", serving_g: 60 },
     // Hot Philadelphia TBCA: 30 g por peça.
-    { name: "Hot Philadelphia (Hot Roll)", foods: ["hot philadelphia (1 peça)"], calories: 84, protein_g: 2.7, carbs_g: 9.1, fat_g: 4.4, serving: "peça", availability_foods: ["hot roll"], key: "japonesa-hot-roll" },
+    { name: "Hot Philadelphia (Hot Roll)", foods: ["hot philadelphia (1 peça)"], calories: 84, protein_g: 2.7, carbs_g: 9.1, fat_g: 4.4, serving: "peça", availability_foods: ["hot roll"], key: "japonesa-hot-roll", serving_g: 30 },
     { name: "Nigiri de salmão", foods: ["nigiri de salmão (1 peça)"], calories: 57.8, protein_g: 3.0, carbs_g: 7.7, fat_g: 1.4, serving: "peça", availability_foods: ["nigiri"], key: "japonesa-nigiri" },
     { name: "Sashimi de salmão", foods: ["sashimi de salmão (1 fatia)"], calories: 20.8, protein_g: 2.1, carbs_g: 0, fat_g: 1.3, serving: "fatia", availability_foods: ["sashimi"], key: "japonesa-sashimi" },
-    { name: "Yakisoba brasileiro", foods: ["yakisoba (300 g)"], calories: 366, protein_g: 22.4, carbs_g: 54.6, fat_g: 7.8, serving: "300 g", availability_foods: ["yakisoba"], key: "japonesa-yakisoba" },
+    { name: "Yakisoba brasileiro", foods: ["yakisoba (300 g)"], calories: 366, protein_g: 22.4, carbs_g: 54.6, fat_g: 7.8, serving: "300 g", availability_foods: ["yakisoba"], key: "japonesa-yakisoba", serving_g: 300 },
     { name: "Guioza", foods: ["guioza (1 unidade)"], calories: 134, protein_g: 6.4, carbs_g: 18.6, fat_g: 4.0, serving: "unidade", availability_foods: ["guioza"], key: "japonesa-guioza" },
     { name: "Hossomaki de salmão", foods: ["hossomaki de salmão (1 peça)"], calories: 41, protein_g: 1.8, carbs_g: 6.3, fat_g: 0.8, serving: "peça", availability_foods: ["hossomaki"], key: "japonesa-hossomaki-salmao" },
     { name: "Uramaki Califórnia", foods: ["uramaki califórnia (1 peça)"], calories: 48, protein_g: 1.5, carbs_g: 7.8, fat_g: 1.4, serving: "peça", availability_foods: ["uramaki"], key: "japonesa-uramaki-california" },
@@ -106,7 +106,7 @@ const DESIRED_FOODS = {
     { name: "Temaki de camarão", foods: ["temaki de camarão (1 unidade)"], calories: 144, protein_g: 8.1, carbs_g: 21.6, fat_g: 2.7, serving: "unidade", availability_foods: ["temaki"], key: "japonesa-temaki-camarao" },
     { name: "Temaki de kani", foods: ["temaki de kani (1 unidade)"], calories: 140, protein_g: 6.3, carbs_g: 22.5, fat_g: 2.3, serving: "unidade", availability_foods: ["temaki"], key: "japonesa-temaki-kani" },
     { name: "Temaki de shimeji com cream cheese", foods: ["temaki de shimeji com cream cheese (1 unidade)"], calories: 158, protein_g: 5.4, carbs_g: 21.6, fat_g: 5.4, serving: "unidade", availability_foods: ["temaki"], key: "japonesa-temaki-shimeji" },
-    { name: "Tempurá de camarão", foods: ["tempurá de camarão (100 g)"], calories: 220, protein_g: 12.0, carbs_g: 17.0, fat_g: 11.0, serving: "100 g", availability_foods: ["tempurá"], key: "japonesa-tempura-camarao" }
+    { name: "Tempurá de camarão", foods: ["tempurá de camarão (100 g)"], calories: 220, protein_g: 12.0, carbs_g: 17.0, fat_g: 11.0, serving: "100 g", availability_foods: ["tempurá"], key: "japonesa-tempura-camarao", serving_g: 100 }
   ]
 };
 
@@ -115,13 +115,13 @@ export function generateDesiredFoodOptions({
   dislikes = [], availableFoods = [], availabilityOnly = false, requestedServings = null,
   preferredComposition = null, recentOptions = [], limit = 3,
   dailyCalorieBudget = calorieBudget, dailyMacroBudget = macroBudget,
-  excludeRecentOptions = false
+  excludeRecentOptions = false, requestedGrams = null
 }) {
   const templates = DESIRED_FOODS[desiredFood];
   if (!templates || !Number.isFinite(Number(calorieBudget)) || !Number.isFinite(Number(dailyCalorieBudget))) return null;
   const rejected = dislikes.map(normalizeIngredient);
   const available = availableFoods.map(normalizeIngredient);
-  const servings = Number.isFinite(Number(requestedServings)) && requestedServings > 0
+  const countedServings = Number.isFinite(Number(requestedServings)) && requestedServings > 0
     ? Number(requestedServings) : null;
   const allowedTemplates = templates.filter((template) => !rejected.some((item) =>
     mentionsFood(template.name, item) || template.foods.some((food) => mentionsFood(food, item))
@@ -162,6 +162,15 @@ export function generateDesiredFoodOptions({
     : (availableMatches.length
       ? availableMatches
       : (availabilityOnly && available.length ? [] : allowedTemplates));
+  // Gramas pedidos ("300 g de yakisoba") viram porções da preparação que tem peso
+  // de referência; sem peso conhecido, a quantidade em gramas não é convertida.
+  const gramsTemplate = !countedServings && Number(requestedGrams) > 0
+    ? (candidates.find((template) => template.key === preferredComposition && template.serving_g)
+      || candidates.find((template) => template.serving_g)
+      || null)
+    : null;
+  const servings = countedServings
+    ?? (gramsTemplate ? Number(requestedGrams) / gramsTemplate.serving_g : null);
   const createOption = (template, quantity, isRequested = false) => {
     const portion = formatDesiredServing(template, quantity);
     const option = {
@@ -207,14 +216,15 @@ export function generateDesiredFoodOptions({
     macroPriority
   );
 
-  const largerServings = servings && servings > 1
+  const largerServings = servings && servings !== 1
     ? servings
     : (desiredFood === "pizza" ? 2 : null);
   if (largerServings && selected.length) {
     const preferred = candidates.find((template) => template.key === preferredComposition);
     const base = selected.find((option) => preferred && option.composition_key.startsWith(`${preferred.key}|`)) || selected[0];
-    const template = candidates.find((item) => item.key === base.composition_key.split("|servings:")[0]);
-    const larger = template && largerServings > 1 ? createOption(template, largerServings, Boolean(servings)) : null;
+    const template = gramsTemplate
+      || candidates.find((item) => item.key === base.composition_key.split("|servings:")[0]);
+    const larger = template && largerServings !== 1 ? createOption(template, largerServings, Boolean(servings)) : null;
     const oneServingFits = base.calories <= Number(dailyCalorieBudget);
     if (larger && !selected.some((option) => option.composition_key === larger.composition_key)
       && (Boolean(servings) || (desiredFood === "pizza" && oneServingFits))) {

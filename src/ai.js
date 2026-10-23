@@ -41,7 +41,9 @@ import {
   detectDesiredFoodCategory,
   findFoodNames,
   restrictionBlocksDesiredFood,
-  GLUTEN_FOODS
+  GLUTEN_FOODS,
+  parseQuantity,
+  QUANTITY_PATTERN
 } from "./foodMatching.js";
 import { runAgent } from "./agent/agent.js";
 import { createAgentToolRegistry } from "./agent/tools.js";
@@ -941,22 +943,27 @@ function detectDesiredFood(message, modelValue = "") {
     || "";
 }
 
+// Porções contadas ("3 temakis", "três fatias", "meia porção"). Gramas são lidos por
+// detectRequestedGrams e convertidos pelo gerador conforme o peso de cada preparação.
 function detectRequestedServings(message, desiredFood, modelValue = null) {
-  const text = String(message || "").toLocaleLowerCase("pt-BR");
-  const count = Number(text.match(/\b(\d+(?:[,.]\d+)?)\s*(?:fatias?|peda[cç]os?|bolas?|por[cç][oõ]es?|unidades?|pratos?|pe[cç]as?|temakis?|niguiris?|nigiris?|sashimis?|hossomakis?|uramakis?|hot\s+rolls?|hotrolls?|guiozas?|gyozas?)\b/)?.[1]?.replace(",", "."));
-  const writtenCount = text.match(/\b(um|uma|dois|duas|tres|quatro|cinco|seis|sete)\s+(?:temakis?|niguiris?|nigiris?|sashimis?|hossomakis?|uramakis?|hot\s+rolls?|hotrolls?|guiozas?|gyozas?)\b/);
-  const wordCountMap = { um: 1, uma: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7 };
-  const writtenQuantity = writtenCount ? wordCountMap[writtenCount[1]] : null;
-  const normalizedCount = Number.isFinite(count) && count > 0 ? count : Number(writtenQuantity);
-  const grams = Number(text.match(/\b(\d+(?:[,.]\d+)?)\s*(?:g|gramas?)\b/)?.[1]?.replace(",", "."));
-  let quantity = Number.isFinite(normalizedCount) && normalizedCount > 0 ? normalizedCount : Number(modelValue);
-  if (Number.isFinite(grams) && grams > 0) {
-    quantity = desiredFood === "chocolate" ? grams / 20
-      : desiredFood === "batata frita" ? grams / 80 : quantity;
-  } else if (Number.isFinite(normalizedCount) && desiredFood === "sushi" && /\bpe[cç]as?\b/.test(text)) {
-    quantity = normalizedCount / 4;
+  const text = normalizeRequestText(message);
+  const units = "fatias?|pedacos?|bolas?|porcoes|porcao|unidades?|pratos?|pecas?|temakis?|niguiris?|nigiris?|sashimis?|hossomakis?|uramakis?|hot\\s+rolls?|hotrolls?|guiozas?|gyozas?";
+  const match = text.match(new RegExp(`(${QUANTITY_PATTERN})\\s*(?:${units})(?![a-z])`));
+  const count = match ? parseQuantity(match[1]) : null;
+  let quantity = count ?? Number(modelValue);
+  if (count && desiredFood === "sushi" && /\bpecas?\b/.test(text)) {
+    quantity = count / 4;
   }
   return Number.isFinite(quantity) && quantity > 0 ? quantity : null;
+}
+
+function detectRequestedGrams(message) {
+  const match = normalizeRequestText(message)
+    .match(/(?<![a-z0-9.,])(\d+(?:[.,]\d+)?)\s*(kg|quilos?|gramas?|gr|g)(?![a-z])/);
+  if (!match) return null;
+  const amount = Number(match[1].replace(",", "."));
+  if (!(amount > 0)) return null;
+  return /^(?:kg|quilos?)$/.test(match[2]) ? amount * 1000 : amount;
 }
 
 function detectDesiredComposition(message, desiredFood) {
@@ -3370,6 +3377,11 @@ const summaryIntent = classifySummaryIntent(message);
               desiredFood,
               result.data
                 .requested_servings
+            ),
+
+          requestedGrams:
+            detectRequestedGrams(
+              message
             ),
 
           preferredComposition:

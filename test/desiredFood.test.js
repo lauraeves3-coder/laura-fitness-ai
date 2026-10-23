@@ -49,17 +49,39 @@ test("regressão: '3 temakis' e 'tres temakis' = 3", () => {
   assert.equal(ai.detectRequestedServings("quero 3 temakis", "japonesa"), 3);
   assert.equal(ai.detectRequestedServings("quero tres temakis", "japonesa"), 3);
 });
+const optionsFor = (message, desiredFood) => generateDesiredFoodOptions({
+  desiredFood,
+  calorieBudget: 900,
+  requestedServings: ai.detectRequestedServings(message, desiredFood),
+  requestedGrams: ai.detectRequestedGrams(message),
+  preferredComposition: ai.detectDesiredComposition(message, desiredFood)
+}).map((option) => `${option.name} ${option.calories}`);
+
 test("regressão: 40 g de chocolate = 2 porções de 20 g", () => {
-  assert.equal(ai.detectRequestedServings("quero 40 g de chocolate", "chocolate"), 2);
+  assert.ok(optionsFor("quero 40 g de chocolate", "chocolate").includes("Chocolate amargo — 40 g 240"));
 });
-test("AI-03: 'três temakis' com acento = 3", { todo: "AI-03" }, () => {
+test("AI-03: 'três temakis' com acento = 3", () => {
   assert.equal(ai.detectRequestedServings("quero três temakis", "japonesa"), 3);
 });
-test("AI-03: 'duas fatias de pizza' = 2", { todo: "AI-03" }, () => {
+test("AI-03: 'duas fatias de pizza' = 2", () => {
   assert.equal(ai.detectRequestedServings("quero duas fatias de pizza", "pizza"), 2);
 });
-test("AI-03: '300 g de yakisoba' = 1 porção de 300 g", { todo: "AI-03" }, () => {
-  assert.equal(ai.detectRequestedServings("quero 300 g de yakisoba", "japonesa"), 1);
+test("AI-03: 'meia porção' e '1 e meia fatia'", () => {
+  assert.equal(ai.detectRequestedServings("quero meia porção de batata frita", "batata frita"), 0.5);
+  assert.equal(ai.detectRequestedServings("quero 1 e meia fatia de bolo", "bolo"), 1.5);
+});
+test("AI-03: '300 g de yakisoba' = 1 porção de 300 g", () => {
+  assert.deepEqual(optionsFor("quero 300 g de yakisoba", "japonesa"), ["Yakisoba brasileiro — 300 g 366"]);
+});
+test("AI-03: '150 g de yakisoba' oferece meia porção", () => {
+  assert.ok(optionsFor("quero 150g de yakisoba", "japonesa").includes("Yakisoba brasileiro — 150 g 183"));
+});
+test("AI-03: gramas sem peso de referência não são convertidos", () => {
+  assert.ok(!optionsFor("quero 200 g de pizza", "pizza").some((option) => /200 g/.test(option)));
+});
+test("AI-03: gramas em kg", () => {
+  assert.equal(ai.detectRequestedGrams("quero 1,5 kg de batata frita"), 1500);
+  assert.equal(ai.detectRequestedGrams("quero 2 goiabas"), null);
 });
 
 // ---------- AI-01: restrição específica x categoria ----------

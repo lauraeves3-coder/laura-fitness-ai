@@ -104,14 +104,37 @@ test("regressão: 'farinha de mandioca' continua farinha", () => {
 
 // ---------- NC-09: frações e medidas caseiras ----------
 
-test("NC-09: '1/2 banana' = 45 g, não 180 g", { todo: "NC-09" }, () => {
-  assert.equal(estimateMealFromText("comi 1/2 banana").matched_items[0].grams, 45);
+const grams = (message) => estimateMealFromText(message).matched_items[0].grams;
+
+test("NC-09: '1/2 banana' = 45 g, não 180 g", () => assert.equal(grams("comi 1/2 banana"), 45));
+test("NC-09: 'meia banana' = 45 g", () => assert.equal(grams("comi meia banana"), 45));
+test("NC-09: '1 1/2 banana', '½ banana' e '1 e meia banana'", () => {
+  assert.equal(grams("comi 1 1/2 banana"), 135);
+  assert.equal(grams("comi ½ banana"), 45);
+  assert.equal(grams("comi 1 e meia banana"), 135);
 });
-test("NC-09: 'meia banana' = 45 g", { todo: "NC-09" }, () => {
-  assert.equal(estimateMealFromText("comi meia banana").matched_items[0].grams, 45);
+test("NC-09: números por extenso com acento", () => assert.equal(grams("comi três ovos"), 150));
+test("NC-09: 'algum' não é lido como 'um'", () => {
+  assert.deepEqual(getMissingMealQuantities("comi algum arroz").map((item) => item.id), ["arroz-branco-cozido"]);
 });
-test("NC-06: 'uma colher de sopa de azeite' é quantidade explícita", { todo: "NC-06" }, () => {
+test("NC-09: kg e litro", () => {
+  assert.equal(grams("comi 1,5 kg de melancia"), 1500);
+  assert.equal(grams("bebi 1 litro de suco de laranja"), 1000);
+});
+test("NC-06: 'uma colher de sopa de azeite' é quantidade explícita", () => {
   assert.deepEqual(getMissingMealQuantities("comi uma colher de sopa de azeite"), []);
+  assert.equal(grams("comi uma colher de sopa de azeite"), 15);
+});
+test("NC-06: colher de sopa, sobremesa, chá e 'c. sopa'", () => {
+  assert.equal(grams("comi 2 colheres de sopa de aveia"), 30);
+  assert.equal(grams("comi 2 c. sopa de aveia"), 30);
+  assert.equal(grams("comi 1 colher de chá de aveia"), 5);
+});
+test("NC-06: medida caseira genérica é marcada como aproximação", () => {
+  const estimate = estimateMealFromText("tomei um copo de leite");
+  assert.equal(estimate.matched_items[0].approximate_quantity, true);
+  assert.deepEqual(estimate.matched_items[0].household_measures, ["copo"]);
+  assert.equal(estimateMealFromText("bebi 200 ml de leite").matched_items[0].approximate_quantity, undefined);
 });
 
 // ---------- NC-10: negação e preparações ----------

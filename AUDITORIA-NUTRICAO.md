@@ -1,10 +1,10 @@
 # Auditoria da nutrição — FitPulse AI
 
-Data: 22/10/2026 · Branch: `audit/nutrition-tests` · Nenhum arquivo de `src/` alterado.
+Data: 22/10/2026 · Branch: `audit/nutrition-tests` · Correções aplicadas em etapas (ver "Correções aplicadas").
 
 Como reproduzir: `npm test` (node:test, sem API OpenAI, sem `fitness.db`).
 Testes marcados `# TODO <ID>` reproduzem um defeito confirmado; ao corrigir, remova o `todo`.
-Resultado atual: 71 testes · 54 passando · 17 defeitos ainda reproduzidos · `fitness.db`/WAL com hash idêntico antes e depois.
+Resultado atual: 81 testes · 70 passando · 11 defeitos ainda reproduzidos · `fitness.db`/WAL com hash idêntico antes e depois.
 
 ## Estado do repositório (risco)
 
@@ -47,6 +47,9 @@ Mantidos como hipóteses/limitações (sem teste ainda): NC-03 (19 grupos de mod
 
 - **Etapa 3, matcher único (resolvido: NC-01, NC-05, NC-07, AI-04, AI-07, EX-04, EX-05, AI-01):** novo `src/foodMatching.js` (palavra inteira, sem acento/caixa/hífen, plurais regulares, termo mais longo vence, alimentos compostos distintos como "carne de soja" e "pão de queijo"). Usado por `findFoodCandidates`/`estimateMealFromText` (todas as ocorrências; menções repetidas só somam com quantidade explícita), `extractAvailableFoods`, `getFoodRestrictions` (celíaco agora restringe `GLUTEN_FOODS`, aveia inclusa por contaminação cruzada), `normalizeDesiredFood` (primeiro alimento citado), pré-checagem de restrição (só o nome da categoria bloqueia a categoria) e filtros de `nutrition.js`. Alias `farofa` removido da farinha de mandioca: "farofa" = farofa temperada (164 kcal).
   - Comparação de comportamento antes/depois em 30 mensagens, 30 cenários de sugestão e 24 de alimento desejado: só mudaram ordem dos itens, farofa, deduplicação de disponibilidade/restrições e um bug adicional corrigido — `allFoodsAvailable` comparava "feijão" sem normalizar, então "só tenho frango, arroz e feijão" nunca encontrava o prato.
+
+- **Etapa 4, quantidades (resolvido: NC-09, NC-06, AI-03):** leitor único em `foodMatching.js` (`QUANTITY_PATTERN`/`parseQuantity`): "1/2", "1 1/2", "½", "meia/meio", "1 e meia", números por extenso com e sem acento, sem confundir "algum" com "um". Catálogo aceita kg, litro, colher de sopa/sobremesa/chá e "c. sopa" com qualquer número; medidas caseiras genéricas (colher 15/10/5, concha 100, xícara 150, copo 200, lata 350, garrafa 500) são marcadas `approximate_quantity` + `household_measures` e impedem confiança `high`. `detectRequestedServings` lê contagens de qualquer categoria; gramas vão por `detectRequestedGrams` para o gerador, que converte com `serving_g` — definido só onde o código já documentava a gramagem (chocolates 20 g, batatas 80/180/150 g, temaki de salmão 90 g, uramaki de salmão 60 g, hot roll 30 g, yakisoba 300 g, tempurá 100 g). Sem peso de referência (ex.: "200 g de pizza") os gramas não são convertidos.
+  - Pendente fora do escopo: conversões por densidade/alimento (ex.: colher de azeite ≠ colher de arroz) exigem dados de fonte; `default_g` de alguns itens representa mais de uma unidade (pão de queijo = 2 unidades), então "1 unidade" desses itens fica superestimada.
 
 ## Plano de correção (ordem por dependência)
 
