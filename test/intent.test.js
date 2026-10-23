@@ -37,12 +37,12 @@ test("EX-01: negativa não contamina o alimento seguinte", { todo: "EX-01" }, ()
 
 // ---------- EX-04 / restrições de perfil ----------
 
-test("EX-04: celíaco restringe glúten com string legível", { todo: "EX-04 'pÃ£o integral' corrompido" }, () => {
+test("EX-04: celíaco restringe glúten com string legível", () => {
   const restrictions = ai.getFoodRestrictions({ dietary_preferences: "celíaco" });
   assert.ok(restrictions.includes("pão integral"));
   assert.ok(restrictions.includes("pizza") && restrictions.includes("massa"));
 });
-test("EX-04: 'carne de soja' não rejeita carne", { todo: "EX-04" }, () => {
+test("EX-04: 'carne de soja' não rejeita carne", () => {
   assert.ok(!ai.getFoodRestrictions({ food_dislikes: "carne de soja" }).includes("carne"));
 });
 
@@ -74,12 +74,12 @@ test("EX-03: equivalências de whey e salmão", () => {
 test("regressão: 'tenho whey' declara whey disponível", () => {
   assert.equal(ai.detectWheyAvailability("tenho whey em casa"), true);
 });
-test("AI-04: 'novo' não declara ovo disponível", { todo: "AI-04" }, () => {
+test("AI-04: 'novo' não declara ovo disponível", () => {
   assert.deepEqual(ai.extractAvailableFoods("tenho um novo whey em casa"), ["whey"]);
 });
-test("AI-04: 'pão de queijo' não declara queijo disponível", { todo: "AI-04" }, () => {
+test("AI-04: 'pão de queijo' não declara queijo disponível", () => {
   assert.ok(!ai.extractAvailableFoods("tenho pão de queijo").includes("queijo"));
 });
-test("AI-04: 'carne de soja' não declara carne", { todo: "AI-04" }, () => {
+test("AI-04: 'carne de soja' não declara carne", () => {
   assert.ok(!ai.extractAvailableFoods("tenho carne de soja").includes("carne"));
 });

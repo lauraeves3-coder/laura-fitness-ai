@@ -18,13 +18,13 @@ test("regressão: 'quero pizza' = pizza; 'quero whey' não é craving", () => {
 test("regressão: temaki de salmão reconhece a composição", () => {
   assert.equal(ai.detectDesiredComposition("quero temaki de salmão", desired("quero temaki de salmão")), "japonesa-temaki-salmao");
 });
-test("AI-07: 'pizza doce de chocolate' é pizza", { todo: "AI-07 ordem dos aliases" }, () => {
+test("AI-07: 'pizza doce de chocolate' é pizza", () => {
   assert.equal(desired("quero pizza doce de chocolate"), "pizza");
 });
-test("AI-07: 'macarrão à bolonhesa' é massa, não bolo", { todo: "AI-07 substring" }, () => {
+test("AI-07: 'macarrão à bolonhesa' é massa, não bolo", () => {
   assert.equal(desired("quero macarrão à bolonhesa"), "massa");
 });
-test("AI-07: 'bolo de chocolate' é bolo", { todo: "AI-07" }, () => {
+test("AI-07: 'bolo de chocolate' é bolo", () => {
   assert.equal(desired("quero um bolo de chocolate"), "bolo");
 });
 
@@ -71,7 +71,7 @@ test("AI-01: restrição 'pizza doce' não remove pizzas salgadas", () => {
   const options = generateDesiredFoodOptions({ desiredFood: "pizza", calorieBudget: 900, dislikes: ["pizza doce"], limit: 50 });
   assert.ok(options.some((option) => /calabresa|muçarela/i.test(option.name)));
 });
-test("EX-05: restrição curta 'sal' não remove salmão", { todo: "EX-05 substring" }, () => {
+test("EX-05: restrição curta 'sal' não remove salmão", () => {
   const options = generateDesiredFoodOptions({ desiredFood: "japonesa", calorieBudget: 900, dislikes: ["sal"], limit: 50 });
   assert.ok(options.some((option) => /salmão/i.test(option.name)));
 });

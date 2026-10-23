@@ -3,6 +3,7 @@
 // nem na API da OpenAI. Quando essas funções forem movidas para um módulo próprio,
 // este helper deve ser substituído por um import direto.
 import { readFileSync } from "node:fs";
+import * as foodMatching from "../../src/foodMatching.js";
 
 const source = readFileSync(new URL("../../src/ai.js", import.meta.url), "utf8");
 
@@ -25,8 +26,12 @@ const NAMES = [
   "hasDesiredFoodAvailable", "extractAvailableFoods", "detectWheyAvailability"
 ];
 
+// Dependências importadas por ai.js que as funções extraídas usam.
+const dependencies = { ...foodMatching };
+
 export const ai = new Function(
+  ...Object.keys(dependencies),
   `${NAMES.map(extractFunction).join("\n")}\nreturn { ${NAMES.join(", ")} };`
-)();
+)(...Object.values(dependencies));
 
 export const aiSource = source;

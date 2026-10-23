@@ -4,7 +4,7 @@ Data: 22/10/2026 · Branch: `audit/nutrition-tests` · Nenhum arquivo de `src/` 
 
 Como reproduzir: `npm test` (node:test, sem API OpenAI, sem `fitness.db`).
 Testes marcados `# TODO <ID>` reproduzem um defeito confirmado; ao corrigir, remova o `todo`.
-Resultado atual: 60 testes · 28 passando · 32 defeitos ainda reproduzidos · `fitness.db`/WAL com hash idêntico antes e depois.
+Resultado atual: 71 testes · 54 passando · 17 defeitos ainda reproduzidos · `fitness.db`/WAL com hash idêntico antes e depois.
 
 ## Estado do repositório (risco)
 
@@ -44,6 +44,9 @@ Mantidos como hipóteses/limitações (sem teste ainda): NC-03 (19 grupos de mod
 ## Correções aplicadas
 
 - **ENC-01 (resolvido):** `scripts/fix-mojibake.mjs` reparou 191 sequências em `ai.js` e 168 em `agent/agent.js` (prompt de sistema). As 7 linhas com `U+FFFD` foram restauradas manualmente (`⚠️`, `à sua`, `REFEIÇÃO`). Os demais arquivos ativos não tinham ocorrências. Efeito colateral positivo: "não quero frango" e "Não gosto de banana" passaram a ser reconhecidos (EX-01 parcial), "pão integral" para celíacos voltou a ser legível (EX-04 ainda incompleto) e "Salmão" volta a ser normalizado (EX-03 parcial).
+
+- **Etapa 3, matcher único (resolvido: NC-01, NC-05, NC-07, AI-04, AI-07, EX-04, EX-05, AI-01):** novo `src/foodMatching.js` (palavra inteira, sem acento/caixa/hífen, plurais regulares, termo mais longo vence, alimentos compostos distintos como "carne de soja" e "pão de queijo"). Usado por `findFoodCandidates`/`estimateMealFromText` (todas as ocorrências; menções repetidas só somam com quantidade explícita), `extractAvailableFoods`, `getFoodRestrictions` (celíaco agora restringe `GLUTEN_FOODS`, aveia inclusa por contaminação cruzada), `normalizeDesiredFood` (primeiro alimento citado), pré-checagem de restrição (só o nome da categoria bloqueia a categoria) e filtros de `nutrition.js`. Alias `farofa` removido da farinha de mandioca: "farofa" = farofa temperada (164 kcal).
+  - Comparação de comportamento antes/depois em 30 mensagens, 30 cenários de sugestão e 24 de alimento desejado: só mudaram ordem dos itens, farofa, deduplicação de disponibilidade/restrições e um bug adicional corrigido — `allFoodsAvailable` comparava "feijão" sem normalizar, então "só tenho frango, arroz e feijão" nunca encontrava o prato.
 
 ## Plano de correção (ordem por dependência)
 

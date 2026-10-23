@@ -10,6 +10,8 @@
   - Valores estimativos curados para itens sem referência específica no catálogo.
 */
 
+import { matchFoodTerms } from "./foodMatching.js";
+
 const F = (
   id, name, aliases, kcal, protein, carbs, fat,
   default_g, unit = "porção", source = "curated_estimate"
@@ -36,7 +38,7 @@ export const FOOD_CATALOG = [
   F("aveia-em-flocos", "Aveia em flocos", ["aveia", "flocos de aveia"], 389, 16.9, 66.3, 6.9, 40, "40 g", "tbca_aligned"),
   F("granola-tradicional", "Granola tradicional", ["granola"], 450, 10.0, 65.0, 16.0, 30, "30 g", "curated_estimate"),
   F("farinha-de-aveia", "Farinha de aveia", ["farinha de aveia"], 404, 14.0, 66.0, 9.0, 30, "30 g", "curated_estimate"),
-  F("farinha-de-mandioca", "Farinha de mandioca", ["farinha de mandioca", "farofa"], 365, 1.4, 87.0, 0.5, 30, "30 g", "tbca_aligned"),
+  F("farinha-de-mandioca", "Farinha de mandioca", ["farinha de mandioca"], 365, 1.4, 87.0, 0.5, 30, "30 g", "tbca_aligned"),
   F("farofa-pronta", "Farofa temperada", ["farofa"], 410, 5.5, 60.0, 16.0, 40, "40 g", "curated_estimate"),
   F("cuscuz-de-milho-cozido", "Cuscuz de milho cozido", ["cuscuz", "cuscuz paulista"], 112, 2.2, 25.0, 0.7, 100, "100 g", "tbca_aligned"),
   F("tapioca-pronta", "Tapioca pronta", ["tapioca", "massa de tapioca"], 230, 0.2, 57.0, 0.0, 60, "60 g", "curated_estimate"),
@@ -582,38 +584,28 @@ export function normalizeText(value) {
     .trim();
 }
 
-export function findFoodCandidates(message) {
-  const text = normalizeText(message);
-  return [...FOOD_CATALOG]
-    .filter((item) =>
-      [item.name, ...(item.aliases || [])]
-        .some((alias) => text.includes(normalizeText(alias)))
-    )
-    .sort((a, b) => {
-      const score = (item) => {
-        const aliases = (item.aliases || []).map(normalizeText).filter(Boolean);
-        const matches = aliases
-          .map((alias) => ({ length: alias.length, index: text.indexOf(alias) }))
-          .filter((match) => match.index >= 0);
+let catalogEntries = null;
+let catalogById = null;
 
-        if (!matches.length) {
-          return { length: 0, index: Number.MAX_SAFE_INTEGER };
-        }
-
-        matches.sort((left, right) =>
-          right.length - left.length || left.index - right.index
-        );
-
-        return matches[0];
-      };
-
-      const left = score(a);
-      const right = score(b);
-      return right.length - left.length || left.index - right.index;
-    });
+// Ocorrências de alimentos do catálogo em um texto já normalizado, por palavra inteira,
+// sem sobreposição (o nome mais longo vence) e em ordem de posição.
+function findFoodOccurrences(text) {
+  if (!catalogEntries) {
+    catalogEntries = FOOD_CATALOG.map((item) => ({ key: item.id, terms: [item.name, ...(item.aliases || [])] }));
+    catalogById = new Map(FOOD_CATALOG.map((item) => [item.id, item]));
+  }
+  return matchFoodTerms(text, catalogEntries, { normalized: true })
+    .map((occurrence) => ({ ...occurrence, item: catalogById.get(occurrence.key) }));
 }
 
-function extractQuantity(text, item, fromIndex = 0, { allowDefault = true } = {}) {
+export function findFoodCandidates(message) {
+  const seen = new Set();
+  return findFoodOccurrences(normalizeText(message))
+    .map(({ item }) => item)
+    .filter((item) => !seen.has(item.id) && seen.add(item.id));
+}
+
+function extractQuantity(text, item, fromIndex = 0, { allowDefault = true, endIndex = null } = {}) {
   const normalizedText = normalizeText(text);
   const before = normalizedText.slice(Math.max(0, fromIndex - 120), fromIndex);
   const itemAliases = [item.name, ...(item.aliases || [])]
@@ -621,7 +613,8 @@ function extractQuantity(text, item, fromIndex = 0, { allowDefault = true } = {}
     .filter(Boolean)
     .sort((a, b) => b.length - a.length);
   const matchedAlias = itemAliases.find((alias) => normalizedText.startsWith(alias, fromIndex)) || "";
-  const after = normalizedText.slice(fromIndex + matchedAlias.length, fromIndex + matchedAlias.length + 120);
+  const afterStart = endIndex ?? fromIndex + matchedAlias.length;
+  const after = normalizedText.slice(afterStart, afterStart + 120);
   const wordNumbers = {
     um: 1, uma: 1, dois: 2, duas: 2, tres: 3,
     quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8,
@@ -713,58 +706,41 @@ function extractQuantity(text, item, fromIndex = 0, { allowDefault = true } = {}
   return allowDefault ? item.default_g : null;
 }
 
-function chooseOccurrence(text, item) {
-  const aliases = [item.name, ...(item.aliases || [])]
-    .map(normalizeText)
-    .filter(Boolean)
-    .sort((a, b) => b.length - a.length);
-
-  for (const alias of aliases) {
-    const index = text.indexOf(alias);
-    if (index >= 0) return { index, alias };
+// Agrupa as ocorrências por alimento. A primeira menção vale mesmo sem quantidade;
+// menções seguintes só somam quando trazem quantidade explícita
+// ("uma banana e depois mais duas bananas" = 3; "comi arroz, o arroz estava frio" = 1).
+function groupOccurrencesByFood(text) {
+  const groups = new Map();
+  for (const occurrence of findFoodOccurrences(text)) {
+    const explicitGrams = extractQuantity(text, occurrence.item, occurrence.index, {
+      allowDefault: false,
+      endIndex: occurrence.end
+    });
+    const group = groups.get(occurrence.item.id) || { item: occurrence.item, position: occurrence.index, mentions: [] };
+    group.mentions.push({ ...occurrence, explicitGrams: explicitGrams > 0 ? explicitGrams : null });
+    groups.set(occurrence.item.id, group);
   }
-  return null;
+  return [...groups.values()];
 }
 
 export function getMissingMealQuantities(message) {
   const text = normalizeText(message);
-  const candidates = findFoodCandidates(message);
-  if (!candidates.length) return [];
-
-  const missing = [];
-  const usedRanges = [];
-
-  for (const item of candidates) {
-    const occurrence = chooseOccurrence(text, item);
-    if (!occurrence) continue;
-
-    const rangeEnd = occurrence.index + occurrence.alias.length;
-    const overlaps = usedRanges.some(([start, end]) =>
-      occurrence.index < end && rangeEnd > start
-    );
-    if (overlaps) continue;
-
-    const grams = extractQuantity(text, item, occurrence.index, { allowDefault: false });
-    if (!(grams > 0)) {
-      missing.push({
-        id: item.id,
-        name: item.name,
-        aliases: item.aliases || [],
-        default_g: item.default_g,
-        unit: item.unit,
-        position: occurrence.index
-      });
-    }
-    usedRanges.push([occurrence.index, rangeEnd]);
-  }
-
-  return missing.sort((a, b) => a.position - b.position);
+  return groupOccurrencesByFood(text)
+    .filter(({ mentions }) => !mentions.some((mention) => mention.explicitGrams))
+    .map(({ item, position }) => ({
+      id: item.id,
+      name: item.name,
+      aliases: item.aliases || [],
+      default_g: item.default_g,
+      unit: item.unit,
+      position
+    }));
 }
 
 export function estimateMealFromText(message, options = {}) {
   const text = normalizeText(message);
-  const candidates = findFoodCandidates(message);
-  if (!candidates.length) return null;
+  const groups = groupOccurrencesByFood(text);
+  if (!groups.length) return null;
 
   if (options.requireExplicitQuantities) {
     const missing = getMissingMealQuantities(message);
@@ -773,22 +749,13 @@ export function estimateMealFromText(message, options = {}) {
 
   const quantityOverrides = options.quantityOverrides || {};
   const matched = [];
-  const usedRanges = [];
 
-  for (const item of candidates) {
-    const occurrence = chooseOccurrence(text, item);
-    if (!occurrence) continue;
-
-    const rangeEnd = occurrence.index + occurrence.alias.length;
-    const overlaps = usedRanges.some(([start, end]) =>
-      occurrence.index < end && rangeEnd > start
-    );
-    if (overlaps) continue;
-
+  for (const { item, mentions } of groups) {
     const override = Number(quantityOverrides[item.id]);
     const grams = Number.isFinite(override) && override > 0
       ? override
-      : extractQuantity(text, item, occurrence.index, { allowDefault: true });
+      : mentions.reduce((total, mention, index) =>
+        total + (mention.explicitGrams ?? (index === 0 ? item.default_g : 0)), 0);
     if (!(grams > 0)) continue;
 
     const factor = grams / 100;
@@ -802,7 +769,6 @@ export function estimateMealFromText(message, options = {}) {
       fat_g: item.fat * factor,
       source: item.source
     });
-    usedRanges.push([occurrence.index, rangeEnd]);
   }
 
   if (!matched.length) return null;

@@ -4,6 +4,7 @@ import {
   getMissingMealQuantities,
   generateFreeMealOptions
 } from "./nutritionCatalog.js";
+import { containsFoodTerm } from "./foodMatching.js";
 
 const WEIGHTS = {"café da manhã":0.2,almoço:0.3,"lanche da tarde":0.15,jantar:0.25,ceia:0.1};
 const ORDER = Object.keys(WEIGHTS);
@@ -123,7 +124,7 @@ export function generateDesiredFoodOptions({
   const servings = Number.isFinite(Number(requestedServings)) && requestedServings > 0
     ? Number(requestedServings) : null;
   const allowedTemplates = templates.filter((template) => !rejected.some((item) =>
-    normalizeIngredient(template.name).includes(item) || template.foods.some((food) => normalizeIngredient(food).includes(item))
+    mentionsFood(template.name, item) || template.foods.some((food) => mentionsFood(food, item))
   ));
   const availableMatches = available.length
     ? allowedTemplates.filter((template) => {
@@ -147,9 +148,7 @@ export function generateDesiredFoodOptions({
          */
         return requiredAvailability.every((ingredient) =>
           available.some((food) =>
-            food === ingredient
-            || food.includes(ingredient)
-            || ingredient.includes(food)
+            sameOrMentions(food, ingredient)
           )
         );
       })
@@ -392,9 +391,8 @@ export function getMealBudget(summary = {}, period, remainingMeals, {
 }
 
 function makeOption(t, budget, dislikes, macroBudget = {}, macroPriority = null) {
-  const norm = (value) => String(value).toLocaleLowerCase("pt-BR");
   if (budget !== null && budget !== undefined && budget <= 0) return null;
-  if (t.foods.some((food) => dislikes.some((item) => norm(food).includes(norm(item))))) return null;
+  if (t.foods.some((food) => dislikes.some((item) => mentionsFood(food, item)))) return null;
 
   let scale = budget > 0 ? Math.min(1.25, (budget / t.calories) * 0.92) : 0.75;
 
@@ -453,6 +451,15 @@ function normalizeIngredient(value) {
     .trim();
 }
 
+// Ingrediente mencionado como palavra inteira ("sal" não está em "salmão").
+function mentionsFood(text, food) {
+  return containsFoodTerm(normalizeIngredient(text), normalizeIngredient(food));
+}
+
+function sameOrMentions(left, right) {
+  return left === right || mentionsFood(left, right) || mentionsFood(right, left);
+}
+
 function inferProteinSource(option) {
   if (option.protein_source) return normalizeIngredient(option.protein_source);
   const ingredients = (option.foods || []).map(normalizeIngredient).join(" ");
@@ -507,14 +514,13 @@ const UNCOMMON_GENERIC_FOODS = ["tofu", "tempeh", "edamame", "homus", "bebida de
 
 function hasKnownFood(available, ingredient) {
   const target = normalizeIngredient(ingredient);
-  return available.some((food) => food === target || food.includes(target) || target.includes(food));
+  return available.some((food) => sameOrMentions(food, target));
 }
 
 function optionContainsIngredient(option, ingredient) {
   const needle = normalizeIngredient(ingredient);
   if (!needle) return false;
-  const text = normalizeIngredient([option?.name, ...(option?.foods || [])].join(" "));
-  return text.includes(needle);
+  return [option?.name, ...(option?.foods || [])].some((text) => mentionsFood(text, needle));
 }
 
 function matchesRequiredFoods(option, requiredFoods = []) {
@@ -543,7 +549,7 @@ function compareOptionDiversity(left, right, selected, recentCompositionKeys, re
     const selectedSources = new Set(selected.map((item) => item.protein_source));
     const ingredients = (option.foods || []).map(normalizeIngredient);
     const knownCount = availableFoods.length
-      ? availableFoods.filter((food) => ingredients.some((ingredient) => ingredient.includes(food) || food.includes(ingredient))).length
+      ? availableFoods.filter((food) => ingredients.some((ingredient) => sameOrMentions(food, ingredient))).length
       : 0;
     const repeatCount = ingredients.filter((ingredient) => recentFoods.has(ingredient.split(" ")[0])).length;
     return [
@@ -625,12 +631,12 @@ export function generateMealOptions({
   const available = availableFoods.map((food) => normalizeIngredient(food));
   const options = templates
     .filter((template) => !template.foods.some((food) => UNCOMMON_GENERIC_FOODS.some((uncommon) =>
-      normalizeIngredient(food).includes(uncommon)
+      mentionsFood(food, uncommon)
     )) || template.foods.some((food) => UNCOMMON_GENERIC_FOODS.some((uncommon) =>
-      normalizeIngredient(food).includes(uncommon) && hasKnownFood(available, uncommon)
+      mentionsFood(food, uncommon) && hasKnownFood(available, uncommon)
     )))
     .filter((template) => (template.requires_available || []).every((required) =>
-      available.some((food) => food === normalizeIngredient(required) || food.includes(normalizeIngredient(required)))
+      available.some((food) => food === normalizeIngredient(required) || mentionsFood(food, required))
     ))
     .filter((template) => matchesRequiredFoods({ name: template.name, foods: template.foods }, requiredFoods))
     .filter((template) => !onlyAvailableFoods || allFoodsAvailable(template, availableFoods))
@@ -645,7 +651,7 @@ export function generateMealOptions({
     .map(enrichOption)
     .concat(additionalOptions.map(enrichOption))
     .filter((option) => !option.foods.some((food) => rejected.some((item) =>
-      normalizeIngredient(food).includes(normalizeIngredient(item))
+      mentionsFood(food, item)
     )))
     .filter((option) => matchesRequiredFoods(option, requiredFoods))
     .filter((option) => !onlyAvailableFoods || allFoodsAvailable(option, availableFoods))

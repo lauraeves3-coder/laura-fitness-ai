@@ -37,6 +37,12 @@ import {
   estimateMealFromText,
   generateFreeMealOptions
 } from "./nutrition.js";
+import {
+  detectDesiredFoodCategory,
+  findFoodNames,
+  restrictionBlocksDesiredFood,
+  GLUTEN_FOODS
+} from "./foodMatching.js";
 import { runAgent } from "./agent/agent.js";
 import { createAgentToolRegistry } from "./agent/tools.js";
 
@@ -855,6 +861,7 @@ function extractAvailableFoods(message) {
     "batata inglesa", "pão", "mamão", "mamao", "laranja", "carne bovina", "carne moida", "ovo cozido"
   ];
   const normalized = message.toLocaleLowerCase("pt-BR");
+  const mentioned = new Set(findFoodNames(message, foods));
   const excluded = new Set(extractExcludedFoods(message));
   const aliases = {
     "salmão": "peixe", "tilápia": "peixe", "peito de frango": "frango",
@@ -864,10 +871,12 @@ function extractAvailableFoods(message) {
     "macarrao": "macarrão", "mamao": "mamão"
   };
   const commonAvailable = explicitAvailability
-    ? foods.filter((food) => normalized.includes(food) && !excluded.has(food))
+    ? foods.filter((food) => mentioned.has(food) && !excluded.has(food))
     : [];
-  const contextualFoods = ["tofu", "tempeh", "edamame", "homus", "bebida de soja", "iogurte de soja"]
-    .filter((food) => normalized.includes(food)
+  const contextualCandidates = ["tofu", "tempeh", "edamame", "homus", "bebida de soja", "iogurte de soja"];
+  const contextualMentioned = new Set(findFoodNames(message, contextualCandidates));
+  const contextualFoods = contextualCandidates
+    .filter((food) => contextualMentioned.has(food)
       && !excluded.has(food)
       && /\b(?:consumo|como|costumo comer|quero|gosto de|tenho|possuo|uso|prefiro)\b/i.test(normalized));
   return [...new Set([...commonAvailable, ...contextualFoods]
@@ -891,27 +900,7 @@ function detectWheyAvailability(message) {
 }
 
 function normalizeDesiredFood(value) {
-  const text = String(value || "").toLocaleLowerCase("pt-BR")
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-  const aliases = [
-    ["batata frita", "batata frita"], ["french fries", "batata frita"],
-    ["hamburguer", "hamburger"], ["burger", "hamburger"],
-    ["sorvete", "sorvete"], ["gelato", "sorvete"],
-    ["chocolate", "chocolate"], ["pizza", "pizza"],
-    ["comida japonesa", "japonesa"], ["comida japonesa brasileira", "japonesa"],
-    ["rodizio japones", "japonesa"], ["japones", "japonesa"],
-    ["sushi", "japonesa"], ["temaki", "japonesa"],
-    ["sashimi", "japonesa"], ["nigiri", "japonesa"],
-    ["niguiri", "japonesa"], ["hossomaki", "japonesa"],
-    ["uramaki", "japonesa"], ["hot roll", "japonesa"],
-    ["hotroll", "japonesa"], ["hot philadelphia", "japonesa"],
-    ["guioza", "japonesa"], ["gyoza", "japonesa"],
-    ["yakisoba", "japonesa"], ["sunomono", "japonesa"],
-    ["missoshiru", "japonesa"], ["tempura", "japonesa"],
-    ["tempura de camarao", "japonesa"], ["salada de kani", "japonesa"],
-    ["bolo", "bolo"], ["massa", "massa"], ["macarrao", "massa"]
-  ];
-  return aliases.find(([needle]) => text.includes(needle))?.[1] || "";
+  return detectDesiredFoodCategory(value);
 }
 
 function detectDesiredFood(message, modelValue = "") {
@@ -1430,16 +1419,13 @@ function getFoodRestrictions(user) {
     "peixe", "atum", "tomate", "leite", "maçã", "salada", "tofu", "lentilha",
     "grão-de-bico", "homus", "edamame", "amendoim"
   ];
-  const normalizedDislikes = rawDislikes.toLocaleLowerCase("pt-BR");
-  for (const food of knownFoods) {
-    if (normalizedDislikes.includes(food)) rejected.push(food);
-  }
+  rejected.push(...findFoodNames(rawDislikes, knownFoods));
   const preferences = String(user?.dietary_preferences || "").toLocaleLowerCase("pt-BR");
   if (/vegano|vegan/.test(preferences)) rejected.push("frango", "carne", "peixe", "atum", "ovo", "queijo", "iogurte", "leite", "whey");
   else if (/vegetarian|vegetar/.test(preferences)) rejected.push("frango", "carne", "peixe", "atum");
   if (/sem lactose|lactose free|intoler.ncia . lactose/.test(preferences)) rejected.push("leite", "iogurte", "queijo", "whey");
-  if (/sem gl[uú]ten|cel[ií]ac/.test(preferences)) rejected.push("pão integral");
-  return rejected;
+  if (/sem gl[uú]ten|cel[ií]ac/.test(preferences)) rejected.push(...GLUTEN_FOODS);
+  return [...new Set(rejected)];
 }
 
 function formatPlanReply(plan) {
@@ -3327,11 +3313,9 @@ const summaryIntent = classifySummaryIntent(message);
       if (
         restrictions.some(
           (item) =>
-            item.includes(
+            restrictionBlocksDesiredFood(
+              item,
               desiredFood
-            ) ||
-            desiredFood.includes(
-              item
             )
         )
       ) {

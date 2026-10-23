@@ -42,7 +42,7 @@ test("modelos de refeição: nenhum componente descartado silenciosamente", () =
   }
 });
 
-test("NC-07: nenhum alias compartilhado entre alimentos diferentes", { todo: "NC-07 alias 'farofa' duplicado" }, () => {
+test("NC-07: nenhum alias compartilhado entre alimentos diferentes", () => {
   const owners = new Map();
   for (const item of FOOD_CATALOG) {
     for (const alias of item.aliases || []) {
@@ -69,24 +69,34 @@ test("regressão: 300 ml de leite", () => {
 
 // ---------- NC-01: alias dentro de palavras ----------
 
-test("NC-01: 'novo' não contém ovo; 'casa' não contém asa", { todo: "NC-01" }, () => {
+test("NC-01: 'novo' não contém ovo; 'casa' não contém asa", () => {
   assert.deepEqual(findFoodCandidates("Tenho um novo whey em casa").map((item) => item.id), ["whey"]);
   assert.equal(kcal("Comi whey novo"), 123);
 });
 
 // ---------- NC-05: várias ocorrências ----------
 
-test("NC-05: 'uma banana e depois mais uma banana' = 2 bananas", { todo: "NC-05" }, () => {
+test("NC-05: 'uma banana e depois mais uma banana' = 2 bananas", () => {
   assert.equal(kcal("Comi uma banana e depois mais uma banana"), 176);
 });
-test("NC-05: 'uma banana e depois mais duas bananas' = 3 bananas", { todo: "NC-05" }, () => {
-  assert.equal(kcal("Comi uma banana e depois mais duas bananas"), 264);
+test("NC-05: 'uma banana e depois mais duas bananas' = 3 bananas (270 g)", () => {
+  assert.equal(kcal("Comi uma banana e depois mais duas bananas"), 265);
 });
 
 // ---------- NC-07: farofa ----------
 
-test("NC-07: 'farofa temperada' escolhe farofa-pronta", { todo: "NC-07" }, () => {
+test("NC-07: 'farofa temperada' escolhe farofa-pronta", () => {
   assert.deepEqual(ids(estimateMealFromText("Comi farofa temperada")), ["farofa-pronta"]);
+});
+test("NC-05: menção repetida sem quantidade não duplica", () => {
+  assert.equal(estimateMealFromText("comi arroz, o arroz estava frio").matched_items[0].grams, 100);
+});
+test("NC-07: 'farofa' sozinha é a farofa pronta", () => {
+  assert.deepEqual(ids(estimateMealFromText("comi farofa")), ["farofa-pronta"]);
+});
+test("NC-01: limites de palavra não perdem plurais e acentos", () => {
+  assert.deepEqual(ids(estimateMealFromText("comi 2 ovos, 3 bananas e feijão")), ["ovo-inteiro", "banana-prata", "feijao-carioca-cozido"]);
+  assert.deepEqual(ids(estimateMealFromText("comi pão de queijo e peito de frango")), ["pao-de-queijo", "peito-de-frango-grelhado"]);
 });
 test("regressão: 'farinha de mandioca' continua farinha", () => {
   assert.deepEqual(ids(estimateMealFromText("comi farinha de mandioca")), ["farinha-de-mandioca"]);
@@ -115,7 +125,7 @@ test("NC-10: 'batata' sem preparo não vira batata frita", { todo: "NC-10" }, ()
 
 // ---------- NC-11: cobertura de plurais / itens comuns ----------
 
-test("NC-11: '2 pães franceses' é reconhecido", { todo: "NC-11" }, () => {
+test("NC-11: '2 pães franceses' é reconhecido", () => {
   assert.ok(ids(estimateMealFromText("comi 2 pães franceses")).includes("pao-frances"));
 });
 test("NC-11: 'bife' é reconhecido em prato feito", { todo: "NC-11" }, () => {
