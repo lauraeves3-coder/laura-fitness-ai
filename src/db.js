@@ -1006,9 +1006,11 @@ export function setCustomCalorieTarget(
   const targetCalories =
     Math.round(Number(calories));
 
+  // NUT-17: acima de 10.000 kcal só pode ser erro de digitação.
   if (
     !Number.isFinite(targetCalories) ||
-    targetCalories <= 0
+    targetCalories <= 0 ||
+    targetCalories > 10000
   ) {
     return null;
   }
@@ -1036,7 +1038,7 @@ export function setCustomMacroTargets(userId, macros) {
     fat_g: Object.prototype.hasOwnProperty.call(macros, "fat_g")
       ? Number(macros.fat_g) : current.daily_fat_target
   };
-  if (Object.values(values).some((value) => value !== null && value !== undefined && (!Number.isFinite(value) || value < 0))) {
+  if (Object.values(values).some((value) => value !== null && value !== undefined && (!Number.isFinite(value) || value < 0 || value > 1000))) {
     return null;
   }
   db.prepare(`

@@ -57,7 +57,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | NUT-14 | Histórico por data/período; consumo diário e semanal | P1 | PARCIAL | CONV-03 | `getDailySummary` (dia), `getRecentHistory` (últimos N, sem período); sem semanal |
 | NUT-15 | Saldo de kcal/macros atualizado após registro e correção | P0 | IMPLEMENTADO E TESTADO | — | `getDailySummary`, `calculateNutritionBalance`; saldo após registro, confirmação, correção e exclusão, e resumo via `get_nutrition_state` (`test/e2e.test.js`); saldo de macros não testado isoladamente |
 | NUT-16 | Metas personalizadas, ajuste manual, restaurar automáticas | P0 | IMPLEMENTADO E TESTADO | — | `setCustomCalorieTarget`, `restoreAutomaticNutritionTargets` e a proteção contra alteração sem pedido explícito; `test/e2e.test.js` (metas de macros ainda sem teste) |
-| NUT-17 | Validar coerência das metas e valores zero/negativos | P0 | PARCIAL | — | rejeita negativos; avisa metas incompatíveis (`ai.js`); sem testes |
+| NUT-17 | Validar coerência das metas e valores zero/negativos | P0 | IMPLEMENTADO E TESTADO | — | recusa calorias ≤ 0 ou > 10.000 e macros < 0 ou > 1.000 g com mensagem explícita (antes: "Entendi. Como posso te ajudar?"); avisa incompatibilidade calorias × macros sem ajuste silencioso; "meta de proteína para 140 g" passou a ser reconhecida; `test/e2e.test.js`. Limiar de aviso para metas muito baixas: DEC-11 |
 | NUT-18 | Plano diário por refeição com orçamento e adaptação ao consumido | P0 | IMPLEMENTADO E TESTADO | — | `buildDailyMealPlan`, `getMealBudget`; tabela `meal_plans`; criação, orçamento ≤ saldo, exigência de meta e de pedido explícito, intenção de seguir (`test/e2e.test.js`). Bug corrigido: criação de plano sempre falhava (variável fora de escopo) |
 | NUT-19 | Refeições livres: frequência, dia/período, categorias favoritas | P1 | IMPLEMENTADO NÃO TESTADO | — | colunas `free_meal_*`; `setFreeMealSettings`; `generateFreeMealOptions` |
 | NUT-20 | Refeições livres com ingredientes, porções e fonte | P1 | NÃO IMPLEMENTADO | CAT-08 | `FREE_MEAL_OPTIONS` só tem totais (NC-08) |
@@ -241,6 +241,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | DEC-08 | Modelo de autenticação do painel (login por usuário, vínculo com o número do WhatsApp) | WEB-02 |
 | DEC-09 | Onde rodar o agendador (processo do servidor, cron externo) e limites de mensagens proativas | ARQ-04, CONV-11 |
 | DEC-10 | Se as ~40 cópias de backup soltas podem ser removidas da pasta (estão fora do Git) | ARQ-11 |
+| DEC-11 | Avisar (sem bloquear) metas calóricas muito baixas? A partir de qual valor, e com que texto sobre acompanhamento profissional | NUT-17 |
 
 ## Histórico de status
 

@@ -384,3 +384,54 @@ test("NUT-15: resumo pelo agente mostra consumo e saldo atuais", async () => {
   assert.match(reply, new RegExp(String(Math.round(summary.calories))));
   assert.match(reply, new RegExp(String(Math.round(summary.calorie_remaining))));
 });
+
+// ---------- NUT-17: coerência das metas ----------
+
+const setCalories = (userId, calories, message = `mude minha meta de calorias para ${calories} kcal`) =>
+  send(userId, message, fakeModel([toolCall("set_calorie_target", { calories }), finalText("Meta personalizada salva.")]));
+const setMacros = (userId, macros, message) =>
+  send(userId, message, fakeModel([toolCall("set_macro_targets", macros), finalText("Metas de macros salvas.")]));
+
+test("NUT-17: meta coerente com os macros é salva sem aviso", async () => {
+  const userId = userWithTargets();
+  const { daily_protein_target: p, daily_carbs_target: c, daily_fat_target: f } = db.getUser(userId);
+  const coherent = Math.round(p * 4 + c * 4 + f * 9);
+  const reply = await setCalories(userId, coherent);
+  assert.equal(db.getUser(userId).daily_calorie_target, coherent);
+  assert.doesNotMatch(reply, /incompatíveis/);
+});
+
+test("NUT-17: meta incompatível com os macros é salva com aviso, sem ajuste silencioso", async () => {
+  const userId = userWithTargets();
+  const macrosBefore = db.getUser(userId);
+  const reply = await setCalories(userId, 1000);
+  assert.equal(db.getUser(userId).daily_calorie_target, 1000);
+  assert.equal(db.getUser(userId).daily_protein_target, macrosBefore.daily_protein_target);
+  assert.match(reply, /matematicamente incompatíveis/);
+});
+
+test("NUT-17: meta calórica zero, negativa ou absurda é recusada e informada", async () => {
+  const userId = userWithTargets();
+  const before = db.getUser(userId).daily_calorie_target;
+  for (const calories of [0, -500, 50000]) {
+    const reply = await setCalories(userId, calories);
+    assert.equal(db.getUser(userId).daily_calorie_target, before, String(calories));
+    assert.match(reply, /Não alterei/, `${calories}: ${reply}`);
+  }
+});
+
+test("NUT-17: macro negativo ou absurdo é recusado e informado", async () => {
+  const userId = userWithTargets();
+  const before = db.getUser(userId).daily_protein_target;
+  for (const protein of [-10, 5000]) {
+    const reply = await setMacros(userId, { protein_g: protein }, `mude minha meta de proteína para ${protein} g`);
+    assert.equal(db.getUser(userId).daily_protein_target, before, String(protein));
+    assert.match(reply, /Não alterei/, `${protein}: ${reply}`);
+  }
+});
+
+test("NUT-17: meta de macros válida é salva", async () => {
+  const userId = userWithTargets();
+  await setMacros(userId, { protein_g: 140 }, "mude minha meta de proteína para 140 g");
+  assert.equal(db.getUser(userId).daily_protein_target, 140);
+});

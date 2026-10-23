@@ -535,19 +535,20 @@ function extractExplicitMealNutrition(message) {
   return {
     calories: extract([
       new RegExp(`${number}\\s*(?:kcal|calorias?)\\b`),
-      new RegExp(`\\b(?:kcal|calorias?)\\s*(?:e\\s*)?[:=]?\\s*${number}`)
+      new RegExp(`\\b(?:kcal|calorias?)\\s*(?:e\\s*)?(?:[:=]|para|em)?\\s*${number}`)
     ]),
+    // "proteína para 140 g", "proteína em 140", "proteína: 140" (NUT-17).
     protein_g: extract([
       new RegExp(`${number}\\s*g?\\s*(?:de\\s*)?proteinas?\\b`),
-      new RegExp(`\\bproteinas?\\s*[:=]?\\s*${number}\\s*g?\\b`)
+      new RegExp(`\\bproteinas?\\s*(?:[:=]|para|em|de)?\\s*${number}\\s*g?\\b`)
     ]),
     carbs_g: extract([
       new RegExp(`${number}\\s*g?\\s*(?:de\\s*)?carboidratos?\\b`),
-      new RegExp(`\\bcarboidratos?\\s*[:=]?\\s*${number}\\s*g?\\b`)
+      new RegExp(`\\bcarboidratos?\\s*(?:[:=]|para|em|de)?\\s*${number}\\s*g?\\b`)
     ]),
     fat_g: extract([
       new RegExp(`${number}\\s*g?\\s*(?:de\\s*)?gorduras?\\b`),
-      new RegExp(`\\bgorduras?\\s*[:=]?\\s*${number}\\s*g?\\b`)
+      new RegExp(`\\bgorduras?\\s*(?:[:=]|para|em|de)?\\s*${number}\\s*g?\\b`)
     ])
   };
 }
@@ -4160,6 +4161,12 @@ const summaryIntent = classifySummaryIntent(message);
   ) {
     const updated =
       saved?.user;
+
+    if (!updated) {
+      return result.action === "set_calorie_target"
+        ? "Não alterei sua meta de calorias: o valor precisa ser maior que zero e plausível (até 10.000 kcal por dia). Sua meta anterior continua valendo."
+        : "Não alterei suas metas de macros: cada valor precisa ser zero ou positivo e plausível (até 1.000 g por dia). As metas anteriores continuam valendo.";
+    }
 
     const balance =
       calculateNutritionBalance({
