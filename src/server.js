@@ -1,5 +1,6 @@
 import "dotenv/config";
 
+import { createHmac, timingSafeEqual } from "node:crypto";
 import express from "express";
 
 import {
@@ -7,14 +8,22 @@ import {
   updateUserProfile,
   getUser,
   getDailySummary,
-  getRecentHistory
+  getRecentHistory,
+  claimWhatsAppMessage,
+  completeWhatsAppMessage,
+  markWhatsAppMessageSent,
+  releaseWhatsAppMessage
 } from "./db.js";
 
 import { processMessage } from "./ai.js";
 
 const app = express();
 
-app.use(express.json());
+app.use(express.json({
+  verify(req, res, buffer) {
+    req.rawBody = Buffer.from(buffer);
+  }
+}));
 
 const PORT = Number(process.env.PORT || 3000);
 
@@ -44,6 +53,44 @@ app.get("/", (req, res) => {
    PERFIL DO USUÁRIO
 ========================================================= */
 
+function requireApiAccess(req, res, next) {
+  const expected = process.env.API_ACCESS_TOKEN;
+
+  if (!expected || expected.length < 32) {
+    return res.status(503).json({
+      ok: false,
+      error: "API não configurada para acesso seguro."
+    });
+  }
+
+  const authorization = req.get("authorization") || "";
+  const match = authorization.match(/^Bearer (.+)$/i);
+
+  if (!match) {
+    return res.status(401).json({
+      ok: false,
+      error: "Não autorizado."
+    });
+  }
+
+  const received = Buffer.from(match[1]);
+  const configured = Buffer.from(expected);
+
+  if (
+    received.length !== configured.length ||
+    !timingSafeEqual(received, configured)
+  ) {
+    return res.status(401).json({
+      ok: false,
+      error: "Não autorizado."
+    });
+  }
+
+  next();
+}
+
+app.use("/api", requireApiAccess);
+
 app.get("/api/user/:userId", (req, res) => {
   try {
     const { userId } = req.params;
@@ -69,6 +116,13 @@ app.get("/api/user/:userId", (req, res) => {
 app.put("/api/user/:userId", (req, res) => {
   try {
     const { userId } = req.params;
+
+    if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
+      return res.status(400).json({
+        ok: false,
+        error: "Corpo da requisição inválido."
+      });
+    }
 
     const user = updateUserProfile(userId, req.body);
 
@@ -140,16 +194,16 @@ app.get("/api/history/:userId", (req, res) => {
 
 app.post("/api/chat", async (req, res) => {
   try {
-    const { userId, message } = req.body;
+    const { userId, message } = req.body || {};
 
-    if (!userId) {
+    if (typeof userId !== "string" || !userId.trim()) {
       return res.status(400).json({
         ok: false,
         error: "userId é obrigatório."
       });
     }
 
-    if (!message || !message.trim()) {
+    if (typeof message !== "string" || !message.trim()) {
       return res.status(400).json({
         ok: false,
         error: "message é obrigatório."
@@ -165,11 +219,11 @@ app.post("/api/chat", async (req, res) => {
       reply
     });
   } catch (error) {
-    console.error("Erro no chat:", error);
+    console.error("Erro no chat:", error?.name || "Error");
 
     res.status(500).json({
       ok: false,
-      error: error.message || "Erro ao processar mensagem."
+      error: "Não foi possível processar a mensagem."
     });
   }
 });
@@ -239,20 +293,14 @@ async function sendWhatsAppMessage(to, message) {
   const data = await response.json();
 
   if (!response.ok) {
-    console.error(
-      "Erro retornado pela API do WhatsApp:",
-      JSON.stringify(data, null, 2)
-    );
+    console.error("Erro retornado pela API do WhatsApp:", response.status);
 
     throw new Error(
-      data?.error?.message || "Erro ao enviar mensagem pelo WhatsApp."
+      "Erro ao enviar mensagem pelo WhatsApp."
     );
   }
 
-  console.log(
-    "Mensagem enviada pelo WhatsApp:",
-    JSON.stringify(data, null, 2)
-  );
+  console.log("Mensagem enviada pelo WhatsApp.");
 
   return data;
 }
@@ -262,52 +310,102 @@ async function sendWhatsAppMessage(to, message) {
 ========================================================= */
 
 app.post("/webhook/whatsapp", async (req, res) => {
+  let messageId;
+  let messageReady = false;
+
   try {
-    // Respondemos imediatamente ao Meta.
-    res.sendStatus(200);
+    const appSecret = process.env.WHATSAPP_APP_SECRET;
+
+    if (!appSecret) {
+      return res.status(503).json({
+        ok: false,
+        error: "Webhook não configurado para validar a origem."
+      });
+    }
+
+    const signature = req.get("x-hub-signature-256") || "";
+    const signatureMatch = signature.match(/^sha256=([a-f0-9]{64})$/i);
+
+    if (!signatureMatch || !req.rawBody) {
+      return res.sendStatus(401);
+    }
+
+    const expectedSignature = createHmac("sha256", appSecret)
+      .update(req.rawBody)
+      .digest();
+    const receivedSignature = Buffer.from(signatureMatch[1], "hex");
+
+    if (!timingSafeEqual(receivedSignature, expectedSignature)) {
+      return res.sendStatus(401);
+    }
 
     const body = req.body;
-
-    console.log(
-      "Webhook WhatsApp recebido:",
-      JSON.stringify(body, null, 2)
-    );
 
     const message =
       body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
     if (!message) {
-      console.log("Evento recebido sem mensagem para processar.");
-      return;
+      return res.sendStatus(200);
     }
 
     // Por enquanto processamos mensagens de texto.
     if (message.type !== "text") {
-      console.log(
-        `Tipo de mensagem ainda não processado: ${message.type}`
-      );
-      return;
+      return res.sendStatus(200);
     }
 
     const from = message.from;
     const text = message.text?.body?.trim();
+    messageId = message.id;
 
-    if (!from || !text) {
-      console.log("Mensagem sem remetente ou texto.");
-      return;
+    if (!from || !text || !messageId) {
+      return res.status(400).json({
+        ok: false,
+        error: "Mensagem inválida."
+      });
     }
 
-    console.log(`Mensagem recebida de ${from}: ${text}`);
+    const receipt = claimWhatsAppMessage(messageId);
 
-    // O número do WhatsApp será o identificador do usuário.
+    if (!receipt.claimed) {
+      if (receipt.status === "ready") {
+        await sendWhatsAppMessage(from, receipt.reply);
+        markWhatsAppMessageSent(messageId);
+      } else if (receipt.status === "processing") {
+        return res.status(503).json({
+          ok: false,
+          error: "Mensagem ainda está sendo processada."
+        });
+      }
+
+      return res.sendStatus(200);
+    }
+
     const reply = await processMessage(from, text);
 
-    console.log(`Resposta da IA para ${from}: ${reply}`);
+    if (typeof reply !== "string" || !reply.trim()) {
+      throw new Error("A resposta do processamento está vazia.");
+    }
 
+    completeWhatsAppMessage(messageId, reply);
+    messageReady = true;
     await sendWhatsAppMessage(from, reply);
+    markWhatsAppMessageSent(messageId);
+
+    return res.sendStatus(200);
 
   } catch (error) {
-    console.error("Erro no webhook do WhatsApp:", error);
+    if (messageId && !messageReady) {
+      releaseWhatsAppMessage(messageId);
+    }
+
+    console.error("Erro no webhook do WhatsApp:", error?.name || "Error");
+
+    if (!res.headersSent) {
+      return res.status(500).json({
+        ok: false,
+        error: "Não foi possível processar a mensagem."
+      });
+    }
   }
 });
 

@@ -1,4 +1,5 @@
 import Database from "better-sqlite3";
+import { calculateNutritionBalance } from "./nutrition.js";
 
 const db = new Database("fitness.db");
 
@@ -71,6 +72,14 @@ db.exec(`
 
     maintenance_calories REAL,
     calorie_deficit_percent REAL,
+    macro_target_mode TEXT,
+    free_meal_setup_status TEXT NOT NULL DEFAULT 'unknown',
+    free_meal_enabled INTEGER NOT NULL DEFAULT 0,
+    free_meals_per_week INTEGER NOT NULL DEFAULT 0,
+    free_meal_days TEXT NOT NULL DEFAULT '[]',
+    free_meal_period TEXT,
+    free_meal_preferences TEXT NOT NULL DEFAULT '[]',
+    pending_meal_clarification TEXT,
 
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
@@ -83,7 +92,10 @@ db.exec(`
     protein_g REAL DEFAULT 0,
     carbs_g REAL DEFAULT 0,
     fat_g REAL DEFAULT 0,
-    consumed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    consumed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    meal_period TEXT,
+    plan_id INTEGER,
+    plan_option_index INTEGER
   );
 
   CREATE TABLE IF NOT EXISTS workouts (
@@ -109,6 +121,37 @@ db.exec(`
     user_id TEXT NOT NULL,
     weight_kg REAL NOT NULL,
     measured_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS whatsapp_messages (
+    message_id TEXT PRIMARY KEY,
+    status TEXT NOT NULL,
+    reply TEXT,
+    received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS meal_plans (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    plan_date TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'proposed',
+    plan_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, plan_date)
+  );
+
+  CREATE TABLE IF NOT EXISTS meal_plan_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plan_id INTEGER,
+    user_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    meal_period TEXT,
+    option_index INTEGER,
+    meal_id INTEGER,
+    details_json TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 `);
 
@@ -175,11 +218,30 @@ ensureColumn(
   "calorie_deficit_percent",
   "REAL"
 );
+
 ensureColumn(
   "users",
   "calorie_target_mode",
   "TEXT"
 );
+ensureColumn("users", "macro_target_mode", "TEXT");
+ensureColumn("users", "free_meal_setup_status", "TEXT");
+ensureColumn("users", "free_meal_enabled", "INTEGER");
+ensureColumn("users", "free_meals_per_week", "INTEGER");
+ensureColumn("users", "free_meal_days", "TEXT");
+ensureColumn("users", "free_meal_period", "TEXT");
+ensureColumn("users", "free_meal_preferences", "TEXT");
+ensureColumn("users", "pending_meal_clarification", "TEXT");
+ensureColumn("meals", "meal_period", "TEXT");
+ensureColumn("meals", "plan_id", "INTEGER");
+ensureColumn("meals", "plan_option_index", "INTEGER");
+db.prepare("UPDATE users SET calorie_target_mode = 'automatic' WHERE calorie_target_mode IS NULL").run();
+db.prepare("UPDATE users SET macro_target_mode = 'automatic' WHERE macro_target_mode IS NULL").run();
+db.prepare("UPDATE users SET free_meal_setup_status = 'unknown' WHERE free_meal_setup_status IS NULL").run();
+db.prepare("UPDATE users SET free_meal_enabled = 0 WHERE free_meal_enabled IS NULL").run();
+db.prepare("UPDATE users SET free_meals_per_week = 0 WHERE free_meals_per_week IS NULL").run();
+db.prepare("UPDATE users SET free_meal_days = '[]' WHERE free_meal_days IS NULL").run();
+db.prepare("UPDATE users SET free_meal_preferences = '[]' WHERE free_meal_preferences IS NULL").run();
 
 /* =========================================================
    USUÁRIO
@@ -282,7 +344,31 @@ export function updateUserProfile(
 
     daily_fat_target:
       data.daily_fat_target ??
-      current.daily_fat_target
+      current.daily_fat_target,
+
+    free_meal_setup_status:
+      data.free_meal_setup_status ??
+      current.free_meal_setup_status,
+
+    free_meal_enabled:
+      data.free_meal_enabled ??
+      current.free_meal_enabled,
+
+    free_meals_per_week:
+      data.free_meals_per_week ??
+      current.free_meals_per_week,
+
+    free_meal_days:
+      data.free_meal_days ??
+      current.free_meal_days,
+
+    free_meal_period:
+      data.free_meal_period ??
+      current.free_meal_period,
+
+    free_meal_preferences:
+      data.free_meal_preferences ??
+      current.free_meal_preferences
   };
 
   db.prepare(`
@@ -301,7 +387,13 @@ export function updateUserProfile(
       daily_calorie_target = ?,
       daily_protein_target = ?,
       daily_carbs_target = ?,
-      daily_fat_target = ?
+      daily_fat_target = ?,
+      free_meal_setup_status = ?,
+      free_meal_enabled = ?,
+      free_meals_per_week = ?,
+      free_meal_days = ?,
+      free_meal_period = ?,
+      free_meal_preferences = ?
     WHERE id = ?
   `).run(
     updated.name,
@@ -318,8 +410,23 @@ export function updateUserProfile(
     updated.daily_protein_target,
     updated.daily_carbs_target,
     updated.daily_fat_target,
+    updated.free_meal_setup_status,
+    updated.free_meal_enabled,
+    updated.free_meals_per_week,
+    updated.free_meal_days,
+    updated.free_meal_period,
+    updated.free_meal_preferences,
     userId
   );
+
+  if (Object.prototype.hasOwnProperty.call(data, "daily_calorie_target")) {
+    db.prepare("UPDATE users SET calorie_target_mode = 'custom' WHERE id = ?").run(userId);
+  }
+  if (["daily_protein_target", "daily_carbs_target", "daily_fat_target"].some((key) =>
+    Object.prototype.hasOwnProperty.call(data, key)
+  )) {
+    db.prepare("UPDATE users SET macro_target_mode = 'custom' WHERE id = ?").run(userId);
+  }
 
   return getUser(userId);
 }
@@ -406,6 +513,167 @@ function normalizeGoal(value) {
   return String(value || "")
     .toLowerCase()
     .trim();
+}
+
+/* =========================================================
+   REFEIÇÃO LIVRE
+========================================================= */
+
+function parseJsonArray(value) {
+  if (Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(String(value || "[]"));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function normalizeFreeMealDays(value) {
+  const aliases = {
+    "domingo": "domingo",
+    "segunda": "segunda-feira",
+    "segunda-feira": "segunda-feira",
+    "terca": "terça-feira",
+    "terca-feira": "terça-feira",
+    "quarta": "quarta-feira",
+    "quarta-feira": "quarta-feira",
+    "quinta": "quinta-feira",
+    "quinta-feira": "quinta-feira",
+    "sexta": "sexta-feira",
+    "sexta-feira": "sexta-feira",
+    "sabado": "sábado",
+    "sabado": "sábado"
+  };
+
+  const items = Array.isArray(value) ? value : String(value || "").split(/[,;|]/);
+  return [...new Set(
+    items
+      .map((item) => String(item || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLocaleLowerCase("pt-BR")
+        .trim())
+      .map((item) => aliases[item] || null)
+      .filter(Boolean)
+  )];
+}
+
+export function getFreeMealSettings(userId) {
+  ensureUser(userId);
+  const user = getUser(userId);
+  return {
+    setup_status: user?.free_meal_setup_status || "unknown",
+    enabled: Number(user?.free_meal_enabled || 0) === 1,
+    meals_per_week: Math.max(0, Number(user?.free_meals_per_week || 0)),
+    days: normalizeFreeMealDays(parseJsonArray(user?.free_meal_days)),
+    period: user?.free_meal_period || null,
+    preferences: parseJsonArray(user?.free_meal_preferences)
+  };
+}
+
+export function setFreeMealSettings(userId, settings = {}) {
+  ensureUser(userId);
+  const current = getFreeMealSettings(userId);
+
+  const setupStatus =
+    typeof settings.setup_status === "string"
+      ? settings.setup_status
+      : current.setup_status;
+
+  const enabled =
+    settings.enabled === undefined
+      ? current.enabled
+      : Boolean(settings.enabled);
+
+  const mealsPerWeek =
+    settings.meals_per_week === undefined
+      ? current.meals_per_week
+      : Math.max(0, Math.min(7, Math.round(Number(settings.meals_per_week) || 0)));
+
+  const days =
+    settings.days === undefined
+      ? current.days
+      : normalizeFreeMealDays(settings.days);
+
+  const period =
+    settings.period === undefined
+      ? current.period
+      : (settings.period ? String(settings.period) : null);
+
+  const preferences =
+    settings.preferences === undefined
+      ? current.preferences
+      : [...new Set(
+          (Array.isArray(settings.preferences) ? settings.preferences : [settings.preferences])
+            .map((item) => String(item || "").trim())
+            .filter(Boolean)
+            .slice(0, 20)
+        )];
+
+  db.prepare(`
+    UPDATE users
+    SET
+      free_meal_setup_status = ?,
+      free_meal_enabled = ?,
+      free_meals_per_week = ?,
+      free_meal_days = ?,
+      free_meal_period = ?,
+      free_meal_preferences = ?
+    WHERE id = ?
+  `).run(
+    setupStatus,
+    enabled ? 1 : 0,
+    mealsPerWeek,
+    JSON.stringify(days),
+    period,
+    JSON.stringify(preferences),
+    userId
+  );
+
+  return getFreeMealSettings(userId);
+}
+
+export function addFreeMealPreference(userId, preference) {
+  const current = getFreeMealSettings(userId);
+  const normalized = String(preference || "").trim();
+  if (!normalized) return current;
+
+  return setFreeMealSettings(userId, {
+    setup_status: current.setup_status,
+    preferences: [...current.preferences, normalized]
+  });
+}
+
+
+export function getPendingMealClarification(userId) {
+  ensureUser(userId);
+  const user = getUser(userId);
+  if (!user?.pending_meal_clarification) return null;
+
+  try {
+    const parsed = JSON.parse(user.pending_meal_clarification);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setPendingMealClarification(userId, data) {
+  ensureUser(userId);
+  const value = data ? JSON.stringify(data) : null;
+  db.prepare(
+    "UPDATE users SET pending_meal_clarification = ? WHERE id = ?"
+  ).run(value, userId);
+  return getPendingMealClarification(userId);
+}
+
+export function clearPendingMealClarification(userId) {
+  ensureUser(userId);
+  db.prepare(
+    "UPDATE users SET pending_meal_clarification = NULL WHERE id = ?"
+  ).run(userId);
+  return null;
 }
 
 /* =========================================================
@@ -675,6 +943,21 @@ export function calculateAndSaveNutritionTargets(
     return null;
   }
 
+  const calorieTarget = user.calorie_target_mode === "custom"
+    ? user.daily_calorie_target
+    : targets.daily_calorie_target;
+  const macros = user.macro_target_mode === "custom"
+    ? {
+        protein: user.daily_protein_target,
+        carbs: user.daily_carbs_target,
+        fat: user.daily_fat_target
+      }
+    : {
+        protein: targets.daily_protein_target,
+        carbs: targets.daily_carbs_target,
+        fat: targets.daily_fat_target
+      };
+
   db.prepare(`
     UPDATE users
     SET
@@ -683,33 +966,40 @@ export function calculateAndSaveNutritionTargets(
       daily_carbs_target = ?,
       daily_fat_target = ?,
       maintenance_calories = ?,
-      calorie_deficit_percent = ?
+      calorie_deficit_percent = ?,
+      calorie_target_mode = CASE WHEN calorie_target_mode = 'custom' THEN 'custom' ELSE 'automatic' END,
+      macro_target_mode = CASE WHEN macro_target_mode = 'custom' THEN 'custom' ELSE 'automatic' END
     WHERE id = ?
   `).run(
-    targets.daily_calorie_target,
-    targets.daily_protein_target,
-    targets.daily_carbs_target,
-    targets.daily_fat_target,
+    calorieTarget,
+    macros.protein,
+    macros.carbs,
+    macros.fat,
     targets.maintenance_calories,
     targets.calorie_deficit_percent,
     userId
   );
 
+  const savedUser = getUser(userId);
   return {
-    user:
-      getUser(userId),
-
-    targets
+    user: savedUser,
+    targets: {
+      ...targets,
+      daily_calorie_target: savedUser.daily_calorie_target,
+      daily_protein_target: savedUser.daily_protein_target,
+      daily_carbs_target: savedUser.daily_carbs_target,
+      daily_fat_target: savedUser.daily_fat_target,
+      calorie_target_mode: savedUser.calorie_target_mode,
+      macro_target_mode: savedUser.macro_target_mode
+    }
   };
 }
+
 export function setCustomCalorieTarget(
   userId,
   calories
 ) {
   ensureUser(userId);
-
-  const user =
-    getUser(userId);
 
   const targetCalories =
     Math.round(Number(calories));
@@ -721,56 +1011,50 @@ export function setCustomCalorieTarget(
     return null;
   }
 
-  const currentProtein =
-    Number(
-      user?.daily_protein_target
-    ) || 0;
-
-  const protein =
-    currentProtein > 0
-      ? Math.round(currentProtein)
-      : Math.round(
-          (Number(user?.weight_kg) || 0) * 1.6
-        );
-
-  const fat =
-    Math.round(
-      (targetCalories * 0.25) / 9
-    );
-
-  const remainingCalories =
-    targetCalories -
-    (protein * 4) -
-    (fat * 9);
-
-  const carbs =
-    Math.max(
-      0,
-      Math.round(
-        remainingCalories / 4
-      )
-    );
-
   db.prepare(`
     UPDATE users
-    SET
-      daily_calorie_target = ?,
-      daily_protein_target = ?,
-      daily_carbs_target = ?,
-      daily_fat_target = ?,
-      calorie_target_mode = ?
+    SET daily_calorie_target = ?, calorie_target_mode = 'custom'
     WHERE id = ?
   `).run(
     targetCalories,
-    protein,
-    carbs,
-    fat,
-    "custom",
     userId
   );
 
   return getUser(userId);
 }
+
+export function setCustomMacroTargets(userId, macros) {
+  ensureUser(userId);
+  const current = getUser(userId);
+  const values = {
+    protein_g: Object.prototype.hasOwnProperty.call(macros, "protein_g")
+      ? Number(macros.protein_g) : current.daily_protein_target,
+    carbs_g: Object.prototype.hasOwnProperty.call(macros, "carbs_g")
+      ? Number(macros.carbs_g) : current.daily_carbs_target,
+    fat_g: Object.prototype.hasOwnProperty.call(macros, "fat_g")
+      ? Number(macros.fat_g) : current.daily_fat_target
+  };
+  if (Object.values(values).some((value) => value !== null && value !== undefined && (!Number.isFinite(value) || value < 0))) {
+    return null;
+  }
+  db.prepare(`
+    UPDATE users SET daily_protein_target = ?, daily_carbs_target = ?,
+      daily_fat_target = ?, macro_target_mode = 'custom'
+    WHERE id = ?
+  `).run(values.protein_g, values.carbs_g, values.fat_g, userId);
+  return getUser(userId);
+}
+
+export function restoreAutomaticNutritionTargets(userId) {
+  ensureUser(userId);
+  if (!calculateNutritionTargets(getUser(userId))) return null;
+  db.prepare(`
+    UPDATE users SET calorie_target_mode = 'automatic', macro_target_mode = 'automatic'
+    WHERE id = ?
+  `).run(userId);
+  return calculateAndSaveNutritionTargets(userId);
+}
+
 /* =========================================================
    REFEIÇÕES
 ========================================================= */
@@ -790,9 +1074,12 @@ export function saveMeal(
         protein_g,
         carbs_g,
         fat_g,
-        consumed_at
+        consumed_at,
+        meal_period,
+        plan_id,
+        plan_option_index
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       userId,
       meal.description,
@@ -800,7 +1087,10 @@ export function saveMeal(
       meal.protein_g ?? 0,
       meal.carbs_g ?? 0,
       meal.fat_g ?? 0,
-      getBrazilDateTime()
+      getBrazilDateTime(),
+      meal.meal_period ?? null,
+      meal.plan_id ?? null,
+      meal.plan_option_index ?? null
     );
 
   return db
@@ -992,6 +1282,36 @@ export function getDailySummary(
   const user =
     getUser(userId);
 
+  const calorieTarget =
+    user?.daily_calorie_target ??
+    null;
+
+  const proteinTarget =
+    user?.daily_protein_target ??
+    null;
+
+  const carbsTarget =
+    user?.daily_carbs_target ??
+    null;
+
+  const fatTarget =
+    user?.daily_fat_target ??
+    null;
+
+  const balance = calculateNutritionBalance(
+    {
+      calorie_target: calorieTarget,
+      protein_target: proteinTarget,
+      carbs_target: carbsTarget,
+      fat_target: fatTarget
+    },
+    meals
+  );
+  const calorieRemaining = balance.metrics.calories.remaining;
+  const proteinRemaining = balance.metrics.protein_g.remaining;
+  const carbsRemaining = balance.metrics.carbs_g.remaining;
+  const fatRemaining = balance.metrics.fat_g.remaining;
+
   return {
     date: day,
 
@@ -1014,20 +1334,48 @@ export function getDailySummary(
       workouts.total_duration_min,
 
     calorie_target:
-      user?.daily_calorie_target ??
-      null,
+      calorieTarget,
 
     protein_target:
-      user?.daily_protein_target ??
-      null,
+      proteinTarget,
 
     carbs_target:
-      user?.daily_carbs_target ??
-      null,
+      carbsTarget,
 
     fat_target:
-      user?.daily_fat_target ??
-      null,
+      fatTarget,
+
+    calorie_remaining:
+      calorieRemaining,
+
+    protein_remaining:
+      proteinRemaining,
+
+    carbs_remaining:
+      carbsRemaining,
+
+    fat_remaining:
+      fatRemaining,
+
+    balance_status:
+      Object.fromEntries(
+        Object.entries(balance.metrics).map(([key, value]) => [key, value.status])
+      ),
+
+    macros_compatible:
+      balance.macros_compatible,
+
+    macro_calorie_total:
+      balance.macro_calorie_total,
+
+    macro_calorie_difference:
+      balance.macro_calorie_difference,
+
+    calorie_target_mode:
+      user?.calorie_target_mode ?? "automatic",
+
+    macro_target_mode:
+      user?.macro_target_mode ?? "automatic",
 
     maintenance_calories:
       user?.maintenance_calories ??
@@ -1037,6 +1385,251 @@ export function getDailySummary(
       user?.calorie_deficit_percent ??
       null
   };
+}
+
+/* =========================================================
+   REFEIÇÕES, CORREÇÕES E PLANO ALIMENTAR
+========================================================= */
+
+export function getTodayMeals(userId, date = new Date()) {
+  ensureUser(userId);
+  return db.prepare(`
+    SELECT id, description, calories, protein_g, carbs_g, fat_g,
+           consumed_at, meal_period, plan_id, plan_option_index
+    FROM meals
+    WHERE user_id = ? AND date(consumed_at) = ?
+    ORDER BY consumed_at
+  `).all(userId, getBrazilDate(date));
+}
+
+export function correctMeal(userId, mealId, meal) {
+  ensureUser(userId);
+  const id = Number(mealId);
+  if (!Number.isInteger(id) || id <= 0) return null;
+  const result = db.prepare(`
+    UPDATE meals
+    SET description = ?, calories = ?, protein_g = ?, carbs_g = ?, fat_g = ?
+    WHERE id = ? AND user_id = ?
+  `).run(
+    meal.description,
+    meal.calories ?? 0,
+    meal.protein_g ?? 0,
+    meal.carbs_g ?? 0,
+    meal.fat_g ?? 0,
+    id,
+    userId
+  );
+  return result.changes
+    ? db.prepare("SELECT * FROM meals WHERE id = ? AND user_id = ?").get(id, userId)
+    : null;
+}
+
+export function saveMealPlan(userId, plan) {
+  ensureUser(userId);
+  const day = plan.date || getBrazilDate();
+  db.prepare(`
+    INSERT INTO meal_plans (user_id, plan_date, status, plan_json, updated_at)
+    VALUES (?, ?, 'proposed', ?, ?)
+    ON CONFLICT(user_id, plan_date) DO UPDATE SET
+      status = 'proposed', plan_json = excluded.plan_json,
+      updated_at = excluded.updated_at
+  `).run(userId, day, JSON.stringify(plan), getBrazilDateTime());
+  const row = db.prepare(
+    "SELECT * FROM meal_plans WHERE user_id = ? AND plan_date = ?"
+  ).get(userId, day);
+  return { ...row, plan: JSON.parse(row.plan_json) };
+}
+
+export function getMealPlan(userId, date = new Date()) {
+  ensureUser(userId);
+  const day = typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)
+    ? date
+    : getBrazilDate(date);
+  const row = db.prepare(
+    "SELECT * FROM meal_plans WHERE user_id = ? AND plan_date = ?"
+  ).get(userId, day);
+  return row ? { ...row, plan: JSON.parse(row.plan_json) } : null;
+}
+
+export function updateMealPlanStatus(userId, date, status) {
+  const allowed = ["proposed", "intended", "declined", "in_progress", "completed", "adapted"];
+  if (!allowed.includes(status)) throw new Error("Invalid meal plan status");
+  const day = date || getBrazilDate();
+  const result = db.prepare(`
+    UPDATE meal_plans SET status = ?, updated_at = ?
+    WHERE user_id = ? AND plan_date = ?
+  `).run(status, getBrazilDateTime(), userId, day);
+  return result.changes
+    ? getMealPlan(userId, day)
+    : null;
+}
+
+export function recordMealPlanEvent(userId, event) {
+  ensureUser(userId);
+  const result = db.prepare(`
+    INSERT INTO meal_plan_events (
+      plan_id, user_id, event_type, meal_period, option_index, meal_id, details_json, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    event.plan_id ?? null,
+    userId,
+    event.event_type,
+    event.meal_period ?? null,
+    event.option_index ?? null,
+    event.meal_id ?? null,
+    event.details ? JSON.stringify(event.details) : null,
+    getBrazilDateTime()
+  );
+  return db.prepare("SELECT * FROM meal_plan_events WHERE id = ?").get(result.lastInsertRowid);
+}
+
+export function consumeMealSelection(userId, {
+  selectionEventId,
+  mealPeriod,
+  date = new Date()
+} = {}) {
+  ensureUser(userId);
+  const day = typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)
+    ? date
+    : getBrazilDate(date);
+
+  return db.transaction(() => {
+    let selectionRow;
+    const id = Number(selectionEventId);
+
+    if (Number.isInteger(id) && id > 0) {
+      selectionRow = db.prepare(`
+        SELECT * FROM meal_plan_events
+        WHERE id = ? AND user_id = ?
+          AND event_type IN ('option_chosen', 'suggestion_offered')
+          AND (? IS NULL OR meal_period = ?)
+          AND date(created_at) = ?
+      `).get(id, userId, mealPeriod ?? null, mealPeriod ?? null, day);
+    } else {
+      selectionRow = db.prepare(`
+        SELECT * FROM meal_plan_events
+        WHERE user_id = ?
+          AND event_type IN ('option_chosen', 'suggestion_offered')
+          AND (? IS NULL OR meal_period = ?)
+          AND date(created_at) = ?
+        ORDER BY id DESC LIMIT 1
+      `).get(userId, mealPeriod ?? null, mealPeriod ?? null, day);
+    }
+
+    if (!selectionRow) return null;
+
+    const selection = {
+      ...selectionRow,
+      details: selectionRow.details_json
+        ? JSON.parse(selectionRow.details_json)
+        : null
+    };
+    const option = selection.details?.option;
+
+    if (!option || typeof option.name !== "string") return null;
+
+    if (selection.meal_id !== null) {
+      const meal = db.prepare(
+        "SELECT * FROM meals WHERE id = ? AND user_id = ?"
+      ).get(selection.meal_id, userId);
+      return { alreadyConsumed: true, selection, meal: meal || null };
+    }
+
+    // Backfill the association for consumption events created by the old flow.
+    const previousConsumption = db.prepare(`
+      SELECT consumed.meal_id
+      FROM meal_plan_events AS consumed
+      WHERE consumed.user_id = ?
+        AND consumed.event_type = 'meal_consumed'
+        AND consumed.id > ?
+        AND consumed.meal_period IS ?
+        AND consumed.option_index IS ?
+        AND consumed.plan_id IS ?
+        AND date(consumed.created_at) = ?
+        AND NOT EXISTS (
+          SELECT 1 FROM meal_plan_events AS later_selection
+          WHERE later_selection.user_id = consumed.user_id
+            AND later_selection.event_type IN ('option_chosen', 'suggestion_offered')
+            AND later_selection.meal_period IS consumed.meal_period
+            AND later_selection.id > ?
+            AND later_selection.id < consumed.id
+        )
+      ORDER BY consumed.id LIMIT 1
+    `).get(
+      userId,
+      selection.id,
+      selection.meal_period,
+      selection.option_index,
+      selection.plan_id,
+      day,
+      selection.id
+    );
+
+    if (previousConsumption) {
+      db.prepare("UPDATE meal_plan_events SET meal_id = ? WHERE id = ? AND user_id = ?")
+        .run(previousConsumption.meal_id, selection.id, userId);
+      const meal = previousConsumption.meal_id
+        ? db.prepare("SELECT * FROM meals WHERE id = ? AND user_id = ?")
+            .get(previousConsumption.meal_id, userId) || null
+        : null;
+      return { alreadyConsumed: true, selection, meal };
+    }
+
+    const meal = saveMeal(userId, {
+      description: option.name,
+      calories: option.calories,
+      protein_g: option.protein_g,
+      carbs_g: option.carbs_g,
+      fat_g: option.fat_g,
+      meal_period: selection.meal_period,
+      plan_id: selection.plan_id,
+      plan_option_index: selection.option_index
+    });
+
+    db.prepare(`
+      UPDATE meal_plan_events SET meal_id = ?
+      WHERE id = ? AND user_id = ?
+    `).run(meal.id, selection.id, userId);
+
+    recordMealPlanEvent(userId, {
+      plan_id: selection.plan_id,
+      event_type: "meal_consumed",
+      meal_period: selection.meal_period,
+      option_index: selection.option_index,
+      meal_id: meal.id,
+      details: { selection_event_id: selection.id }
+    });
+
+    return { alreadyConsumed: false, selection, meal };
+  })();
+}
+
+export function getMealPlanHistory(userId, limit = 30) {
+  ensureUser(userId);
+  return db.prepare(`
+    SELECT * FROM meal_plan_events
+    WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ?
+  `).all(userId, limit).map((row) => ({
+    ...row,
+    details: row.details_json ? JSON.parse(row.details_json) : null
+  }));
+}
+
+export function getLatestMealPlanEvent(userId, eventType, mealPeriod = null, date = new Date()) {
+  ensureUser(userId);
+  const day = typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)
+    ? date
+    : getBrazilDate(date);
+  const row = db.prepare(`
+    SELECT * FROM meal_plan_events
+    WHERE user_id = ? AND event_type = ?
+      AND (? IS NULL OR meal_period = ?)
+      AND date(created_at) = ?
+    ORDER BY created_at DESC, id DESC LIMIT 1
+  `).get(userId, eventType, mealPeriod, mealPeriod, day);
+  return row
+    ? { ...row, details: row.details_json ? JSON.parse(row.details_json) : null }
+    : null;
 }
 
 /* =========================================================
@@ -1105,4 +1698,90 @@ export function getRecentHistory(
     workouts,
     weights
   };
+}
+
+/* =========================================================
+   IDEMPOTÊNCIA DO WEBHOOK WHATSAPP
+========================================================= */
+
+export function claimWhatsAppMessage(messageId) {
+  db.prepare(`
+    DELETE FROM whatsapp_messages
+    WHERE received_at < datetime('now', '-30 days')
+  `).run();
+
+  const inserted = db.prepare(`
+    INSERT OR IGNORE INTO whatsapp_messages (
+      message_id,
+      status
+    )
+    VALUES (?, 'processing')
+  `).run(messageId);
+
+  if (inserted.changes === 1) {
+    return {
+      claimed: true,
+      status: "processing",
+      reply: null
+    };
+  }
+
+  const reclaimed = db.prepare(`
+    UPDATE whatsapp_messages
+    SET updated_at = CURRENT_TIMESTAMP
+    WHERE message_id = ?
+      AND status = 'processing'
+      AND updated_at < datetime('now', '-15 minutes')
+  `).run(messageId);
+
+  if (reclaimed.changes === 1) {
+    return {
+      claimed: true,
+      status: "processing",
+      reply: null
+    };
+  }
+
+  const existing = db.prepare(`
+    SELECT status, reply
+    FROM whatsapp_messages
+    WHERE message_id = ?
+  `).get(messageId);
+
+  return {
+    claimed: false,
+    status: existing?.status || "processing",
+    reply: existing?.reply || null
+  };
+}
+
+export function completeWhatsAppMessage(messageId, reply) {
+  db.prepare(`
+    UPDATE whatsapp_messages
+    SET
+      status = 'ready',
+      reply = ?,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE message_id = ?
+      AND status = 'processing'
+  `).run(reply, messageId);
+}
+
+export function markWhatsAppMessageSent(messageId) {
+  db.prepare(`
+    UPDATE whatsapp_messages
+    SET
+      status = 'sent',
+      updated_at = CURRENT_TIMESTAMP
+    WHERE message_id = ?
+      AND status = 'ready'
+  `).run(messageId);
+}
+
+export function releaseWhatsAppMessage(messageId) {
+  db.prepare(`
+    DELETE FROM whatsapp_messages
+    WHERE message_id = ?
+      AND status = 'processing'
+  `).run(messageId);
 }

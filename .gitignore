@@ -4,3 +4,20 @@ fitness.db
 fitness.db-shm
 fitness.db-wal
 .DS_Store
+
+# Bancos e cópias de banco (dados pessoais)
+*.db
+*.db-shm
+*.db-wal
+
+# Backups e cópias manuais de código
+backup-fitpulse/
+src - Copia/
+src/src/
+*.before-*.js
+*-before-*.js
+*.backup-*
+*.backup.js
+*.bak-*
+*.manual-backup
+desktop.ini

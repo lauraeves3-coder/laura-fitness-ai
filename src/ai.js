@@ -1,768 +1,49 @@
-import OpenAI from "openai";
-
 import {
   ensureUser,
   updateUserProfile,
   calculateAndSaveNutritionTargets,
   setCustomCalorieTarget,
+  setCustomMacroTargets,
+  restoreAutomaticNutritionTargets,
   saveMeal,
+  correctMeal,
+  getTodayMeals,
+  saveMealPlan,
+  getMealPlan,
+  updateMealPlanStatus,
+  recordMealPlanEvent,
+  consumeMealSelection,
+  getMealPlanHistory,
+  getLatestMealPlanEvent,
   saveWorkout,
   saveWeight,
   getUser,
   getDailySummary,
-  getRecentHistory
+  getRecentHistory,
+  getFreeMealSettings,
+  setFreeMealSettings,
+  addFreeMealPreference
 } from "./db.js";
-
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+import {
+  calculateNutritionBalance,
+  analyzeRemainingNutritionBudget,
+  getMealBudget,
+  generateMealOptions,
+  generateDesiredFoodOptions,
+  buildDailyMealPlan,
+  validateMealOption,
+  getMealPeriods,
+  isActuallyQuickOption,
+  estimateMealFromText,
+  generateFreeMealOptions
+} from "./nutrition.js";
+import { runAgent } from "./agent/agent.js";
+import { createAgentToolRegistry } from "./agent/tools.js";
 
 /* =========================================================
-   INSTRUÇÕES DA IA
+   NORMALIZAÃ‡ÃƒO
 ========================================================= */
 
-const SYSTEM_PROMPT = `
-Você é o FitPulse AI, uma assistente pessoal de treino,
-alimentação e acompanhamento físico.
-
-Seu idioma principal é português do Brasil.
-
-Você ajuda o usuário a:
-
-- configurar seu perfil;
-- acompanhar peso;
-- registrar refeições;
-- estimar calorias;
-- estimar proteínas, carboidratos e gorduras;
-- acompanhar metas nutricionais;
-- registrar treinos;
-- registrar exercícios, séries, repetições e cargas;
-- consultar o resumo do dia;
-- acompanhar evolução;
-- criar planos alimentares personalizados;
-- criar planos de treino personalizados;
-- adaptar alimentação e treino conforme a evolução do usuário.
-
-=========================================================
-PRINCÍPIO CENTRAL DO FITPULSE
-=========================================================
-
-O FitPulse não deve funcionar apenas como uma calculadora.
-
-Ele deve funcionar como um sistema de acompanhamento.
-
-Sempre diferencie:
-
-1. gasto energético de manutenção estimado;
-2. meta nutricional inicial;
-3. evolução real do usuário;
-4. possíveis ajustes futuros.
-
-Uma meta calculada pelo sistema é uma ESTIMATIVA INICIAL.
-
-Nunca diga que o usuário "precisa obrigatoriamente"
-comer determinada quantidade de calorias.
-
-Prefira expressões como:
-
-- "meta inicial estimada";
-- "estimativa inicial";
-- "gasto de manutenção estimado";
-- "para iniciar o acompanhamento";
-- "podemos acompanhar sua evolução";
-- "a meta poderá ser revista conforme seus resultados".
-
-O objetivo é que o FitPulse acompanhe o usuário ao longo do tempo,
-e não trate um cálculo inicial como uma verdade absoluta.
-
-=========================================================
-REGRAS GERAIS
-=========================================================
-
-=========================================================
-LINGUAGEM INFORMAL E ABREVIAÇÕES
-=========================================================
-
-O usuário pode escrever de forma informal, com erros de digitação,
-sem acentos, abreviações ou linguagem típica de WhatsApp.
-
-Entenda abreviações comuns pelo contexto.
-
-Exemplos:
-
-"oq" = "o que"
-"o q" = "o que"
-"pq" = "por que" ou "porque", dependendo do contexto
-"porq" = "porque"
-"q" = "que"
-"vc" = "você"
-"vcs" = "vocês"
-"tb" = "também"
-"tbm" = "também"
-"tmb" = "também"
-"n" = "não"
-"nao" = "não"
-"hj" = "hoje"
-"amanha" = "amanhã"
-"tmr" = "amanhã", quando o contexto indicar
-"agr" = "agora"
-"dps" = "depois"
-"mt" = "muito"
-"mto" = "muito"
-"qto" = "quanto"
-"qnt" = "quanto ou quantidade", conforme o contexto
-"qnts" = "quantos"
-"pra" = "para"
-"p/" = "para"
-"pro" = "para o"
-"pros" = "para os"
-"blz" = "beleza"
-"vlw" = "valeu"
-"obg" = "obrigado"
-"obgda" = "obrigada"
-"msg" = "mensagem"
-"info" = "informação"
-
-Também reconheça abreviações comuns relacionadas à alimentação e
-fitness, como:
-
-"prot" = "proteína"
-"prote" = "proteína"
-"carb" = "carboidrato"
-"carbs" = "carboidratos"
-"gord" = "gordura"
-"gords" = "gorduras"
-"cal" = "calorias"
-"kcal" = "calorias"
-"ref" = "refeição"
-"treino" = "treino"
-"treinei" = "treinei"
-"muscul" = "musculação"
-"cardio" = "cardio"
-
-Entenda também unidades comuns:
-
-"kg" = quilogramas
-"g" = gramas
-"mg" = miligramas
-"ml" = mililitros
-"l" = litros
-"min" = minutos
-"hr" = hora
-"hrs" = horas
-
-Não corrija o usuário desnecessariamente.
-
-Não diga "você quis dizer..." quando a intenção estiver clara.
-
-Entenda a mensagem informalmente e responda de forma natural.
-
-Se uma abreviação tiver mais de um significado possível e o contexto
-não permitir identificar a intenção com segurança, faça uma pergunta
-curta para confirmar.
-
-=========================================================
-PADRÃO VISUAL DAS RESPOSTAS
-=========================================================
-
-As respostas destinadas ao WhatsApp devem ser fáceis de ler.
-
-Use emojis naturalmente como marcadores visuais.
-
-Principais referências:
-
-🔥 calorias e energia
-🥩 proteínas
-🍚 carboidratos
-🥑 gorduras
-🍽️ alimentação e refeições
-💧 hidratação
-⚖️ peso
-🏋️ treino
-🏃 corrida e cardio
-📊 resumo e análise
-🎯 metas
-📌 observações importantes
-✅ confirmações
-📈 evolução e progresso
-⏱️ duração e tempo
-💡 sugestões
-
-Não coloque emoji em todas as frases.
-
-Use emojis para organizar a informação e facilitar a leitura.
-
-Em sugestões de refeições, use emojis nos principais alimentos
-ou categorias quando isso melhorar a visualização.
-
-Exemplo:
-
-🍽️ Uma opção para o almoço:
-
-🍗 Frango
-🍚 Arroz
-🫘 Feijão
-🥗 Salada
-
-🔥 Aproximadamente 500 kcal
-🥩 Aproximadamente 40 g de proteína
-
-Não use emojis aleatórios ou excessivos.
-
-Mantenha a comunicação natural, amigável e profissional.
-1. Seja natural, objetiva, amigável e clara.
-
-2. Nunca invente que algo foi registrado se não foi realmente
-registrado pelo sistema.
-
-3. Valores nutricionais são ESTIMATIVAS.
-
-4. Quando a quantidade de um alimento não estiver clara,
-faça uma estimativa razoável e deixe claro que é uma estimativa.
-
-5. Não faça diagnóstico médico.
-
-6. Não prescreva medicamentos.
-
-7. Não recomende dietas extremas.
-
-8. Não trate calorias ou macros como valores médicos exatos.
-
-9. Se o usuário fornecer dados suficientes para registrar algo,
-registre.
-
-10. Se faltar informação essencial, faça uma pergunta curta.
-
-11. Não faça perguntas desnecessárias.
-
-12. Sempre responda em JSON válido.
-
-13. Não coloque markdown fora do JSON.
-
-14. Use números para calorias, proteínas, carboidratos,
-gorduras, peso, séries, repetições e cargas.
-
-15. Quando houver uma unidade claramente incompatível com o dado
-informado, não invente uma interpretação. Use o contexto para
-detectar a possível intenção, mas peça confirmação curta se
-houver dúvida.
-
-16. Quando o usuário perguntar sobre suas calorias ou metas,
-use os valores calculados pelo sistema quando eles estiverem
-disponíveis no contexto.
-
-17. Nunca substitua silenciosamente uma meta calculada pelo sistema
-por um número inventado pela IA.
-
-18. Se houver gasto de manutenção e meta de calorias disponíveis,
-explique a diferença entre eles quando isso for relevante.
-
-19. Uma meta de emagrecimento deve ser apresentada como ponto
-de partida para acompanhamento, não como prescrição médica.
-
-20. Se o usuário perguntar se uma meta está adequada, explique que
-a adequação individual depende também da evolução real, adesão,
-desempenho nos treinos, fome, recuperação e outros fatores.
-
-21. Não prometa determinado resultado de perda de peso.
-
-22. O FitPulse deve incentivar acompanhamento consistente de peso,
-alimentação e treinamento.
-
-=========================================================
-PERFIL DO USUÁRIO
-=========================================================
-
-O perfil pode conter:
-
-- nome;
-- idade;
-- sexo;
-- altura;
-- peso;
-- objetivo;
-- nível de atividade;
-- dias de treino por semana;
-- preferências alimentares;
-- alimentos que não gosta.
-
-Também podem existir:
-
-- gasto energético de manutenção estimado;
-- percentual de déficit inicial;
-- meta diária de calorias;
-- meta diária de proteínas;
-- meta diária de carboidratos;
-- meta diária de gorduras.
-
-Os campos importantes para calcular as metas nutricionais são:
-
-- idade;
-- sexo;
-- altura;
-- peso;
-- objetivo;
-- nível de atividade.
-
-Se esses dados ainda não estiverem completos, peça apenas
-os dados que estiverem faltando.
-
-Não precisa perguntar tudo novamente se o usuário já informou
-alguma informação anteriormente.
-
-=========================================================
-OBJETIVOS
-=========================================================
-
-O usuário pode ter objetivos como:
-
-- emagrecimento;
-- perda de gordura;
-- manutenção;
-- hipertrofia;
-- ganho de massa;
-- fortalecimento;
-- resistência;
-- corrida;
-- performance.
-
-Use o objetivo informado pelo usuário para interpretar
-suas necessidades e personalizar futuras sugestões.
-
-=========================================================
-NÍVEL DE ATIVIDADE
-=========================================================
-
-Os níveis podem ser:
-
-- sedentário;
-- leve;
-- moderado;
-- alto;
-- muito alto.
-
-Se o usuário não souber o nível, faça uma pergunta simples
-sobre sua rotina de atividade.
-
-=========================================================
-CÁLCULO NUTRICIONAL
-=========================================================
-
-Quando o perfil tiver dados suficientes, o sistema calculará
-automaticamente uma estimativa de:
-
-- gasto energético de manutenção;
-- calorias diárias;
-- proteínas;
-- carboidratos;
-- gorduras.
-
-O gasto de manutenção representa uma estimativa das calorias
-necessárias para manter o peso nas condições consideradas pelo
-cálculo.
-
-A meta diária representa a estratégia inicial definida pelo
-sistema de acordo com o objetivo informado.
-
-Exemplo conceitual:
-
-Manutenção estimada: 3.100 kcal
-Meta inicial de emagrecimento: 2.650 kcal
-
-Não diga:
-
-"Você precisa comer 2.650 kcal."
-
-Prefira:
-
-"Sua manutenção foi estimada em aproximadamente 3.100 kcal/dia.
-Para iniciar o acompanhamento do objetivo de emagrecimento,
-sua meta inicial foi estimada em 2.650 kcal/dia."
-
-Esses valores são estimativas para acompanhamento fitness
-e não substituem avaliação individual de nutricionista.
-
-=========================================================
-ACOMPANHAMENTO
-=========================================================
-
-O FitPulse deve considerar que a meta inicial poderá ser
-reavaliada no futuro.
-
-Quando houver histórico suficiente de peso, alimentação e treinos,
-o sistema poderá analisar tendências e ajudar a identificar
-se a estratégia está produzindo a evolução esperada.
-
-Não faça ajustes automáticos extremos.
-
-Não faça alterações importantes apenas com base em uma medição
-isolada.
-
-Prefira analisar tendências ao longo do tempo.
-
-=========================================================
-AÇÕES
-=========================================================
-
-A resposta deve seguir exatamente:
-
-{
-  "action": "meal | workout | weight | profile | summary | set_calorie_target | meal_suggestion | none",
-  "data": {},
-  "reply": "mensagem para o usuário"
-}
-=========================================================
-META CALÓRICA PERSONALIZADA
-=========================================================
-
-Use "set_calorie_target" quando o usuário pedir para
-definir, alterar ou testar uma meta diária específica
-de calorias.
-
-Exemplos:
-
-"quero colocar minha meta em 1700 kcal"
-"quero testar 1700 calorias"
-"muda minha meta para 2200 kcal"
-"quero uma meta de 2000 kcal"
-"posso fazer minha meta ser 1700?"
-
-Formato:
-
-{
-  "action": "set_calorie_target",
-  "data": {
-    "calories": 1700,
-    "mode": "custom"
-  },
-  "reply": "🎯 Beleza! Vou considerar 1700 kcal como sua meta diária personalizada."
-}
-
-IMPORTANTE:
-- Extraia o número de calorias informado pelo usuário.
-- Não confunda pedido para ALTERAR a meta com pergunta
-  sobre qual é a meta atual.
-- Não use "summary" quando o usuário estiver pedindo
-  explicitamente para alterar a meta.
-- A meta personalizada deve ser tratada como uma escolha
-  do usuário e não como uma nova estimativa automática.
-- Quando o usuário pedir para voltar à meta calculada
-  automaticamente, não use "set_calorie_target".
-  Nesse caso, informe que a meta automática precisa ser
-  restaurada pelo sistema.
-
-=========================================================
-SUGESTÃO DE REFEIÇÃO
-=========================================================
-
-Use "meal_suggestion" quando o usuário perguntar o que
-pode comer, o que deveria comer ou pedir uma sugestão
-para atingir melhor suas metas nutricionais.
-
-Exemplos:
-
-"oq posso comer agora?"
-"o que posso comer agora pra bater minhas metas?"
-"me sugere uma refeição"
-"o que falta comer hoje?"
-"me dá uma ideia de jantar"
-"o que eu posso comer pra completar minha proteína?"
-
-Nesses casos, use o current_context para considerar:
-
-- calorias consumidas no dia;
-- calorias restantes;
-- proteína consumida e restante;
-- carboidratos consumidos e restantes;
-- gorduras consumidas e restantes;
-- objetivo do usuário;
-- preferências alimentares;
-- alimentos que o usuário não gosta;
-- refeições já registradas no dia.
-
-Priorize sugestões que façam sentido para os nutrientes
-que ainda faltam.
-
-Por exemplo, se a proteína restante estiver alta e a
-gordura restante estiver baixa, priorize alimentos com
-boa quantidade de proteína e menor quantidade de gordura.
-- Antes de sugerir uma refeição, compare as calorias
-  restantes com as calorias necessárias para atingir os
-  macros restantes.
-
-- Se os macros restantes não puderem ser atingidos dentro
-  das calorias restantes, não tente completar todos eles.
-
-- Nesse caso, priorize os nutrientes mais relevantes para
-  o contexto e informe de forma simples que não é possível
-  atingir todos os macros sem ultrapassar a meta calórica.
-
-- Nunca recomende ultrapassar deliberadamente a meta
-  calórica apenas para completar um macro.
-
-- Não trate os macros restantes como metas obrigatórias
-  quando eles forem incompatíveis com as calorias restantes.
-Formato:
-
-{
-  "action": "meal_suggestion",
-  "data": {
-    "calories": 0,
-    "protein_g": 0,
-    "carbs_g": 0,
-    "fat_g": 0,
-    "meal": "descrição da refeição",
-    "foods": [
-      "alimento 1",
-      "alimento 2",
-      "alimento 3"
-    ]
-  },
-  "reply": "🍽️ Uma opção para agora é..."
-}
-
-IMPORTANTE:
-- Não registre a sugestão como uma refeição consumida.
-- "meal_suggestion" apenas sugere uma refeição.
-- Só use "meal" quando o usuário estiver informando
-  que realmente comeu algo.
-- A sugestão deve considerar o saldo nutricional atual.
-- Não precisa tentar preencher exatamente 100% das metas
-  em uma única refeição.
-- Evite sugestões incompatíveis com as preferências
-  e alimentos que o usuário informou não gostar.
-
-=========================================================
-PROFILE
-=========================================================
-
-Use "profile" quando o usuário fornecer informações pessoais
-relacionadas ao perfil fitness.
-
-Formato:
-
-{
-  "action": "profile",
-  "data": {
-    "name": "",
-    "age_years": 0,
-    "sex": "",
-    "height_cm": 0,
-    "weight_kg": 0,
-    "goal": "",
-    "activity_level": "",
-    "training_days_per_week": 0,
-    "dietary_preferences": "",
-    "food_dislikes": ""
-  },
-  "reply": ""
-}
-
-Não preencha campos que o usuário não informou.
-
-Se o usuário informar apenas parte do perfil, registre apenas
-essa parte.
-
-Se o perfil ficar completo, informe que as metas nutricionais
-foram calculadas.
-
-=========================================================
-MEAL
-=========================================================
-
-Use quando o usuário informar que comeu ou bebeu algo.
-
-Formato:
-
-{
-  "action": "meal",
-  "data": {
-    "description": "",
-    "calories": 0,
-    "protein_g": 0,
-    "carbs_g": 0,
-    "fat_g": 0
-  },
-  "reply": ""
-}
-
-=========================================================
-WORKOUT
-=========================================================
-
-Use quando o usuário informar que treinou.
-
-Formato:
-
-{
-  "action": "workout",
-  "data": {
-    "workout_type": "",
-    "duration_min": 0,
-    "notes": "",
-    "exercises": [
-      {
-        "name": "",
-        "sets": 0,
-        "reps": 0,
-        "weight_kg": 0
-      }
-    ]
-  },
-  "reply": ""
-}
-
-=========================================================
-WEIGHT
-=========================================================
-
-Use quando o usuário informar seu peso.
-
-Formato:
-
-{
-  "action": "weight",
-  "data": {
-    "weight_kg": 0
-  },
-  "reply": ""
-}
-
-=========================================================
-SUMMARY
-=========================================================
-
-Use quando o usuário perguntar sobre seu dia,
-suas calorias, macros, treino ou metas.
-
-Formato:
-
-{
-  "action": "summary",
-  "data": {},
-  "reply": ""
-}
-
-=========================================================
-NONE
-=========================================================
-
-Use "none" para conversas que não exigem registro.
-
-=========================================================
-EXEMPLOS
-=========================================================
-
-"Tenho 25 anos, 1,72m e peso 67kg."
-
-=> profile.
-
-"Sou mulher e quero emagrecer."
-
-=> profile.
-
-"Treino 4 vezes por semana e faço musculação."
-
-=> profile.
-
-"Comi 150g de frango e 100g de arroz."
-
-=> meal.
-
-"Hoje fiz treino de pernas por uma hora."
-
-=> workout.
-
-"Me pesei, estou com 67,4kg."
-
-=> weight.
-
-"Quanto já comi hoje?"
-
-=> summary.
-
-"Qual é minha meta de calorias?"
-
-=> summary.
-
-"Quantas calorias eu gasto por dia?"
-
-=> summary.
-
-"Por que minha meta é 2650 calorias?"
-
-=> summary.
-
-=========================================================
-IMPORTANTE
-=========================================================
-
-Se o usuário estiver configurando o perfil, não transforme
-informações do perfil em refeição ou treino.
-
-Se o usuário informar várias informações do perfil na mesma
-mensagem, registre todas elas.
-
-Se o usuário já tiver informações salvas, use o contexto
-fornecido pelo sistema para não perguntar novamente.
-
-Se o usuário perguntar sobre uma meta já calculada, use os dados
-reais do contexto.
-
-Nunca invente o gasto de manutenção se ele não estiver disponível.
-
-Nunca invente percentual de déficit se ele não estiver disponível.
-
-Quando os dados estiverem disponíveis, explique-os de forma simples.
-`;
-
-/* =========================================================
-   JSON
-========================================================= */
-
-function cleanJson(text) {
-  if (!text) {
-    throw new Error("Resposta vazia da IA.");
-  }
-
-  let cleaned = text.trim();
-
-  if (cleaned.startsWith("```")) {
-    cleaned = cleaned
-      .replace(/^```(?:json)?/i, "")
-      .replace(/```$/i, "")
-      .trim();
-  }
-
-  return cleaned;
-}
-
-function parseAIResponse(text) {
-  const cleaned = cleanJson(text);
-
-  try {
-    return JSON.parse(cleaned);
-  } catch (error) {
-    const firstBrace = cleaned.indexOf("{");
-    const lastBrace = cleaned.lastIndexOf("}");
-
-    if (
-      firstBrace !== -1 &&
-      lastBrace !== -1 &&
-      lastBrace > firstBrace
-    ) {
-      return JSON.parse(
-        cleaned.slice(firstBrace, lastBrace + 1)
-      );
-    }
-
-    throw error;
-  }
-}
-
-/* =========================================================
-   NORMALIZAÇÃO
-========================================================= */
 function normalizeNumber(
   value,
   fallback = 0
@@ -779,12 +60,21 @@ function normalizeNumber(
 function normalizeAIResult(result) {
   const allowedActions = [
     "meal",
+    "meal_correction",
     "workout",
     "weight",
     "profile",
     "summary",
     "set_calorie_target",
+    "set_macro_targets",
+    "reset_nutrition_targets",
     "meal_suggestion",
+    "meal_plan",
+    "meal_plan_intent",
+    "meal_plan_decline",
+    "meal_choice",
+    "meal_consumed",
+    "meal_plan_get",
     "none"
   ];
 
@@ -813,7 +103,7 @@ function normalizeAIResult(result) {
         description:
           String(
             data.description ||
-            "Refeição"
+            "RefeiÃ§Ã£o"
           ),
 
         calories:
@@ -834,16 +124,58 @@ function normalizeAIResult(result) {
         fat_g:
           normalizeNumber(
             data.fat_g
-          )
+          ),
+        meal_period:
+          typeof data.meal_period === "string" ? data.meal_period : null,
+        plan_id:
+          normalizeNumber(data.plan_id, null),
+        plan_option_index:
+          normalizeNumber(data.plan_option_index, null),
+        selection_event_id:
+          normalizeNumber(data.selection_event_id, null)
       },
       reply
     };
+  }
+
+  if (action === "meal_correction") {
+    return {
+      action,
+      data: {
+        meal_id: normalizeNumber(data.meal_id, null),
+        description: String(data.description || "RefeiÃ§Ã£o corrigida"),
+        calories: data.calories === null || data.calories === undefined ? null : normalizeNumber(data.calories, null),
+        protein_g: data.protein_g === null || data.protein_g === undefined ? null : normalizeNumber(data.protein_g, null),
+        carbs_g: data.carbs_g === null || data.carbs_g === undefined ? null : normalizeNumber(data.carbs_g, null),
+        fat_g: data.fat_g === null || data.fat_g === undefined ? null : normalizeNumber(data.fat_g, null)
+      },
+      reply
+    };
+  }
+
+  if (action === "set_macro_targets") {
+    return {
+      action,
+      data: {
+        ...(data.protein_g !== undefined && { protein_g: normalizeNumber(data.protein_g, null) }),
+        ...(data.carbs_g !== undefined && { carbs_g: normalizeNumber(data.carbs_g, null) }),
+        ...(data.fat_g !== undefined && { fat_g: normalizeNumber(data.fat_g, null) })
+      },
+      reply
+    };
+  }
+
+  if (action === "reset_nutrition_targets") {
+    return { action, data: {}, reply };
   }
 
   if (action === "meal_suggestion") {
     return {
       action,
       data: {
+        meal_period:
+          String(data.meal_period || ""),
+
         calories:
           normalizeNumber(
             data.calories
@@ -878,7 +210,50 @@ function normalizeAIResult(result) {
                 (food) =>
                   String(food)
               )
-            : []
+            : [],
+        desired_food: Object.prototype.hasOwnProperty.call(data, "desired_food")
+          ? (typeof data.desired_food === "string" ? data.desired_food.trim() : null)
+          : undefined,
+        requested_servings: data.requested_servings === null || data.requested_servings === undefined
+          ? null
+          : normalizeNumber(data.requested_servings, null),
+        available_foods: Array.isArray(data.available_foods)
+          ? data.available_foods.filter((food) => typeof food === "string").map((food) => food.trim())
+          : undefined,
+        required_foods: Array.isArray(data.required_foods)
+          ? data.required_foods.filter((food) => typeof food === "string").map((food) => food.trim())
+          : [],
+        explicit_excluded_foods: Array.isArray(data.explicit_excluded_foods)
+          ? data.explicit_excluded_foods.filter((food) => typeof food === "string").map((food) => food.trim())
+          : undefined,
+        explicit_excluded_compositions: Array.isArray(data.explicit_excluded_compositions)
+          ? data.explicit_excluded_compositions.filter((composition) => composition && typeof composition === "object")
+            .map((composition) => ({
+              ingredients: Array.isArray(composition.ingredients)
+                ? composition.ingredients.filter((food) => typeof food === "string").map((food) => food.trim())
+                : [],
+              description: typeof composition.description === "string" ? composition.description.trim() : ""
+            }))
+          : [],
+        only_available_foods: data.only_available_foods === true,
+        quick_only: typeof data.quick_only === "boolean" ? data.quick_only : undefined,
+        more_options: typeof data.more_options === "boolean" ? data.more_options : undefined,
+        preserve_budget_for_future: data.preserve_budget_for_future === true,
+        future_meal_period: typeof data.future_meal_period === "string" ? data.future_meal_period : null
+      },
+      reply
+    };
+  }
+
+  if (["meal_plan", "meal_plan_intent", "meal_plan_decline", "meal_choice", "meal_consumed", "meal_plan_get"].includes(action)) {
+    return {
+      action,
+      data: {
+        meal_period: String(data.meal_period || ""),
+        option_index: normalizeNumber(data.option_index, null),
+        selection_event_id: normalizeNumber(data.selection_event_id, null),
+        meal_id: normalizeNumber(data.meal_id, null),
+        description: String(data.description || "")
       },
       reply
     };
@@ -1046,76 +421,1043 @@ function normalizeAIResult(result) {
     reply
   };
 }
+
+/* =========================================================
+   PERÍODO DA REFEIÃ‡ÃƒO
+========================================================= */
+
+function getMealPeriod(date = new Date()) {
+  const hour = Number(
+    new Intl.DateTimeFormat(
+      "pt-BR",
+      {
+        timeZone: "America/Sao_Paulo",
+        hour: "2-digit",
+        hour12: false
+      }
+    ).format(date)
+  );
+
+  if (hour >= 5 && hour < 10) {
+    return "café da manhÃ£";
+  }
+
+  if (hour >= 10 && hour < 15) {
+    return "almoço";
+  }
+
+  if (hour >= 15 && hour < 18) {
+    return "lanche da tarde";
+  }
+
+  if (hour >= 18 && hour < 22) {
+    return "jantar";
+  }
+
+  return "ceia";
+}
+
+function isExplicitSelectionConfirmation(message) {
+  const normalized = String(message || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR")
+    .trim()
+    .replace(/[.!?]+$/g, "");
+
+  const genericConfirmation =
+    /^(?:(?:eu\s+)?comi(?:\s+(?:sim|a\s+opcao(?:\s+escolhida|\s+\d+)?|essa(?:\s+opcao)?|isso|ela))?|ja\s+comi|acabei\s+de\s+comer|pode\s+registrar(?:\s+essa(?:\s+opcao)?)?|registra\s+essa(?:\s+opcao)?|registre\s+essa(?:\s+opcao)?|pode\s+marcar(?:\s+como\s+consumida)?|sim,?\s+comi)$/.test(normalized);
+
+  const describedOptionConfirmation =
+    /\b(?:eu\s+)?(?:comi|consumi)\b.*\bopcao\s+\d+\b/.test(normalized);
+
+  return genericConfirmation || describedOptionConfirmation;
+}
+
+function isExplicitMealReport(message) {
+  const text = normalizeRequestText(message);
+  if (/[?？]$/.test(text) || /\b(?:nao|nunca)\s+(?:comi|consumi|bebi|tomei)\b/.test(text)) return false;
+  return /\b(?:comi|consumi|bebi|tomei|almocei|jantei|lanchei|cafei)\b/.test(text);
+}
+
+function extractExplicitMealNutrition(message) {
+  const text = normalizeRequestText(message);
+  const number = "([0-9]+(?:[.,][0-9]+)?)";
+  const extract = (patterns) => {
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match) return Number(match[1].replace(",", "."));
+    }
+    return null;
+  };
+
+  return {
+    calories: extract([
+      new RegExp(`${number}\\s*(?:kcal|calorias?)\\b`),
+      new RegExp(`\\b(?:kcal|calorias?)\\s*(?:e\\s*)?[:=]?\\s*${number}`)
+    ]),
+    protein_g: extract([
+      new RegExp(`${number}\\s*g?\\s*(?:de\\s*)?proteinas?\\b`),
+      new RegExp(`\\bproteinas?\\s*[:=]?\\s*${number}\\s*g?\\b`)
+    ]),
+    carbs_g: extract([
+      new RegExp(`${number}\\s*g?\\s*(?:de\\s*)?carboidratos?\\b`),
+      new RegExp(`\\bcarboidratos?\\s*[:=]?\\s*${number}\\s*g?\\b`)
+    ]),
+    fat_g: extract([
+      new RegExp(`${number}\\s*g?\\s*(?:de\\s*)?gorduras?\\b`),
+      new RegExp(`\\bgorduras?\\s*[:=]?\\s*${number}\\s*g?\\b`)
+    ])
+  };
+}
+
+function hasMatchingExplicitMealNutrition(message, meal) {
+  const provided = extractExplicitMealNutrition(message);
+  const expected = {
+    calories: meal.calories,
+    protein_g: meal.protein_g,
+    carbs_g: meal.carbs_g,
+    fat_g: meal.fat_g
+  };
+
+  return Object.entries(expected).every(([key, value]) =>
+    provided[key] !== null
+    && Number.isFinite(Number(value))
+    && Math.abs(provided[key] - Number(value)) <= 0.05
+  );
+}
+
+function hasMatchingProvidedNutrition(message, meal) {
+  const provided = extractExplicitMealNutrition(message);
+  return Object.entries(meal).every(([key, value]) =>
+    value === null || value === undefined
+      ? true
+      : provided[key] !== null
+        && Number.isFinite(Number(value))
+        && Math.abs(provided[key] - Number(value)) <= 0.05
+  );
+}
+
+function hasExplicitTargetUpdate(message, targets) {
+  const text = normalizeRequestText(message);
+  if (/[?？]$/.test(text)) return false;
+  const hasUpdateIntent = /\b(?:meta|alvo|defina|definir|ajuste|ajustar|altere|alterar|mude|mudar|atualize|atualizar|quero)\b/.test(text);
+  if (!hasUpdateIntent) return false;
+  const provided = extractExplicitMealNutrition(text);
+  return Object.entries(targets).every(([key, value]) => {
+    if (value === null || value === undefined) return true;
+    return provided[key] !== null
+      && Number.isFinite(Number(value))
+      && Math.abs(provided[key] - Number(value)) <= 0.05;
+  });
+}
+
+function isExplicitOptionChoice(message, requestedIndex) {
+  const text = normalizeRequestText(message);
+  if (/[?？]$/.test(text)) return false;
+  const ordinals = { primeira: 1, primeiro: 1, segunda: 2, segundo: 2, terceira: 3, terceiro: 3 };
+  const numbered = text.match(/\b(?:opcao|numero)\s*(\d+)\b/);
+  const ordinal = Object.entries(ordinals).find(([word]) => new RegExp(`\\b${word}\\b`).test(text));
+  const standaloneNumber = text.match(/^\s*([1-3])\s*$/);
+  const selectedIndex = Number(numbered?.[1] ?? ordinal?.[1] ?? standaloneNumber?.[1]);
+  const languageIsSelection = Boolean(numbered || ordinal || standaloneNumber)
+    && /\b(?:escolho|escolhi|fico com|quero|vou de|opcao|numero)\b/.test(text)
+    || Boolean(standaloneNumber);
+  return languageIsSelection && selectedIndex === Number(requestedIndex);
+}
+
+function hasExplicitPlanCreationIntent(message) {
+  const text = normalizeRequestText(message);
+  return /\bplano\b/.test(text)
+    && /\b(?:monte|montar|crie|criar|gere|gerar|planeje|planejar|organize|organizar|elabore|elaborar|quero|pode montar|pode criar)\b/.test(text);
+}
+
+function hasExplicitPlanFollowIntent(message, intendsToFollow, pendingPlanDecision = false) {
+  const text = normalizeRequestText(message);
+  if (intendsToFollow) {
+    if (pendingPlanDecision && /^(?:sim|claro|combinado)[.! ]*$/.test(text.trim())) return true;
+    return /\b(?:vou|quero|pretendo|decidi)\s+(?:seguir|usar|adotar)\b/.test(text)
+      && /\bplano\b/.test(text);
+  }
+  if (pendingPlanDecision && /^(?:nao|negativo)[.! ]*$/.test(text.trim())) return true;
+  return /\b(?:nao vou seguir|nao quero seguir|nao pretendo seguir|desisti do plano)\b/.test(text);
+}
+
+function hasExplicitMealCorrectionIntent(message) {
+  const text = normalizeRequestText(message);
+  return /\b(?:corrija|corrigir|corrigi|corrige|ajuste|ajustar|registrei errado|lancei errado|errei no registro)\b/.test(text)
+    && /\b(?:refeicao|consumo|registro|lancamento|comida)\b/.test(text);
+}
+
+function hasExplicitProfileUpdateIntent(message) {
+  const text = normalizeRequestText(message);
+  const requestedUpdate = /\b(?:atualize|atualizar|complete|completar|preencha|preencher|corrija|corrigir|altere|alterar|mude|mudar)\b/.test(text)
+    && /\b(?:perfil|dados|peso|altura|idade|objetivo|atividade|preferencias)\b/.test(text);
+  const statedFact = /\b(?:meu nome e|tenho \d{1,3} anos|meu peso (?:atual )?(?:e|esta)\b|minha altura (?:e|esta)\b|meu objetivo e\b|minha atividade e\b|prefiro\b|nao gosto de\b|sou (?:vegetariano|vegetariana|vegano|vegana))/.test(text);
+  return requestedUpdate || statedFact;
+}
+
 /* =========================================================
    CONTEXTO
 ========================================================= */
 
+function compactMealOption(option) {
+  if (!option) return null;
+  return {
+    name: option.name,
+    foods: option.foods,
+    calories: option.calories,
+    protein_g: option.protein_g,
+    carbs_g: option.carbs_g,
+    fat_g: option.fat_g,
+    is_quick: option.is_quick,
+    category: option.category,
+    explicit_overage: option.explicit_overage
+  };
+}
+
+function compactMealPlanHistory(events, date) {
+  return events.slice(0, 12).map((event) => {
+    let details = null;
+    if (event.event_type === "suggestion_offered") {
+      details = {
+        source: event.details?.source,
+        desired_food: event.details?.desired_food,
+        options: Array.isArray(event.details?.options)
+          ? event.details.options.map(compactMealOption)
+          : undefined,
+        option: compactMealOption(event.details?.option)
+      };
+    } else if (event.event_type === "option_chosen") {
+      details = {
+        source: event.details?.source,
+        offer_event_id: event.details?.offer_event_id,
+        option: compactMealOption(event.details?.option)
+      };
+    } else if (event.event_type === "food_availability") {
+      details = event.details;
+    }
+    return {
+      id: event.id,
+      event_type: event.event_type,
+      meal_period: event.meal_period,
+      option_index: event.option_index,
+      meal_id: event.meal_id,
+      plan_id: event.plan_id,
+      created_at: event.created_at,
+      is_today: String(event.created_at || "").startsWith(date || ""),
+      details
+    };
+  });
+}
+
 function buildContext(
   user,
   dailySummary,
-  recentHistory
+  recentHistory,
+  todayMeals,
+  mealPlan,
+  mealPlanHistory,
+  freeMealSettings = null
 ) {
+  const profile = {
+    name: user?.name ?? null,
+    age_years: user?.age_years ?? null,
+    sex: user?.sex ?? null,
+    height_cm: user?.height_cm ?? null,
+    weight_kg: user?.weight_kg ?? null,
+    goal: user?.goal ?? null,
+    activity_level: user?.activity_level ?? null,
+    training_days_per_week: user?.training_days_per_week ?? null,
+    calorie_target_mode: user?.calorie_target_mode ?? "automatic",
+    macro_target_mode: user?.macro_target_mode ?? "automatic",
+    maintenance_calories: user?.maintenance_calories ?? null,
+    calorie_deficit_percent: user?.calorie_deficit_percent ?? null
+  };
+
+  const preferences = {
+    dietary_preferences: user?.dietary_preferences ?? null,
+    food_dislikes: user?.food_dislikes ?? null,
+    free_meal: freeMealSettings
+  };
+
+  const currentTime = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    dateStyle: "short",
+    timeStyle: "short"
+  }).format(new Date());
+
+  const planHistory = compactMealPlanHistory(mealPlanHistory, dailySummary?.date);
+
   return {
-    profile: {
-      name:
-        user?.name ?? null,
-
-      age_years:
-        user?.age_years ?? null,
-
-      sex:
-        user?.sex ?? null,
-
-      height_cm:
-        user?.height_cm ?? null,
-
-      weight_kg:
-        user?.weight_kg ?? null,
-
-      goal:
-        user?.goal ?? null,
-
-      activity_level:
-        user?.activity_level ?? null,
-
-      training_days_per_week:
-        user?.training_days_per_week ?? null,
-
-      dietary_preferences:
-        user?.dietary_preferences ?? null,
-
-      food_dislikes:
-        user?.food_dislikes ?? null,
-
-      daily_calorie_target:
-        user?.daily_calorie_target ?? null,
-
-      daily_protein_target:
-        user?.daily_protein_target ?? null,
-
-      daily_carbs_target:
-        user?.daily_carbs_target ?? null,
-
-      daily_fat_target:
-        user?.daily_fat_target ?? null,
-
-      maintenance_calories:
-        user?.maintenance_calories ?? null,
-
-      calorie_deficit_percent:
-        user?.calorie_deficit_percent ?? null
+    profile,
+    preferences,
+    current_state: {
+      date: dailySummary?.date ?? null,
+      nutrition: dailySummary,
+      meals_today: todayMeals,
+      planning: { current_time: currentTime, current_meal_period: getMealPeriod() }
     },
-
-    daily_summary:
-      dailySummary,
-
-    recent_history:
-      recentHistory
+    availability_today: planHistory
+      .filter((event) => event.is_today && event.event_type === "food_availability")
+      .map((event) => event.details),
+    plan: mealPlan,
+    history: {
+      recent: recentHistory,
+      meal_plan_events: planHistory
+    }
   };
 }
 
 /* =========================================================
-   SALVAR AÇÃO
+   RESPOSTA PROJETADA DA SUGESTÃƒO
+========================================================= */
+
+function buildMealProjectionReply(
+  result,
+  summary,
+  budgetAnalysis
+) {
+  const targets = {
+    calorie_target: summary?.calorie_target,
+    protein_target: summary?.protein_target,
+    carbs_target: summary?.carbs_target,
+    fat_target: summary?.fat_target
+  };
+
+  const consumed = {
+    calories: summary?.calories,
+    protein_g: summary?.protein_g,
+    carbs_g: summary?.carbs_g,
+    fat_g: summary?.fat_g
+  };
+
+  const projected = calculateNutritionBalance(targets, consumed, result.data);
+  const lines = [
+    `🍽️ ${result.data.name || result.data.meal || "SugestÃ£o para agora"}`,
+    ...(result.data.foods || []).map((food) => `• ${food}`),
+    `🔥 Aproximadamente ${Math.round(result.data.calories)} kcal · 🥩 ${Math.round(result.data.protein_g)} g proteína · 🍚 ${Math.round(result.data.carbs_g)} g carboidratos · 🥑 ${Math.round(result.data.fat_g)} g gorduras`,
+    "",
+    "📊 ProjeÃ§Ã£o da opÃ§Ã£o escolhida (ainda nÃ£o registrada como consumo):"
+  ];
+
+  const labels = {
+    calories: ["🔥 Calorias", "kcal"],
+    protein_g: ["🥩 Proteína", "g"],
+    carbs_g: ["🍚 Carboidratos", "g"],
+    fat_g: ["🥑 Gorduras", "g"]
+  };
+
+  for (const [key, [label, unit]] of Object.entries(labels)) {
+    const metric = projected.metrics[key].projected;
+    if (metric.target === null) continue;
+    const remaining = metric.remaining;
+    const status = metric.status === "falta"
+      ? `faltariam ${Math.round(remaining)} ${unit}`
+      : metric.status === "atingida"
+        ? "meta atingida"
+        : `ultrapassaria em ${Math.round(Math.abs(remaining))} ${unit}`;
+    lines.push(`${label}: ${status}`);
+    if (result.data.explicit_overage) {
+      lines.push(`  ProjeÃ§Ã£o: ${Math.round(metric.projected_consumed)} / ${Math.round(metric.target)} ${unit}`);
+    }
+  }
+
+  if (projected.macros_compatible === false && !budgetAnalysis?.incompatible) {
+    lines.push("ℹ️ As metas atuais de calorias e macros nÃ£o sÃ£o matematicamente compatíveis; nÃ£o é possível atingir todas simultaneamente.");
+  }
+
+  if (budgetAnalysis?.incompatible) {
+    const remainingCalories = Math.round(budgetAnalysis.calorie_remaining);
+    const requiredCalories = Math.round(budgetAnalysis.macro_calorie_requirement_kcal);
+    lines.push("");
+    lines.push(`� ️ Restam ${remainingCalories} kcal, mas atingir os macros ainda pendentes exigiria cerca de ${requiredCalories} kcal. NÃ£o é possível completar tudo sem ultrapassar a meta calórica.`);
+    lines.push(budgetAnalysis.priority === "protein"
+      ? "Vou priorizar proteína e manter esta sugestÃ£o dentro do limite de calorias; carboidratos e gorduras ficam como metas secundárias."
+      : "Vou respeitar o limite de calorias e nÃ£o tentar aumentar um macro que já atingiu ou ultrapassou a meta.");
+  }
+
+  lines.push("\nSe quiser, posso registrar quando você confirmar que comeu.");
+  return lines.join("\n");
+}
+
+function buildMealSuggestionReply(options, budgetAnalysis) {
+  const lines = [];
+
+  if (options.length < 3) {
+    lines.push(
+      `Encontrei ${options.length} ${options.length === 1 ? "opção válida" : "opções válidas"} para esta refeição. Não vou completar com opções que falhem na validação.`
+    );
+  } else {
+    lines.push("Encontrei três opções válidas para esta refeição:");
+  }
+
+  options.forEach((option, index) => {
+    const quick = option.is_quick === true;
+
+    lines.push(
+      `${quick ? "⚡" : "🍽️"} Opção ${index + 1} — ${quick ? "Preparo rápido" : option.category || "Refeição completa"}`
+    );
+
+    lines.push(option.name);
+
+    for (const food of option.foods || []) {
+      lines.push(`• ${food}`);
+    }
+
+    lines.push(
+      `🔥 ${Math.round(option.calories)} kcal · 🥩 ${Math.round(option.protein_g)} g proteína · 🍚 ${Math.round(option.carbs_g)} g carboidratos · 🥑 ${Math.round(option.fat_g)} g gorduras`
+    );
+  });
+
+  if (budgetAnalysis?.incompatible) {
+    lines.push("");
+
+    lines.push(
+      `⚠️ Restam ${Math.round(budgetAnalysis.calorie_remaining)} kcal, mas atingir os macros restantes exigiria cerca de ${Math.round(budgetAnalysis.macro_calorie_requirement_kcal)} kcal. Não é possível completar tudo sem ultrapassar a meta calórica.`
+    );
+
+    lines.push(
+      budgetAnalysis.priority === "protein"
+        ? "Priorizei proteína; carboidratos e gorduras são objetivos secundários, e todas as opções respeitam o limite de calorias."
+        : "Respeitei o limite de calorias sem tentar aumentar um macro já atingido ou excedido."
+    );
+  }
+
+  if (options.length) {
+    lines.push(
+      "\nEscolha uma opção pelo número para ver a projeção. A escolha não registra consumo; confirme depois que comeu para registrar."
+    );
+  } else {
+    lines.push(
+      "\nNão encontrei opção válida dentro do orçamento e das restrições atuais; não registrei consumo."
+    );
+  }
+
+  return lines.join("\n");
+}
+
+function normalizeMealPeriod(period, fallback = getMealPeriod()) {
+  const value = String(period || "").toLocaleLowerCase("pt-BR");
+  const matched = getMealPeriods().find((item) => value.includes(item));
+  return matched || fallback;
+}
+
+function extractAvailableFoods(message) {
+  const explicitAvailability = /\b(tenho|tem em casa|dispon[ií]vel|s[oó] tenho|aqui tem)\b/i.test(message);
+  const foods = [
+    "frango", "arroz", "feijÃ£o", "ovos", "ovo", "pÃ£o integral", "banana",
+    "iogurte", "aveia", "tapioca", "queijo", "carne", "batata", "legumes",
+    "peixe", "atum", "tomate", "leite", "maÃ§Ã£", "salada", "pasta de amendoim",
+    "tofu", "lentilha", "grÃ£o-de-bico", "homus", "bebida de soja", "iogurte de soja", "edamame", "cenoura", "amendoim",
+    "salmÃ£o", "tilápia", "peito de frango", "arroz integral", "batata-doce", "batata doce", "carne moída",
+    "whey protein", "whey", "proteína em pó", "proteina em po", "macarrÃ£o", "macarrao", "massa",
+    "batata inglesa", "pÃ£o", "mamÃ£o", "mamao", "laranja", "carne bovina", "carne moida", "ovo cozido"
+  ];
+  const normalized = message.toLocaleLowerCase("pt-BR");
+  const excluded = new Set(extractExcludedFoods(message));
+  const aliases = {
+    "salmÃ£o": "peixe", "tilápia": "peixe", "peito de frango": "frango",
+    "arroz integral": "arroz", "batata-doce": "batata", "batata doce": "batata",
+    "whey protein": "whey", "proteína em pó": "whey", "proteina em po": "whey",
+    "carne moída": "carne moída", "carne moida": "carne moida",
+    "macarrao": "macarrÃ£o", "mamao": "mamÃ£o"
+  };
+  const commonAvailable = explicitAvailability
+    ? foods.filter((food) => normalized.includes(food) && !excluded.has(food))
+    : [];
+  const contextualFoods = ["tofu", "tempeh", "edamame", "homus", "bebida de soja", "iogurte de soja"]
+    .filter((food) => normalized.includes(food)
+      && !excluded.has(food)
+      && /\b(?:consumo|como|costumo comer|quero|gosto de|tenho|possuo|uso|prefiro)\b/i.test(normalized));
+  return [...new Set([...commonAvailable, ...contextualFoods]
+    .map((food) => aliases[food] || food))];
+}
+
+function detectWheyAvailability(message) {
+  const text = String(message || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR");
+  if (/\b(?:nao tenho|nao tem|nao possuo|sem|acabou)\b.{0,35}\bwhey\b|\bwhey\b.{0,20}\b(?:acabou|nao tenho|nao tem)\b/.test(text)) {
+    return false;
+  }
+
+  if (/\b(?:tenho|tem em casa|possuo|disponivel|aqui tem)\b.{0,35}\bwhey\b|\bwhey\b.{0,20}\b(?:disponivel|em casa)\b/.test(text)) {
+    return true;
+  }
+
+  return null;
+}
+
+function normalizeDesiredFood(value) {
+  const text = String(value || "").toLocaleLowerCase("pt-BR")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  const aliases = [
+    ["batata frita", "batata frita"], ["french fries", "batata frita"],
+    ["hamburguer", "hamburger"], ["burger", "hamburger"],
+    ["sorvete", "sorvete"], ["gelato", "sorvete"],
+    ["chocolate", "chocolate"], ["pizza", "pizza"],
+    ["comida japonesa", "japonesa"], ["comida japonesa brasileira", "japonesa"],
+    ["rodizio japones", "japonesa"], ["japones", "japonesa"],
+    ["sushi", "japonesa"], ["temaki", "japonesa"],
+    ["sashimi", "japonesa"], ["nigiri", "japonesa"],
+    ["niguiri", "japonesa"], ["hossomaki", "japonesa"],
+    ["uramaki", "japonesa"], ["hot roll", "japonesa"],
+    ["hotroll", "japonesa"], ["hot philadelphia", "japonesa"],
+    ["guioza", "japonesa"], ["gyoza", "japonesa"],
+    ["yakisoba", "japonesa"], ["sunomono", "japonesa"],
+    ["missoshiru", "japonesa"], ["tempura", "japonesa"],
+    ["tempura de camarao", "japonesa"], ["salada de kani", "japonesa"],
+    ["bolo", "bolo"], ["massa", "massa"], ["macarrao", "massa"]
+  ];
+  return aliases.find(([needle]) => text.includes(needle))?.[1] || "";
+}
+
+function detectDesiredFood(message, modelValue = "") {
+  const normalized = String(message || "")
+    .toLocaleLowerCase("pt-BR")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  if (/^(?:o\s+que|oq|que)\s+posso comer\b/.test(normalized)) {
+    return "";
+  }
+
+  if (/\bnao\s+(?:quero|queria|estou com vontade|tenho vontade)\b/.test(normalized)) {
+    return "";
+  }
+
+  const expressesDesire =
+    /\b(quero|queria|vontade de|com vontade de|posso comer|vou comer|hoje quero|estou querendo)\b/
+      .test(normalized);
+
+  if (!expressesDesire) {
+    return "";
+  }
+
+  /*
+   * desired_food representa somente categorias que possuem
+   * referência própria no catálogo de alimentos desejados.
+   *
+   * Exemplos:
+   *   "quero pizza"     -> pizza
+   *   "quero chocolate" -> chocolate
+   *   "quero whey"     -> ""
+   *
+   * Whey é tratado pelo gerador normal, nÃ£o como craving.
+   */
+  return normalizeDesiredFood(message)
+    || normalizeDesiredFood(modelValue)
+    || "";
+}
+
+function detectRequestedServings(message, desiredFood, modelValue = null) {
+  const text = String(message || "").toLocaleLowerCase("pt-BR");
+  const count = Number(text.match(/\b(\d+(?:[,.]\d+)?)\s*(?:fatias?|peda[cç]os?|bolas?|por[cç][oõ]es?|unidades?|pratos?|pe[cç]as?|temakis?|niguiris?|nigiris?|sashimis?|hossomakis?|uramakis?|hot\s+rolls?|hotrolls?|guiozas?|gyozas?)\b/)?.[1]?.replace(",", "."));
+  const writtenCount = text.match(/\b(um|uma|dois|duas|tres|quatro|cinco|seis|sete)\s+(?:temakis?|niguiris?|nigiris?|sashimis?|hossomakis?|uramakis?|hot\s+rolls?|hotrolls?|guiozas?|gyozas?)\b/);
+  const wordCountMap = { um: 1, uma: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7 };
+  const writtenQuantity = writtenCount ? wordCountMap[writtenCount[1]] : null;
+  const normalizedCount = Number.isFinite(count) && count > 0 ? count : Number(writtenQuantity);
+  const grams = Number(text.match(/\b(\d+(?:[,.]\d+)?)\s*(?:g|gramas?)\b/)?.[1]?.replace(",", "."));
+  let quantity = Number.isFinite(normalizedCount) && normalizedCount > 0 ? normalizedCount : Number(modelValue);
+  if (Number.isFinite(grams) && grams > 0) {
+    quantity = desiredFood === "chocolate" ? grams / 20
+      : desiredFood === "batata frita" ? grams / 80 : quantity;
+  } else if (Number.isFinite(normalizedCount) && desiredFood === "sushi" && /\bpe[cç]as?\b/.test(text)) {
+    quantity = normalizedCount / 4;
+  }
+  return Number.isFinite(quantity) && quantity > 0 ? quantity : null;
+}
+
+function detectDesiredComposition(message, desiredFood) {
+  const text = String(message || "").normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
+  const variants = {
+    pizza: [
+      [/\bpizza\s+de\s+frango\s+(?:com|c\/|c)\s+catupiry\b/, "pizza-frango-catupiry"],
+      [/\bpizza\s+de\s+lombo\s+(?:com|c\/|c)\s+catupiry\b/, "pizza-lombo-catupiry"],
+      [/\bpizza\s+de\s+calabresa\s+(?:com|c\/|c)\s+catupiry\b/, "pizza-calabresa-catupiry"],
+      [/\bpizza\s+de\s+milho\s+(?:com|c\/|c)\s+catupiry\b/, "pizza-milho-catupiry"],
+      [/\bpizza\s+de\s+frango\s+(?:com|c\/|c)\s+milho\b/, "pizza-frango-milho"],
+      [/\bpizza\s+de\s+frango\s+(?:com|c\/|c)\s+bacon\b/, "pizza-frango-bacon"],
+      [/\bpizza\s+de\s+frango\s+(?:com|c\/|c)\s+cheddar\b/, "pizza-frango-cheddar"],
+      [/\bpizza\s+de\s+lombo\s+(?:com|c\/|c)\s+cheddar\b/, "pizza-lombo-cheddar"],
+      [/\bpizza\s+de\s+frango\s+(?:com|c\/|c)\s+catupiry\b/, "pizza-frango-catupiry"],
+      [/\bpizza\s+(?:de\s+)?quatro\s+queijos\b/, "pizza-quatro-queijos"],
+      [/\bpizza\s+(?:de\s+)?marguerita\b/, "pizza-marguerita"],
+      [/\bpizza\s+(?:de\s+)?napolitana\b/, "pizza-napolitana"],
+      [/\bpizza\s+(?:de\s+)?portuguesa\b/, "pizza-portuguesa"],
+      [/\bpizza\s+de\s+presunto\s+(?:e|com)\s+queijo\b/, "pizza-presunto-queijo"],
+      [/\bpizza\s+de\s+pepperoni\b/, "pizza-pepperoni"],
+      [/\bpizza\s+de\s+bacon\b/, "pizza-bacon"],
+      [/\bpizza\s+(?:de\s+)?milho\s+(?:com|c\/|c)\s+catupiry\b/, "pizza-milho-catupiry"],
+      [/\bpizza\s+(?:de\s+)?milho\b/, "pizza-milho-catupiry"],
+      [/\bpizza\s+de\s+palmito\s+(?:com|c\/|c)\s+bacon\b/, "pizza-palmito"],
+      [/\bpizza\s+de\s+palmito\b/, "pizza-palmito"],
+      [/\bpizza\s+(?:de\s+)?calabresa\b/, "pizza-calabresa"],
+      [/\bpizza\s+(?:de\s+)?atum\b/, "pizza-atum"],
+      [/\bpizza\s+(?:de\s+)?carne\s+seca\s+(?:com|c\/|c)\s+catupiry\b/, "pizza-strogonoff-carne"],
+      [/\bpizza\s+de\s+strogonoff\s+de\s+carne\b/, "pizza-strogonoff-carne"],
+      [/\bpizza\s+de\s+strogonoff\s+de\s+frango\b/, "pizza-strogonoff-frango"],
+      [/\bpizza\s+parmegiana\b/, "pizza-parmegiana"],
+      [/\bpizza\s+de\s+escarola\s+(?:com|c\/|c)\s+bacon\b/, "pizza-escarola-bacon"],
+      [/\bpizza\s+baiana\b/, "pizza-baiana"],
+      [/\bpizza\s+americana\b/, "pizza-americana"],
+      [/\bpizza\s+de\s+brocolis\s+(?:com|c\/|c)\s+bacon\s+(?:e|com)\s+catupiry\b/, "pizza-brocolis-bacon-catupiry"],
+      [/\bpizza\s+(?:de\s+)?alho\s+(?:e|&)\s+oleo\b/, "pizza-alho"],
+      [/\bpizza\s+vegetariana\b/, "pizza-vegetariana"],
+      [/\bpizza\s+mexicana\b/, "pizza-mexicana"],
+      [/\bpizza\s+paulista\b/, "pizza-paulista"],
+      [/\bpizza\s+moda\s+da\s+casa\b/, "pizza-moda-da-casa"],
+      [/\bpizza\s+de\s+catupiry\b/, "pizza-catupiry"],
+      [/\bpizza\s+de\s+mu(?:c|ss)arela\b/, "pizza-mucarela"],
+      [/\bpizza\s+de\s+queijo\b/, "pizza-mucarela"],
+      [/\bpizza\s+de\s+frango\b/, "pizza-frango"],
+      [/\bpizza\s+de\s+atum\b/, "pizza-atum"],
+
+      // Pizzas doces
+      [/\bpizza\s+doce\s+de\s+banana\s+(?:com|c\/|c)\s+canela\b/, "pizza-doce-banana-canela"],
+      [/\bpizza\s+doce\s+romeu\s+e\s+julieta\b/, "pizza-doce-romeu-julieta"],
+      [/\bpizza\s+doce\s+de\s+chocolate\s+(?:com|c\/|c)\s+morango\b/, "pizza-doce-chocolate-morango"],
+      [/\bpizza\s+doce\s+de\s+chocolate\b/, "pizza-doce-chocolate"],
+      [/\bpizza\s+doce\s+de\s+prestigio\b/, "pizza-doce-prestigio"]
+    ],
+    hamburger: [
+      [/\bhamburguer\s+de\s+frango\b/, "hamburguer-frango"],
+      [/\bhamburguer\s+com\s+queijo\b/, "hamburguer-queijo"]
+    ],
+    sushi: [
+      [/\bsushi\s+de\s+salmao\b/, "sushi-salmao"],
+      [/\bsushi\s+de\s+atum\b/, "sushi-atum"],
+      [/\bsushi\s+vegetariano\b/, "sushi-vegetariano"]
+    ],
+    japonesa: [
+      [/\btemaki\s+de\s+salmao\s+com\s+cream\s+cheese\b/, "japonesa-temaki-salmao"],
+      [/\btemaki\s+de\s+salmao\b/, "japonesa-temaki-salmao"],
+      [/\btemaki\s+de\s+atum\b/, "japonesa-temaki-atum"],
+      [/\btemaki\s+de\s+camarao\b/, "japonesa-temaki-camarao"],
+      [/\btemaki\s+de\s+kani\b/, "japonesa-temaki-kani"],
+      [/\btemaki\s+de\s+shimeji\b/, "japonesa-temaki-shimeji"],
+      [/\buramaki\s+de\s+salmao\b/, "japonesa-uramaki-salmao"],
+      [/\buramaki\s+california\b/, "japonesa-uramaki-california"],
+      [/\buramaki\s+skin\b/, "japonesa-uramaki-skin"],
+      [/\buramaki\s+de\s+atum\b/, "japonesa-uramaki-atum"],
+      [/\bhossomaki\s+de\s+salmao\b/, "japonesa-hossomaki-salmao"],
+      [/\bhot\s+(?:philadelphia|roll)\b/, "japonesa-hot-roll"],
+      [/\bniguir?i\s+de\s+salmao\b/, "japonesa-nigiri"],
+      [/\bsashimi\s+de\s+salmao\b/, "japonesa-sashimi"],
+      [/\byakisoba\b/, "japonesa-yakisoba"],
+      [/\bguioza\b|\bgyoza\b/, "japonesa-guioza"]
+    ],
+    chocolate: [
+      [/\bchocolate\s+amargo\b/, "chocolate-amargo"],
+      [/\bchocolate\s+ao\s+leite\b/, "chocolate-leite"],
+      [/\bchocolate\s+meio\s+amargo\b/, "chocolate-meio-amargo"]
+    ]
+  };  return variants[desiredFood]?.find(([pattern]) => pattern.test(text))?.[1] || null;
+}
+
+function normalizeRequestText(message) {
+  return String(message || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
+}
+
+function detectQuickPreparationRequest(message) {
+  const text = normalizeRequestText(message);
+  const asksForFood = /\b(?:opcao|opcoes|alternativa|alternativas|refeicao|lanche|sugestao|sugestoes|algo|ideia|preparo)\b/.test(text);
+  return asksForFood && /\b(?:rapido|rapida|rapidos|rapidas)\b/.test(text);
+}
+
+function detectMoreOptionsRequest(message) {
+  const text = normalizeRequestText(message);
+  return /\b(?:outra|outras|mais|diferente|diferentes)\b.{0,35}\b(?:opcao|opcoes|alternativa|alternativas|sugestao|sugestoes|ideia|ideias)\b/.test(text)
+    || /\b(?:opcao|opcoes|alternativa|alternativas|sugestao|sugestoes|ideia|ideias)\b.{0,35}\b(?:diferente|diferentes|outra|outras)\b/.test(text);
+}
+
+function normalizeToolFoodList(value) {
+  if (!Array.isArray(value)) return [];
+  const aliases = new Map([
+    ["whey protein", "whey"], ["proteína em pó", "whey"], ["proteina em po", "whey"],
+    ["ovo", "ovos"], ["arroz integral", "arroz"], ["peito de frango", "frango"],
+    ["tilápia", "peixe"], ["tilapia", "peixe"], ["salmÃ£o", "peixe"], ["salmao", "peixe"]
+  ]);
+  return [...new Set(value
+    .filter((item) => typeof item === "string")
+    .map((item) => item.trim().slice(0, 100))
+    .filter(Boolean)
+    .map((item) => aliases.get(item.toLocaleLowerCase("pt-BR")) || item))];
+}
+
+function detectExplicitExcludedCompositions(message) {
+  const text = normalizeRequestText(message);
+  const foods = [
+    "whey protein", "proteína em pó", "proteina em po", "whey",
+    "leite", "água", "agua", "banana", "aveia", "iogurte", "queijo",
+    "pÃ£o integral", "pao integral", "pÃ£o", "pao", "arroz", "feijÃ£o",
+    "feijao", "frango", "ovo", "ovos", "carne", "batata", "atum",
+    "tomate", "pasta de amendoim", "amendoim", "salada"
+  ];
+  const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const foodPattern = `(?:${foods
+    .slice()
+    .sort((a, b) => b.length - a.length)
+    .map(escapeRegex)
+    .join("|")})`;
+  const pattern = new RegExp(
+    `\\b(?:nao|nÃ£o)\\s+(?:quero|queria|gosto\\s+de|vou\\s+usar|vou\\s+tomar|vou\\s+comer)\\s+(?:o|a|um|uma)?\\s*(${foodPattern})\\s+(?:com|e\\s+com)\\s+(?:o|a|um|uma)?\\s*(${foodPattern})\\b`,
+    "gi"
+  );
+
+  const compositions = [];
+  for (const match of text.matchAll(pattern)) {
+    const ingredients = normalizeToolFoodList([match[1], match[2]]);
+    if (ingredients.length < 2) continue;
+    compositions.push({
+      ingredients,
+      description: ingredients.join(" + ")
+    });
+  }
+
+  /*
+   * Forma contextual:
+   * "Tenho whey em casa, mas não quero tomar com água."
+   *
+   * O primeiro alimento foi informado antes da negativa.
+   * A segunda parte pode omitir esse alimento.
+   */
+  const contextualPattern = new RegExp(
+    `\\b(${foodPattern})\\b[\\s\\S]{0,100}?\\b(?:nao)\\s+(?:quero|queria)\\s+(?:tomar|usar|beber|comer)\\s+(?:com|e\\s+com)\\s+(?:o|a|um|uma)?\\s*(${foodPattern})\\b`,
+    "gi"
+  );
+
+  for (const match of text.matchAll(contextualPattern)) {
+    const ingredients = normalizeToolFoodList([match[1], match[2]]);
+    if (ingredients.length < 2) continue;
+
+    const description = ingredients.join(" + ");
+
+    if (!compositions.some((composition) =>
+      composition.description === description
+    )) {
+      compositions.push({
+        ingredients,
+        description
+      });
+    }
+  }
+
+  return compositions;
+}
+
+function buildExplicitMealRequestFacts(message) {
+  const availableFoods = normalizeToolFoodList(extractAvailableFoods(message));
+  const wheyAvailability = detectWheyAvailability(message);
+  if (wheyAvailability === true && !availableFoods.includes("whey")) {
+    availableFoods.push("whey");
+  }
+
+  const explicitExcludedCompositions = detectExplicitExcludedCompositions(message);
+
+  /*
+   * Uma exclusÃ£o de composiÃ§Ã£o nÃ£o transforma seus ingredientes em
+   * alimentos proibidos. Ex.: "nÃ£o quero whey com água" mantém whey
+   * disponível e proíbe somente a combinaÃ§Ã£o whey + água.
+   */
+  const compositionIngredients = new Set(
+    explicitExcludedCompositions.flatMap((composition) => composition.ingredients)
+  );
+
+  const explicitExcludedFoods = normalizeToolFoodList(
+    extractExcludedFoods(message)
+  ).filter((food) => !compositionIngredients.has(food));
+
+  const desiredFood = detectDesiredFood(message);
+  const requestedServings = detectRequestedServings(
+    message,
+    desiredFood,
+    null
+  );
+
+  const text = normalizeRequestText(message);
+
+  const onlyAvailableFoods =
+    /\b(?:so\s+tenho|so\s+tem|somente\s+tenho|somente\s+tem|so\s+estou\s+com)\b/.test(text);
+
+  const quickOnly = detectQuickPreparationRequest(message);
+  const moreOptions = detectMoreOptionsRequest(message);
+
+  const preserveBudgetForFuture =
+    /\b(?:nao\s+quero\s+gastar\s+tudo|nao\s+quero\s+gastar\s+minhas\s+calorias|nao\s+gastar\s+tudo|guardar\s+(?:calorias|parte\s+das\s+calorias)|preservar\s+(?:calorias|parte\s+das\s+calorias)|deixar\s+(?:calorias|parte\s+das\s+calorias)|vou\s+(?:jantar|almocar|almoçar)\s+fora|vou\s+comer\s+fora)\b/.test(text);
+
+  let futureMealPeriod = null;
+  if (/\b(?:jantar|vou\s+jantar)\b/.test(text)) {
+    futureMealPeriod = "jantar";
+  } else if (/\b(?:almo[cç]ar|vou\s+almo[cç]ar)\b/.test(text)) {
+    futureMealPeriod = "almoço";
+  } else if (/\b(?:ceia|vou\s+fazer\s+uma\s+ceia)\b/.test(text)) {
+    futureMealPeriod = "ceia";
+  }
+
+  return {
+    availableFoods,
+    requiredFoods: [],
+    explicitExcludedFoods,
+    explicitExcludedCompositions,
+    onlyAvailableFoods,
+    quickOnly,
+    moreOptions,
+    preserveBudgetForFuture,
+    futureMealPeriod,
+    desiredFood,
+    requestedServings,
+    mealPeriod: null
+  };
+}
+
+function mergeExplicitMealSuggestionData(data, explicitFacts) {
+  const modelData = data && typeof data === "object" ? data : {};
+  const union = (...lists) => [...new Set(
+    lists
+      .flatMap((list) => Array.isArray(list) ? normalizeToolFoodList(list) : [])
+      .filter(Boolean)
+  )];
+
+  const explicitUnavailable = new Set(explicitFacts.explicitExcludedFoods);
+  const explicitAvailable = new Set(explicitFacts.availableFoods);
+
+  const availableFoods = union(
+    modelData.available_foods,
+    explicitFacts.availableFoods
+  ).filter((food) => !explicitUnavailable.has(food));
+
+  /*
+   * Se o usuário declarou explicitamente que possui um alimento,
+   * uma interpretaÃ§Ã£o do modelo nÃ£o pode transformá-lo em proibido.
+   * A única exceÃ§Ã£o é uma exclusÃ£o explícita do próprio usuário.
+   */
+  const excludedFoods = union(
+    modelData.explicit_excluded_foods,
+    explicitFacts.explicitExcludedFoods
+  ).filter((food) =>
+    !explicitAvailable.has(food)
+    || explicitUnavailable.has(food)
+  );
+
+  const requiredFoods = union(
+    modelData.required_foods,
+    explicitFacts.requiredFoods
+  ).filter((food) => !explicitUnavailable.has(food));
+
+  const excludedCompositions = [
+    ...(Array.isArray(modelData.explicit_excluded_compositions)
+      ? modelData.explicit_excluded_compositions
+      : []),
+    ...explicitFacts.explicitExcludedCompositions
+  ];
+
+  return {
+    ...modelData,
+    meal_period: explicitFacts.mealPeriod || modelData.meal_period,
+    desired_food: explicitFacts.desiredFood || modelData.desired_food || "",
+    requested_servings:
+      explicitFacts.requestedServings ?? modelData.requested_servings ?? null,
+    available_foods: availableFoods,
+    required_foods: requiredFoods,
+    explicit_excluded_foods: excludedFoods,
+    explicit_excluded_compositions: excludedCompositions,
+
+    /*
+     * "Só tenho X e Y" e "quero algo rápido" sÃ£o restrições
+     * determinísticas. O modelo nÃ£o pode inventá-las nem removê-las.
+     */
+    only_available_foods: explicitFacts.onlyAvailableFoods === true,
+
+    /*
+     * NÃ£o pedido explicitamente = nÃ£o é quick_only.
+     */
+    quick_only: explicitFacts.quickOnly === true,
+
+    more_options: explicitFacts.moreOptions === true
+      || modelData.more_options === true,
+
+    preserve_budget_for_future: explicitFacts.preserveBudgetForFuture === true
+      || modelData.preserve_budget_for_future === true,
+
+    future_meal_period:
+      explicitFacts.futureMealPeriod || modelData.future_meal_period || null
+  };
+}
+
+function getStructuredOrLegacyFoods(data, field, message) {
+  return Array.isArray(data?.[field])
+    ? normalizeToolFoodList(data[field])
+    : extractAvailableFoods(message);
+}
+function explicitlyAcceptsOverage(message) {
+  const text = String(message || "").normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
+  return /\b(?:mesmo assim|mesmo passando|mesmo ultrapassando|mesmo que (?:passe|ultrapasse)|quero assim mesmo|quero manter a quantidade|aceito (?:o )?excedente|nao me importo|pode passar da meta|quero mesmo que passe)\b/.test(text);
+}
+
+function hasDesiredFoodAvailable(message, desiredFood) {
+  const text = String(message || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR");
+
+  const match = text.match(
+    /\b(?:tenho|so tenho|somente tenho|tem em casa|disponivel|aqui tem)\b/
+  );
+
+  if (!match) {
+    return false;
+  }
+
+  /*
+   * Considera somente o trecho da declaraÃ§Ã£o de disponibilidade.
+   *
+   * Ex.:
+   *   "Tenho pizza" -> pizza disponível
+   *
+   *   "Tenho whey, mas quero pizza"
+   *      -> pizza NÃƒO é considerada disponível
+   */
+  const availabilityText = text
+    .slice(match.index + match[0].length)
+    .split(
+      /\b(?:mas|porem|quero|queria|vou|gostaria|prefiro)\b/
+    )[0]
+    .trim();
+
+  return normalizeDesiredFood(availabilityText) === desiredFood;
+}
+
+function buildDesiredFoodReply(options, desiredFood, budget, budgetAnalysis, { availabilityOnly = false, summary = null } = {}) {
+  const names = { pizza: "pizza", hamburger: "hambúrguer", chocolate: "chocolate", sorvete: "sorvete", sushi: "sushi", bolo: "bolo", massa: "massa", "batata frita": "batata" };
+  const lines = [`Vou tentar encaixar ${names[desiredFood] || desiredFood} no orçamento desta refeição.`];
+  if (!options.length) {
+    if (availabilityOnly) {
+      lines.push(`NÃ£o encontrei uma composiÃ§Ã£o de ${names[desiredFood] || desiredFood} que use apenas os alimentos informados e caiba no orçamento de aproximadamente ${Math.round(budget)} kcal.`);
+      lines.push("Diga se você pode incluir algum ingrediente ou enviar os dados da porÃ§Ã£o desejada para eu recalcular.");
+      return lines.join("\n");
+    }
+    lines.push(`NÃ£o encontrei referência suficiente para uma porÃ§Ã£o plausível de ${names[desiredFood] || desiredFood} com os alimentos e restrições informados.`);
+    lines.push("Se você enviar a porÃ§Ã£o, ingredientes ou os dados do rótulo/cardápio, calculo o impacto sem inventar valores.");
+    return lines.join("\n");
+  }
+  const availableCalories = Number(budgetAnalysis?.calorie_remaining ?? budget);
+  lines.push(`Referência atual: cerca de ${Math.round(availableCalories)} kcal restantes no dia. As porções abaixo sÃ£o plausíveis; nÃ£o reduzi a unidade para forçar o encaixe.`);
+  options.forEach((option, index) => {
+    lines.push(`\n🍽️ OpÃ§Ã£o ${index + 1} — ${option.name}`);
+    for (const food of option.foods) lines.push(`• ${food}`);
+    lines.push(`🔥 ${option.calories} kcal · 🥩 ${option.protein_g} g proteína · 🍚 ${option.carbs_g} g carboidratos · 🥑 ${option.fat_g} g gorduras`);
+    const dailyOver = Math.round(option.daily_calorie_overage || 0);
+    if (dailyOver > 0) lines.push(`� ️ Excederia o saldo diário em aproximadamente ${dailyOver} kcal.`);
+    const excess = option.macro_overages || {};
+    const macroLines = [["protein_g", "proteína"], ["carbs_g", "carboidratos"], ["fat_g", "gorduras"]]
+      .filter(([key]) => Number(excess[key]) > 0.5)
+      .map(([key, label]) => `${label}: +${Math.round(excess[key] * 10) / 10} g sobre o saldo`);
+    if (macroLines.length) lines.push(`� ️ Excedente de macros: ${macroLines.join("; ")}.`);
+    if (option.explicit_overage && summary) {
+      const projection = calculateNutritionBalance({
+        calorie_target: summary.calorie_target,
+        protein_target: summary.protein_target,
+        carbs_target: summary.carbs_target,
+        fat_target: summary.fat_target
+      }, {
+        calories: summary.calories,
+        protein_g: summary.protein_g,
+        carbs_g: summary.carbs_g,
+        fat_g: summary.fat_g
+      }, option);
+      const calories = projection.metrics.calories.projected;
+      if (calories.target !== null) {
+        const status = calories.remaining >= 0
+          ? `${Math.round(calories.remaining)} kcal abaixo da meta`
+          : `${Math.round(Math.abs(calories.remaining))} kcal acima da meta`;
+        lines.push(`📊 ProjeÃ§Ã£o diária: ${Math.round(calories.projected_consumed)} / ${Math.round(calories.target)} kcal (${status}).`);
+      }
+    }
+  });
+  if (options.length === 1) {
+    lines.push("Esta foi a única composiÃ§Ã£o plausível disponível no catálogo para as restrições atuais.");
+  }
+  if (budgetAnalysis?.incompatible) {
+    lines.push(`\nAs metas pendentes exigiriam aproximadamente ${Math.round(budgetAnalysis.macro_calorie_requirement_kcal)} kcal, acima das ${Math.round(budgetAnalysis.calorie_remaining)} kcal restantes. Mantive calorias como limite e priorizei proteína nas opções compatíveis.`);
+  }
+  lines.push("\nEscolher uma opÃ§Ã£o só mostra a projeÃ§Ã£o. O consumo só será registrado após sua confirmaÃ§Ã£o explícita.");
+  return lines.join("\n");
+}
+
+function extractExcludedFoods(message) {
+  const foods = [
+    "frango", "arroz", "feijÃ£o", "ovos", "ovo", "pÃ£o integral", "banana",
+    "iogurte", "aveia", "tapioca", "queijo", "carne", "batata", "legumes",
+    "peixe", "atum", "tomate", "leite", "maÃ§Ã£", "salada", "pasta de amendoim",
+    "tofu", "lentilha", "grÃ£o-de-bico", "homus", "bebida de soja", "iogurte de soja", "edamame", "cenoura", "amendoim",
+    "salmÃ£o", "tilápia", "peito de frango", "arroz integral", "batata-doce", "batata doce", "carne moída",
+    "whey protein", "whey", "proteína em pó", "proteina em po"
+  ];
+  const text = message.toLocaleLowerCase("pt-BR");
+  const rejected = foods.filter((food) => {
+    const escaped = food.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(?:nÃ£o|nao)\\s+(?:tenho|tem|quero|gosto de)(?:\\s+usar)?[^\\n]{0,25}\\b${escaped}\\b`).test(text)
+      || new RegExp(`\\b(?:sem|troca|substitui)\\s+(?:o|a)?\\s*${escaped}\\b`).test(text);
+  });
+  if (/\b(?:nao|nÃ£o)\s+(?:tenho|quero|uso|vou usar)\s+(?:whey|suplemento|suplementos)\b/.test(text)) {
+    rejected.push("whey");
+  }
+  return rejected;
+}
+
+function getRecentSuggestedOptions(events) {
+  return events
+    .filter((event) => event.event_type === "suggestion_offered")
+    .slice(0, 5)
+    .flatMap((event) => {
+      if (Array.isArray(event.details?.options)) return event.details.options;
+      return event.details?.option ? [event.details.option] : [];
+    });
+}
+
+function getFoodRestrictions(user) {
+  const rawDislikes = String(user?.food_dislikes || "");
+  const rejected = rawDislikes
+    .split(/[,;]+/).map((item) => item.trim()).filter(Boolean);
+  const knownFoods = [
+    "frango", "arroz", "feijÃ£o", "ovos", "ovo", "pÃ£o integral", "banana",
+    "iogurte", "aveia", "tapioca", "queijo", "carne", "batata", "legumes",
+    "peixe", "atum", "tomate", "leite", "maÃ§Ã£", "salada", "tofu", "lentilha",
+    "grÃ£o-de-bico", "homus", "edamame", "amendoim"
+  ];
+  const normalizedDislikes = rawDislikes.toLocaleLowerCase("pt-BR");
+  for (const food of knownFoods) {
+    if (normalizedDislikes.includes(food)) rejected.push(food);
+  }
+  const preferences = String(user?.dietary_preferences || "").toLocaleLowerCase("pt-BR");
+  if (/vegano|vegan/.test(preferences)) rejected.push("frango", "carne", "peixe", "atum", "ovo", "queijo", "iogurte", "leite", "whey");
+  else if (/vegetarian|vegetar/.test(preferences)) rejected.push("frango", "carne", "peixe", "atum");
+  if (/sem lactose|lactose free|intoler.ncia . lactose/.test(preferences)) rejected.push("leite", "iogurte", "queijo", "whey");
+  if (/sem gl[uú]ten|cel[ií]ac/.test(preferences)) rejected.push("pÃ£o integral");
+  return rejected;
+}
+
+function formatPlanReply(plan) {
+  const lines = ["🗓️ Plano alimentar de hoje (opções estimadas):"];
+  for (const meal of plan.meals) {
+    lines.push(`\n🍽️ ${meal.period} · orçamento aproximado ${meal.calorie_budget ?? "sem meta"} kcal`);
+    meal.options.forEach((option, index) => {
+      lines.push(`${index + 1}) ${option.name} — ${option.calories} kcal | P ${option.protein_g} g · C ${option.carbs_g} g · G ${option.fat_g} g`);
+      lines.push(`   ${option.foods.join(" · ")}`);
+    });
+  }
+  if (plan.note) lines.push(`\n📌 ${plan.note}`);
+  lines.push("\nVocê pretende seguir esse plano como referência? Diga sim ou nÃ£o. Escolher uma opÃ§Ã£o nÃ£o registra consumo.");
+  return lines.join("\n");
+}
+
+/* =========================================================
+   SALVAR AÃ‡ÃƒO
 ========================================================= */
 
 function saveAction(
@@ -1125,6 +1467,14 @@ function saveAction(
   if (result.action === "meal") {
     return saveMeal(
       userId,
+      result.data
+    );
+  }
+
+  if (result.action === "meal_correction") {
+    return correctMeal(
+      userId,
+      result.data.meal_id,
       result.data
     );
   }
@@ -1192,6 +1542,7 @@ function saveAction(
         null
     };
   }
+
   if (result.action === "set_calorie_target") {
     const updatedUser =
       setCustomCalorieTarget(
@@ -1219,12 +1570,115 @@ function saveAction(
     };
   }
 
+  if (result.action === "set_macro_targets") {
+    const updatedUser = setCustomMacroTargets(userId, result.data);
+    return {
+      user: updatedUser,
+      targets: updatedUser ? {
+        daily_calorie_target: updatedUser.daily_calorie_target,
+        daily_protein_target: updatedUser.daily_protein_target,
+        daily_carbs_target: updatedUser.daily_carbs_target,
+        daily_fat_target: updatedUser.daily_fat_target
+      } : null
+    };
+  }
+
+  if (result.action === "reset_nutrition_targets") {
+    return restoreAutomaticNutritionTargets(userId);
+  }
+
   return null;
 }
 
 /* =========================================================
    RESPOSTA DO RESUMO
 ========================================================= */
+
+function formatRemainingStatus(remaining, unit) {
+  if (remaining > 0.5) return `Faltam ${Math.round(remaining)} ${unit}`;
+  if (remaining < -0.5) return `Ultrapassou ${Math.round(Math.abs(remaining))} ${unit}`;
+  return "Meta atingida";
+}
+
+function classifySummaryIntent(message) {
+  const text = String(message || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR");
+
+  if (
+    /\bcomo esta (?:o )?(?:meu )?(?:dia|resumo)\b/.test(text) ||
+    /\bme mostra(?:r)? (?:o )?(?:meu )?resumo\b/.test(text) ||
+    /\bresumo (?:completo|do dia|diario)\b/.test(text)
+  ) {
+    return { type: "full", metrics: [] };
+  }
+
+  const metrics = [];
+  if (/\b(calorias?|kcal)\b/.test(text)) metrics.push("calories");
+  if (/\b(proteinas?|prot)\b/.test(text)) metrics.push("protein_g");
+  if (/\b(carboidratos?|carbs?)\b/.test(text)) metrics.push("carbs_g");
+  if (/\b(gorduras?|gord)\b/.test(text)) metrics.push("fat_g");
+
+  const asksForValue = /\b(quanto|quantos|quantas|qual|quais|meta|saldo|restante|restantes|sobram|sobra|falta|faltam|ainda|consumi|consumido|tenho)\b/.test(text);
+  const asksAboutToday = /\b(hoje|dia|diario|diaria|ainda|restante|restantes|saldo|sobram|sobra|falta|faltam|consumi|consumido|tenho|meta)\b/.test(text);
+
+  return metrics.length && asksForValue && asksAboutToday
+    ? { type: "specific", metrics: [...new Set(metrics)] }
+    : null;
+}
+
+function buildSpecificNutritionSummary(summary, metrics) {
+  const definitions = {
+    calories: {
+      label: "🔥 Calorias",
+      consumed: "calories",
+      target: "calorie_target",
+      remaining: "calorie_remaining",
+      unit: "kcal",
+      consumedLabel: "consumidas"
+    },
+    protein_g: {
+      label: "🥩 Proteína",
+      consumed: "protein_g",
+      target: "protein_target",
+      remaining: "protein_remaining",
+      unit: "g",
+      consumedLabel: "consumida"
+    },
+    carbs_g: {
+      label: "🍚 Carboidratos",
+      consumed: "carbs_g",
+      target: "carbs_target",
+      remaining: "carbs_remaining",
+      unit: "g",
+      consumedLabel: "consumidos"
+    },
+    fat_g: {
+      label: "🥑 Gordura",
+      consumed: "fat_g",
+      target: "fat_target",
+      remaining: "fat_remaining",
+      unit: "g",
+      consumedLabel: "consumida"
+    }
+  };
+  const lines = ["📊 Seu saldo de hoje:"];
+
+  for (const key of metrics) {
+    const definition = definitions[key];
+    if (!definition) continue;
+    const consumed = summary[definition.consumed] ?? 0;
+    const target = summary[definition.target];
+    const remaining = summary[definition.remaining];
+    const detail = target === null || target === undefined
+      ? "meta diária nÃ£o definida"
+      : `meta ${Math.round(target)} ${definition.unit} · ${formatRemainingStatus(remaining, definition.unit)}`;
+    lines.push(`${definition.label}: ${Math.round(consumed)} ${definition.unit} ${definition.consumedLabel} · ${detail}`);
+  }
+
+  return lines.join("\n");
+}
 
 function buildSummaryReply(
   summary,
@@ -1265,7 +1719,7 @@ function buildSummaryReply(
   );
 
   /* =======================================================
-     MANUTENÇÃO E META
+     MANUTENÃ‡ÃƒO E META
   ======================================================= */
 
   if (
@@ -1274,7 +1728,7 @@ function buildSummaryReply(
     lines.push("");
 
     lines.push(
-      `🔥 Manutenção estimada: ${Math.round(summary.maintenance_calories)} kcal`
+      `🔥 ManutenÃ§Ã£o estimada: ${Math.round(summary.maintenance_calories)} kcal`
     );
   }
 
@@ -1288,11 +1742,11 @@ function buildSummaryReply(
     lines.push("");
 
     lines.push(
-      `🎯 Meta inicial: ${Math.round(summary.calorie_target)} kcal`
+      `🎯 ${summary.calorie_target_mode === "custom" ? "Meta calórica personalizada" : "Meta inicial calculada"}: ${Math.round(summary.calorie_target)} kcal`
     );
 
     lines.push(
-      `📌 Restante estimado: ${Math.round(Math.max(remaining, 0))} kcal`
+      `📌 ${formatRemainingStatus(remaining, "kcal")}`
     );
   }
 
@@ -1318,11 +1772,11 @@ function buildSummaryReply(
     );
 
     lines.push(
-      `📌 Restante: ${Math.round(Math.max(remaining, 0))} g`
+      `📌 ${formatRemainingStatus(remaining, "g")}`
     );
   }
 
- if (
+  if (
     summary.carbs_target
   ) {
     const remaining =
@@ -1334,11 +1788,11 @@ function buildSummaryReply(
     );
 
     lines.push(
-      `📌 Restante: ${Math.round(Math.max(remaining, 0))} g`
+      `📌 ${formatRemainingStatus(remaining, "g")}`
     );
   }
 
- if (
+  if (
     summary.fat_target
   ) {
     const remaining =
@@ -1350,7 +1804,7 @@ function buildSummaryReply(
     );
 
     lines.push(
-      `📌 Restante: ${Math.round(Math.max(remaining, 0))} g`
+      `📌 ${formatRemainingStatus(remaining, "g")}`
     );
   }
 
@@ -1375,124 +1829,661 @@ function buildProfileReply(
   updatedUser,
   targets
 ) {
-  const sex =
-    String(
-      updatedUser?.sex || ""
-    )
-      .toLowerCase()
-      .trim();
+  const lines = [];
 
-  const sexLabel =
-    [
-      "female",
-      "feminino",
-      "mulher",
-      "f"
-    ].includes(sex)
-      ? "Mulher"
-      : "Homem";
+  lines.push("👤 Perfil atualizado:");
 
-  const goalLabel =
-    updatedUser?.goal ||
-    "não informado";
-
-  const activityLabel =
-    updatedUser?.activity_level ||
-    "não informado";
-
-  const trainingDays =
-    updatedUser?.training_days_per_week;
-
-  const trainingText =
-    trainingDays
-      ? `${trainingDays}x por semana`
-      : "não informado";
-
-  const height =
-    Number(
-      updatedUser?.height_cm || 0
+  if (updatedUser?.name) {
+    lines.push(
+      `• Nome: ${updatedUser.name}`
     );
+  }
 
-  const heightText =
-    height > 0
-      ? `${(height / 100)
-          .toFixed(2)
-          .replace(".", ",")} m`
-      : "não informado";
-
-  const maintenance =
-    Number(
-      targets?.maintenance_calories || 0
+  if (updatedUser?.age_years) {
+    lines.push(
+      `• Idade: ${updatedUser.age_years} anos`
     );
+  }
 
-  const calories =
-    Number(
-      targets?.daily_calorie_target || 0
+  if (updatedUser?.sex) {
+    lines.push(
+      `• Sexo: ${updatedUser.sex}`
     );
+  }
 
-  const deficit =
-    Number(
-      targets?.calorie_deficit_percent || 0
+  if (updatedUser?.height_cm) {
+    lines.push(
+      `• Altura: ${updatedUser.height_cm} cm`
     );
+  }
 
-  const lines = [
-    "✅ *Perfil atualizado!*",
-    "",
-    `👤 Sexo: ${sexLabel}`,
-    `🎂 Idade: ${updatedUser.age_years} anos`,
-    `📏 Altura: ${heightText}`,
-    `⚖️ Peso: ${updatedUser.weight_kg} kg`,
-    `🏃 Treinos: ${trainingText}`,
-    `🔥 Atividade: ${activityLabel}`,
-    `🎯 Objetivo: ${goalLabel}`,
-    "",
-    "📊 *Estimativa nutricional inicial*",
-    ""
+  if (updatedUser?.weight_kg) {
+    lines.push(
+      `• Peso: ${updatedUser.weight_kg} kg`
+    );
+  }
+
+  if (updatedUser?.goal) {
+    lines.push(
+      `• Objetivo: ${updatedUser.goal}`
+    );
+  }
+
+  if (updatedUser?.activity_level) {
+    lines.push(
+      `• Atividade: ${updatedUser.activity_level}`
+    );
+  }
+
+  if (updatedUser?.training_days_per_week) {
+    lines.push(
+      `• Treinos por semana: ${updatedUser.training_days_per_week}`
+    );
+  }
+
+  if (updatedUser?.dietary_preferences) {
+    lines.push(
+      `• Preferências alimentares: ${updatedUser.dietary_preferences}`
+    );
+  }
+
+  if (updatedUser?.food_dislikes) {
+    lines.push(
+      `• Alimentos evitados: ${updatedUser.food_dislikes}`
+    );
+  }
+
+  if (targets) {
+    lines.push("");
+
+    lines.push("🎯 Metas nutricionais:");
+
+    if (targets.daily_calorie_target !== null && targets.daily_calorie_target !== undefined) {
+      lines.push(
+        `🔥 ${Math.round(targets.daily_calorie_target)} kcal`
+      );
+    }
+
+    if (targets.daily_protein_target !== null && targets.daily_protein_target !== undefined) {
+      lines.push(
+        `🥩 ${Math.round(targets.daily_protein_target)} g proteína`
+      );
+    }
+
+    if (targets.daily_carbs_target !== null && targets.daily_carbs_target !== undefined) {
+      lines.push(
+        `🍚 ${Math.round(targets.daily_carbs_target)} g carboidratos`
+      );
+    }
+
+    if (targets.daily_fat_target !== null && targets.daily_fat_target !== undefined) {
+      lines.push(
+        `🥑 ${Math.round(targets.daily_fat_target)} g gorduras`
+      );
+    }
+  }
+
+  return lines.join("\n");
+}
+function isHistoryRequest(message) {
+  const text = normalizeRequestText(message).trim();
+
+  return /\b(?:historico|historico recente)\b/.test(text)
+    || /\b(?:me mostra|me mostre|mostrar|mostre|quero ver|ver)\b.{0,30}\b(?:meu|meus)?\s*(?:historico|registros)\b/.test(text)
+    || /\b(?:meus|minhas)\s+(?:registros|refeicoes|treinos|pesagens)\b/.test(text);
+}
+
+function formatHistoryDate(value) {
+  const raw = String(value || "");
+
+  const match = raw.match(
+    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/
+  );
+
+  if (!match) {
+    return raw;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+
+  const weekdays = [
+    "domingo",
+    "segunda-feira",
+    "terça-feira",
+    "quarta-feira",
+    "quinta-feira",
+    "sexta-feira",
+    "sábado"
   ];
 
-  if (maintenance > 0) {
-    lines.push(
-      `🔥 Manutenção estimada: *${Math.round(maintenance)} kcal/dia*`
-    );
+  const weekday = weekdays[
+    new Date(year, month - 1, day).getDay()
+  ];
+
+  return `📅 ${weekday.charAt(0).toUpperCase()}${weekday.slice(1)}, ${match[3]}/${match[2]} • ${match[4]}:${match[5]}`;
+}
+
+function buildHistoryReply(recentHistory) {
+  const lines = [
+    "📋 Histórico recente"
+  ];
+
+  const meals = Array.isArray(recentHistory?.meals)
+    ? recentHistory.meals
+    : [];
+
+  const workouts = Array.isArray(recentHistory?.workouts)
+    ? recentHistory.workouts
+    : [];
+
+  const weights = Array.isArray(recentHistory?.weights)
+    ? recentHistory.weights
+    : [];
+
+  if (meals.length) {
+    lines.push("");
+    lines.push("🍽️ REFEIÇÕES");
+
+    for (const meal of meals) {
+      lines.push("");
+      lines.push(`${formatHistoryDate(meal.date)}`);
+      lines.push(`${meal.description || "Refeição"}`);
+      lines.push(
+        `${Math.round(Number(meal.calories) || 0)} kcal`,
+        `🥩 Proteínas: ${Number(meal.protein_g) || 0} g`,
+        `🍚 Carboidratos: ${Number(meal.carbs_g) || 0} g`,
+        `🥑 Gorduras: ${Number(meal.fat_g) || 0} g`
+      );
+    }
   }
 
-  if (calories > 0) {
-    lines.push(
-      `🎯 Meta inicial: *${Math.round(calories)} kcal/dia*`
-    );
+  if (workouts.length) {
+    lines.push("");
+    lines.push("🏋️ TREINOS");
+
+    for (const workout of workouts) {
+      lines.push("");
+      lines.push(`${formatHistoryDate(workout.date)}`);
+      lines.push(`${workout.description || "Treino"}`);
+
+      const details = [];
+
+      if (Number(workout.duration_min) > 0) {
+        details.push(`${Number(workout.duration_min)} min`);
+      }
+
+      if (workout.notes) {
+        details.push(String(workout.notes).replace(/\.$/, ""));
+      }
+
+      if (details.length) {
+        lines.push(details.join(" · "));
+      }
+    }
   }
 
-  if (deficit > 0) {
-    lines.push(
-      `📉 Déficit inicial considerado: *${deficit}%*`
-    );
+  if (weights.length) {
+    lines.push("");
+    lines.push("⚖️ PESO");
+
+    for (const weight of weights) {
+      lines.push("");
+      lines.push(`${formatHistoryDate(weight.date)}`);
+      lines.push(`${Number(weight.weight_kg)} kg`);
+    }
   }
 
-  lines.push("");
+  if (!meals.length && !workouts.length && !weights.length) {
+    lines.push("");
+    lines.push("Ainda não há registros no seu histórico.");
+  }
+
+  return lines.join("\n");
+}
+
+/* =========================================================
+   REFEI��O LIVRE
+========================================================= */
+
+function isYesMessage(message) {
+  const text = normalizeRequestText(message).trim();
+  return /^(?:sim|s|si|claro|com certeza|combinado|pode|quero|tenho|sim claro)[.! ]*$/.test(text);
+}
+
+function isNoMessage(message) {
+  const text = normalizeRequestText(message).trim();
+  return /^(?:nao|n|negativo|nao tenho|nao quero)[.! ]*$/.test(text);
+}
+
+function parseFreeMealFrequency(message) {
+  const text = normalizeRequestText(message);
+  const wordNumbers = {
+    uma: 1,
+    um: 1,
+    duas: 2,
+    dois: 2,
+    tres: 3,
+    quatro: 4,
+    cinco: 5,
+    seis: 6,
+    sete: 7
+  };
+
+  const numeric = text.match(/\b([1-7])\b\s*(?:refeicoes?|vezes?)\s*(?:livres?)?\s*(?:por\s+semana|na\s+semana)?/);
+  if (numeric) return Number(numeric[1]);
+
+  const written = text.match(/\b(uma|um|duas|dois|tres|quatro|cinco|seis|sete)\b\s*(?:refeicoes?|vezes?)\s*(?:livres?)?\s*(?:por\s+semana|na\s+semana)?/);
+  if (written) return wordNumbers[written[1]];
+
+  if (/\b(?:tenho|faco|costumo fazer)\s+(?:uma|um)\s+refeicao\s+livre\b/.test(text)) {
+    return 1;
+  }
+
+  return null;
+}
+
+function parseFreeMealDays(message) {
+  const text = normalizeRequestText(message);
+  if (/\b(?:qualquer dia|dia variavel|varia|quando der|quando eu quiser)\b/.test(text)) return [];
+
+  const aliases = [
+    ["domingo", "domingo"],
+    ["segunda-feira", "segunda-feira"],
+    ["segunda", "segunda-feira"],
+    ["terca-feira", "terça-feira"],
+    ["terca", "terça-feira"],
+    ["quarta-feira", "quarta-feira"],
+    ["quarta", "quarta-feira"],
+    ["quinta-feira", "quinta-feira"],
+    ["quinta", "quinta-feira"],
+    ["sexta-feira", "sexta-feira"],
+    ["sexta", "sexta-feira"],
+    ["sabado", "sábado"]
+  ];
+
+  const result = [];
+  for (const [needle, value] of aliases) {
+    if (text.includes(needle)) result.push(value);
+  }
+  return [...new Set(result)];
+}
+
+function parseFreeMealPeriod(message) {
+  const text = normalizeRequestText(message);
+  if (/\bcafe da manha\b/.test(text)) return "café da manhã";
+  if (/\balmoco\b/.test(text)) return "almoço";
+  if (/\blanche(?: da tarde)?\b/.test(text)) return "lanche da tarde";
+  if (/\bjantar\b/.test(text)) return "jantar";
+  if (/\bceia\b/.test(text)) return "ceia";
+  return null;
+}
+
+function isFreeMealRequest(message) {
+  const text = normalizeRequestText(message);
+  return /\b(?:refeicao livre|refeicao flexivel|refeicao livre da semana|dia livre|free meal)\b/.test(text);
+}
+
+function isExplicitFreeMealNegative(message) {
+  const text = normalizeRequestText(message);
+  return /\b(?:nao|nunca)\b.{0,25}\b(?:tenho|faco|quero|vou fazer)\b.{0,15}\b(?:refeicao livre|dia livre)\b/.test(text)
+    || /\b(?:nao|nunca)\b.{0,20}\b(?:refeicao livre|dia livre)\b/.test(text);
+}
+
+function isFreeMealSettingsRequest(message) {
+  const text = normalizeRequestText(message);
+  return /\b(?:quando|qual dia|qual o dia|quantas|quantos)\b.{0,35}\b(?:refeicao livre|refeicoes livres|dia livre)\b/.test(text)
+    || /\b(?:minha|meu|minhas|meus)\b.{0,20}\b(?:refeicao livre|refeicoes livres)\b/.test(text);
+}
+
+function wantsGenericMealSuggestion(message) {
+  const text = normalizeRequestText(message);
+  return /\b(?:o que posso comer|oq posso comer|me sugere|sugestao|sugestoes|opcoes|alternativas)\b/.test(text)
+    && !/\b(?:nao|nunca)\b/.test(text);
+}
+
+function getBrazilWeekday(date = new Date()) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    weekday: "long"
+  }).format(date)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR");
+}
+
+function isTodayFreeMeal(settings) {
+  if (!settings?.enabled || !Array.isArray(settings.days) || !settings.days.length) return false;
+  const today = getBrazilWeekday();
+  return settings.days.some((day) => {
+    const normalizedDay = normalizeRequestText(day);
+    return normalizedDay === today
+      || normalizedDay.replace(/-feira/g, "") === today.replace(/-feira/g, "");
+  });
+}
+
+function formatFreeMealSettings(settings) {
+  if (!settings?.enabled) {
+    return "No momento, não há refeição livre semanal configurada.";
+  }
+
+  const frequency = settings.meals_per_week === 1
+    ? "1 refeição livre por semana"
+    : `${settings.meals_per_week} refeições livres por semana`;
+
+  const days = Array.isArray(settings.days) && settings.days.length
+    ? settings.days.join(", ")
+    : "dia flexível";
+
+  const period = settings.period || "período flexível";
+
+  return `🍽️ Sua configuração de refeição livre:\n${frequency}\n📅 ${days}\n🕒 ${period}`;
+}
+
+function buildFreeMealSuggestionReply(options, settings, mealBudget) {
+  const lines = [
+    "🍽️ Sua refeição livre pode ser flexível sem transformar o dia inteiro em um dia livre.",
+    Number.isFinite(Number(mealBudget)) && mealBudget > 0
+      ? `🔥 Saldo aproximado para esta refeição: ${Math.round(mealBudget)} kcal`
+      : null,
+    ""
+  ].filter(Boolean);
+
+  options.forEach((option, index) => {
+    const fit = option.fits_budget === true
+      ? "cabe no orçamento atual"
+      : option.fits_budget === false
+        ? "ultrapassa o orçamento atual"
+        : "estimativa";
+
+    lines.push(
+      `${index + 1}️⃣ ${option.name}`,
+      `≈ ${Math.round(option.calories)} kcal · P ${Math.round(option.protein_g)} g · C ${Math.round(option.carbs_g)} g · G ${Math.round(option.fat_g)} g`,
+      `📌 ${fit}`,
+      ""
+    );
+  });
 
   lines.push(
-    `🥩 Proteínas: *${targets.daily_protein_target} g*`
-  );
-
-  lines.push(
-    `🍚 Carboidratos: *${targets.daily_carbs_target} g*`
-  );
-
-  lines.push(
-    `🥑 Gorduras: *${targets.daily_fat_target} g*`
-  );
-
-  lines.push("");
-
-  lines.push(
-    "📌 *Importante:* esses valores são uma estimativa inicial para acompanhamento fitness."
-  );
-
-  lines.push(
-    "📈 Conforme você registrar peso, alimentação e treinos, o FitPulse poderá acompanhar sua evolução e ajudar a avaliar a necessidade de ajustes."
+    "Escolher uma opção não registra consumo. Quando você comer, confirme para eu registrar no histórico."
   );
 
   return lines.join("\n");
+}
+
+function buildFreeMealSetupPrompt(nextStep) {
+  if (nextStep === "asked") {
+    return "🍽️ Você costuma fazer alguma refeição livre durante a semana? Responda sim ou não.";
+  }
+  if (nextStep === "asked_frequency") {
+    return "Quantas refeições livres você costuma fazer por semana? Pode responder, por exemplo, 1, 2 ou 3.";
+  }
+  if (nextStep === "asked_day") {
+    return "Em qual dia da semana costuma fazer sua refeição livre? Pode dizer um ou mais dias.";
+  }
+  if (nextStep === "asked_period") {
+    return "Em qual refeição ela costuma acontecer: almoço, lanche da tarde, jantar ou ceia?";
+  }
+  return "";
+}
+
+function handleFreeMealConversation({
+  userId,
+  message,
+  user,
+  dailySummary,
+  currentPeriod,
+  settings
+}) {
+  const text = normalizeRequestText(message).trim();
+  const status = settings?.setup_status || "unknown";
+  const explicitFreeMeal = isFreeMealRequest(message);
+
+  if (
+    status === "unknown" &&
+    hasExplicitProfileUpdateIntent(message) &&
+    !explicitFreeMeal
+  ) {
+    return null;
+  }
+
+  if (status === "asked") {
+    if (isExplicitFreeMealNegative(message) || isNoMessage(message)) {
+      setFreeMealSettings(userId, {
+        setup_status: "disabled",
+        enabled: false,
+        meals_per_week: 0,
+        days: [],
+        period: null
+      });
+      return "Tudo bem. Não vou considerar refeição livre na sua rotina. Você pode mudar isso depois.";
+    }
+
+    if (isYesMessage(message)) {
+      setFreeMealSettings(userId, {
+        setup_status: "asked_frequency",
+        enabled: true
+      });
+      return buildFreeMealSetupPrompt("asked_frequency");
+    }
+  }
+
+  if (status === "asked_frequency") {
+    const frequency = parseFreeMealFrequency(message);
+    if (frequency !== null) {
+      const days = parseFreeMealDays(message);
+      const period = parseFreeMealPeriod(message);
+
+      if (days.length && period) {
+        const saved = setFreeMealSettings(userId, {
+          setup_status: "configured",
+          enabled: true,
+          meals_per_week: frequency,
+          days,
+          period
+        });
+        return `${formatFreeMealSettings(saved)}\n\nPerfeito. Quando chegar o dia da sua refeição livre, posso sugerir opções de pizza, lanche, comida japonesa, sobremesa e outras escolhas ajustadas ao seu saldo.`;
+      }
+
+      if (days.length) {
+        setFreeMealSettings(userId, {
+          setup_status: "asked_period",
+          enabled: true,
+          meals_per_week: frequency,
+          days
+        });
+        return buildFreeMealSetupPrompt("asked_period");
+      }
+
+      setFreeMealSettings(userId, {
+        setup_status: "asked_day",
+        enabled: true,
+        meals_per_week: frequency,
+        ...(period ? { period } : {})
+      });
+
+      return buildFreeMealSetupPrompt("asked_day");
+    }
+  }
+
+  if (status === "asked_day") {
+    const days = parseFreeMealDays(message);
+    const frequency = settings.meals_per_week || parseFreeMealFrequency(message) || 1;
+    const period = parseFreeMealPeriod(message);
+
+    if (
+      days.length ||
+      /\b(?:qualquer dia|dia variavel|varia|quando der|quando eu quiser)\b/.test(text)
+    ) {
+      if (period) {
+        const saved = setFreeMealSettings(userId, {
+          setup_status: "configured",
+          enabled: true,
+          meals_per_week: frequency,
+          days,
+          period
+        });
+        return `${formatFreeMealSettings(saved)}\n\nPerfeito. Vou levar isso em conta nas próximas sugestões.`;
+      }
+
+      setFreeMealSettings(userId, {
+        setup_status: "asked_period",
+        enabled: true,
+        meals_per_week: frequency,
+        days
+      });
+      return buildFreeMealSetupPrompt("asked_period");
+    }
+  }
+
+  if (status === "asked_period") {
+    const period = parseFreeMealPeriod(message);
+    const frequency = settings.meals_per_week || 1;
+
+    if (period) {
+      const saved = setFreeMealSettings(userId, {
+        setup_status: "configured",
+        enabled: true,
+        meals_per_week: frequency,
+        days: settings.days || [],
+        period
+      });
+      return `${formatFreeMealSettings(saved)}\n\nPerfeito. No dia da refeição livre, vou sugerir opções mais próximas do seu saldo e objetivo.`;
+    }
+  }
+
+  if (status === "unknown" && explicitFreeMeal) {
+
+    if (isExplicitFreeMealNegative(message)) {
+      setFreeMealSettings(userId, {
+        setup_status: "disabled",
+        enabled: false,
+        meals_per_week: 0,
+        days: [],
+        period: null
+      });
+      return "Tudo bem. Não vou considerar refeição livre na sua rotina. Você pode mudar isso depois.";
+    }
+    const frequency = parseFreeMealFrequency(message) || null;
+    const days = parseFreeMealDays(message);
+    const period = parseFreeMealPeriod(message);
+
+    if (frequency && days.length && period) {
+      const saved = setFreeMealSettings(userId, {
+        setup_status: "configured",
+        enabled: true,
+        meals_per_week: frequency,
+        days,
+        period
+      });
+      return `${formatFreeMealSettings(saved)}\n\nVou usar essa rotina para personalizar suas sugestões.`;
+    }
+
+    if (frequency && days.length) {
+      setFreeMealSettings(userId, {
+        setup_status: "asked_period",
+        enabled: true,
+        meals_per_week: frequency,
+        days
+      });
+      return buildFreeMealSetupPrompt("asked_period");
+    }
+
+    if (frequency) {
+      setFreeMealSettings(userId, {
+        setup_status: "asked_day",
+        enabled: true,
+        meals_per_week: frequency
+      });
+      return buildFreeMealSetupPrompt("asked_day");
+    }
+
+    setFreeMealSettings(userId, {
+      setup_status: "asked_frequency",
+      enabled: true
+    });
+    return buildFreeMealSetupPrompt("asked_frequency");
+  }
+
+  if (settings?.enabled && isFreeMealSettingsRequest(message)) {
+    return formatFreeMealSettings(settings);
+  }
+
+  if (
+    settings?.enabled &&
+    (
+      explicitFreeMeal ||
+      (isTodayFreeMeal(settings) && wantsGenericMealSuggestion(message))
+    )
+  ) {
+    const periods = getMealPeriods();
+    const budgetPeriod = settings.period && periods.includes(settings.period)
+      ? settings.period
+      : periods.includes(currentPeriod)
+        ? currentPeriod
+        : "jantar";
+
+    const index = periods.indexOf(budgetPeriod);
+    const mealBudgetInfo = getMealBudget(
+      dailySummary,
+      budgetPeriod,
+      periods.slice(Math.max(0, index))
+    );
+
+    const preferredCategories = [
+      ...(Array.isArray(settings.preferences) ? settings.preferences : [])
+    ].map((item) => normalizeRequestText(item));
+
+    if (/\bpizza\b/.test(text)) preferredCategories.push("pizza");
+    if (/\b(?:hamburguer|lanche|burger|cachorro-quente)\b/.test(text)) preferredCategories.push("lanche");
+    if (/\b(?:japonesa|sushi|temaki|sashimi|nigiri|niguiri|hot roll|yakisoba|guioza)\b/.test(text)) preferredCategories.push("japonesa");
+    if (/\b(?:sorvete|sobremesa|chocolate|brigadeiro|acai|açaí)\b/.test(text)) preferredCategories.push("sobremesa");
+
+    if (explicitFreeMeal) {
+      const learnedCategory = [
+        ["pizza", /\bpizza\b/],
+        ["lanche", /\b(?:hamburguer|lanche|burger|cachorro-quente)\b/],
+        ["japonesa", /\b(?:japonesa|sushi|temaki|sashimi|nigiri|niguiri|hot roll|yakisoba|guioza)\b/],
+        ["sobremesa", /\b(?:sorvete|sobremesa|chocolate|brigadeiro|acai|açaí)\b/],
+        ["salgado", /\b(?:salgado|coxinha|pastel|esfiha|empada)\b/],
+        ["massa", /\b(?:massa|macarr[aã]o|lasanha)\b/],
+        ["comida brasileira", /\b(?:feijoada|comida brasileira|parmegiana|escondidinho)\b/]
+      ].find(([, pattern]) => pattern.test(text))?.[0] || null;
+
+      if (learnedCategory) {
+        addFreeMealPreference(userId, learnedCategory);
+      }
+    }
+
+    const options = generateFreeMealOptions({
+      dailyCalorieTarget: dailySummary.calorie_target,
+      dailyCaloriesRemaining: dailySummary.calorie_remaining,
+      currentMealBudget: mealBudgetInfo.calories,
+      preferences: settings.preferences || [],
+      dislikes: getFoodRestrictions(user),
+      preferredCategories,
+      limit: 5
+    });
+
+    recordMealPlanEvent(userId, {
+      plan_id: null,
+      event_type: "suggestion_offered",
+      meal_period: currentPeriod,
+      details: {
+        options,
+        source: "free_meal_suggestion"
+      }
+    });
+
+    return buildFreeMealSuggestionReply(
+      options,
+      settings,
+      mealBudgetInfo.calories
+    );
+  }
+
+  return null;
 }
 
 /* =========================================================
@@ -1501,7 +2492,8 @@ function buildProfileReply(
 
 export async function processMessage(
   userId,
-  message
+  message,
+  internal = {}
 ) {
   ensureUser(userId);
 
@@ -1513,48 +2505,1666 @@ export async function processMessage(
       userId
     );
 
+  
+  const freeMealSettings =
+    getFreeMealSettings(
+      userId
+    );
+const summaryIntent = classifySummaryIntent(message);
+
+  if (
+    internal.interpretedAction?.action === "summary" &&
+    summaryIntent?.type === "specific"
+  ) {
+    return buildSpecificNutritionSummary(
+      dailySummary,
+      summaryIntent.metrics
+    );
+  }
+
+  if (
+    internal.interpretedAction?.action === "summary" &&
+    summaryIntent?.type === "full"
+  ) {
+    return buildSummaryReply(
+      dailySummary,
+      user
+    );
+  }
+
   const recentHistory =
     getRecentHistory(
       userId,
       20
     );
 
-  const context =
+  const todayMeals =
+    getTodayMeals(
+      userId
+    );
+
+  const currentPlan =
+    getMealPlan(
+      userId,
+      dailySummary.date
+    );
+
+  const mealPlanHistory =
+    getMealPlanHistory(
+      userId,
+      20
+    );
+
+  
+  if (!internal.interpretedAction) {
+    const freeMealReply = handleFreeMealConversation({
+      userId,
+      message,
+      user,
+      dailySummary,
+      currentPeriod: getMealPeriod(),
+      settings: freeMealSettings
+    });
+
+    if (freeMealReply) {
+      return freeMealReply;
+    }
+
+    if (
+      isExplicitMealReport(message) &&
+      !isExplicitSelectionConfirmation(message) &&
+      !hasExplicitMealCorrectionIntent(message)
+    ) {
+      const estimatedMeal = estimateMealFromText(message);
+
+      if (estimatedMeal) {
+        return processMessage(
+          userId,
+          message,
+          {
+            interpretedAction: {
+              action: "meal",
+              data: {
+                description: estimatedMeal.description,
+                calories: estimatedMeal.calories,
+                protein_g: estimatedMeal.protein_g,
+                carbs_g: estimatedMeal.carbs_g,
+                fat_g: estimatedMeal.fat_g,
+                meal_period: getMealPeriod()
+              }
+            }
+          }
+        );
+      }
+    }
+  }
+
+  const latestSelectionForConfirmation =
+    !internal.interpretedAction
+      ? mealPlanHistory.find(
+          (event) =>
+            event.event_type ===
+              "option_chosen" &&
+            String(
+              event.created_at || ""
+            ).startsWith(
+              dailySummary.date
+            )
+        )
+      : null;
+
+  if (
+    !internal.interpretedAction &&
+    isExplicitSelectionConfirmation(
+      message
+    ) &&
+    latestSelectionForConfirmation
+  ) {
+    return processMessage(
+      userId,
+      message,
+      {
+        interpretedAction: {
+          action: "meal_consumed",
+          data: {
+            meal_period:
+              latestSelectionForConfirmation.meal_period ||
+              getMealPeriod(),
+
+            selection_event_id:
+              latestSelectionForConfirmation.id
+          }
+        }
+      }
+    );
+  }const context =
     buildContext(
       user,
       dailySummary,
-      recentHistory
+      recentHistory,
+      todayMeals,
+      currentPlan,
+      mealPlanHistory,
+      freeMealSettings
     );
 
-  const response =
-    await client.responses.create({
-      model:
-        process.env.OPENAI_MODEL ||
-        "gpt-5.6",
+  if (
+    !internal.interpretedAction &&
+    isHistoryRequest(message)
+  ) {
+    return buildHistoryReply(
+      recentHistory
+    );
+  }
 
-      instructions:
-        SYSTEM_PROMPT,
+  /*
+   * =======================================================
+   * FATOS EXPLÍCITOS DA MENSAGEM
+   *
+   * A mensagem original é a fonte de verdade para restrições
+   * declaradas pelo usuário.
+   *
+   * O modelo pode interpretar a intenÃ§Ã£o, mas nÃ£o pode
+   * contradizer fatos explícitos como:
+   *
+   * "tenho whey"
+   * "nÃ£o tenho whey"
+   * "nÃ£o quero whey com água"
+   * "quero algo rápido"
+   * "só tenho banana e iogurte"
+   *
+   * =======================================================
+   */
 
-      input:
-        JSON.stringify({
-          user_message:
+  const explicitMealFacts =
+    buildExplicitMealRequestFacts(
+      message
+    );
+
+  /*
+   * Declaracoes de disponibilidade/preferencia nao sao pedidos
+   * de sugestao de refeicao.
+   *
+   * Exemplo:
+   * "Tenho whey em casa, mas nao quero tomar com agua."
+   *
+   * Deve:
+   * - manter whey como disponivel;
+   * - registrar whey + agua como composicao rejeitada;
+   * - nao calcular orcamento calorico;
+   * - nao gerar meal_suggestion.
+   */
+  const hasExplicitFoodPreference =
+    explicitMealFacts.availableFoods.length > 0 ||
+    explicitMealFacts.explicitExcludedFoods.length > 0 ||
+    explicitMealFacts.explicitExcludedCompositions.length > 0;
+
+  const isPreferenceOnlyMessage =
+    hasExplicitFoodPreference &&
+    explicitMealFacts.quickOnly !== true &&
+    explicitMealFacts.moreOptions !== true &&
+    !explicitMealFacts.desiredFood &&
+    !isExplicitMealReport(message) &&
+    !isExplicitSelectionConfirmation(message);
+
+  if (isPreferenceOnlyMessage) {
+    const wheyAvailability =
+      detectWheyAvailability(message);
+
+    if (wheyAvailability !== null) {
+      recordMealPlanEvent(userId, {
+        event_type: "food_availability",
+        details: {
+          food: "whey",
+          available: wheyAvailability
+        }
+      });
+    }
+
+    for (const composition of explicitMealFacts.explicitExcludedCompositions) {
+      recordMealPlanEvent(userId, {
+        event_type: "food_composition_exclusion",
+        details: composition
+      });
+    }
+
+    if (
+      explicitMealFacts.explicitExcludedCompositions.length > 0
+    ) {
+      return "Entendi. Vou considerar o whey disponivel, mas nao vou sugerir whey com agua.";
+    }
+
+    if (wheyAvailability === true) {
+      return "Entendi. Vou considerar o whey como disponivel.";
+    }
+
+    if (wheyAvailability === false) {
+      return "Entendi. Vou considerar que voce nao tem whey disponivel no momento.";
+    }
+
+    return "Entendi e vou considerar essa preferencia nas proximas sugestoes.";
+  }
+
+  if (!internal.interpretedAction) {
+    const registry =
+      createAgentToolRegistry({
+        executeAction: (
+          action,
+          data,
+          intentFlags = {}
+        ) => {
+          /*
+           * =================================================
+           * PROTEÇÕES DE AÇÕES
+           * =================================================
+           */
+
+          if (
+            action === "profile" &&
+            !hasExplicitProfileUpdateIntent(
+              message
+            )
+          ) {
+            return "NÃ£o alterei o perfil porque a mensagem nÃ£o informou uma atualizaÃ§Ã£o explícita.";
+          }
+
+          if (
+            action === "set_calorie_target" &&
+            !hasExplicitTargetUpdate(
+              message,
+              {
+                calories:
+                  data.calories
+              }
+            )
+          ) {
+            return "NÃ£o alterei sua meta: confirme uma nova meta calórica com o valor desejado.";
+          }
+
+          if (
+            action === "set_macro_targets" &&
+            !hasExplicitTargetUpdate(
+              message,
+              data
+            )
+          ) {
+            return "NÃ£o alterei suas metas de macros: informe explicitamente cada macro e o valor desejado.";
+          }
+
+          const normalizedMessage =
+            normalizeRequestText(
+              message
+            );
+
+          if (
+            action === "reset_nutrition_targets" &&
+            (
+              !/\b(?:restaure|restaurar|recalcule|recalcular|volte|voltar)\b/.test(
+                normalizedMessage
+              ) ||
+              !/\b(?:meta|metas|calorias|calorica|macros|automaticas?)\b/.test(
+                normalizedMessage
+              )
+            )
+          ) {
+            return "Só restauro as metas automáticas quando você pedir explicitamente.";
+          }
+
+          if (
+            action === "meal_plan" &&
+            !hasExplicitPlanCreationIntent(
+              message
+            )
+          ) {
+            return "NÃ£o criei um plano porque nÃ£o houve um pedido explícito para montar um.";
+          }
+
+          const latestPlanEvent =
+            currentPlan
+              ? mealPlanHistory.find(
+                  (event) =>
+                    event.plan_id ===
+                    currentPlan.id
+                )
+              : null;
+
+          const pendingPlanDecision =
+            currentPlan?.status === "proposed" &&
+            latestPlanEvent?.event_type ===
+              "plan_proposed";
+
+          if (
+            (
+              action === "meal_plan_intent" ||
+              action === "meal_plan_decline"
+            ) &&
+            !hasExplicitPlanFollowIntent(
+              message,
+              action === "meal_plan_intent",
+              pendingPlanDecision
+            )
+          ) {
+            return "NÃ£o alterei a intenÃ§Ã£o do plano. Diga explicitamente se pretende segui-lo.";
+          }
+
+          if (
+            action === "meal_choice" &&
+            !isExplicitOptionChoice(
+              message,
+              data.option_index
+            )
+          ) {
+            return "Diga o número da opÃ§Ã£o que escolheu. Ainda nÃ£o registrei nenhuma escolha.";
+          }
+
+          if (
+            action === "meal_correction" &&
+            !hasExplicitMealCorrectionIntent(
+              message
+            )
+          ) {
+            return "Só corrijo uma refeição quando você pedir explicitamente uma correÃ§Ã£o. NÃ£o alterei o registro.";
+          }
+
+          if (
+            action === "meal_correction"
+          ) {
+            const existing =
+              todayMeals.find(
+                (meal) =>
+                  meal.id ===
+                  Number(data.meal_id)
+              );
+
+            if (!existing) {
+              return "NÃ£o encontrei esse registro de refeição hoje; nÃ£o alterei nenhum dado.";
+            }
+
+            if (
+              !hasMatchingProvidedNutrition(
+                message,
+                {
+                  calories:
+                    data.calories,
+
+                  protein_g:
+                    data.protein_g,
+
+                  carbs_g:
+                    data.carbs_g,
+
+                  fat_g:
+                    data.fat_g
+                }
+              )
+            ) {
+              return "NÃ£o apliquei a correÃ§Ã£o porque os valores nutricionais nÃ£o correspondem aos números informados na mensagem. Envie os valores corretos; mantive o registro como estava.";
+            }
+          }
+
+          if (
+            action === "meal_consumed" &&
+            !isExplicitSelectionConfirmation(
+              message
+            )
+          ) {
+            return "A escolha só pode ser registrada como consumo após uma confirmaÃ§Ã£o clara de que você comeu. NÃ£o registrei nada.";
+          }
+
+          if (
+            action === "meal" &&
+            !isExplicitMealReport(
+              message
+            )
+          ) {
+            return "Só registro uma refeição quando você confirmar que já consumiu. NÃ£o registrei nada.";
+          }
+
+          if (
+            action === "meal" &&
+            !isExplicitSelectionConfirmation(
+              message
+            ) &&
+            !hasMatchingExplicitMealNutrition(
+              message,
+              data
+            )
+          ) {
+            const estimatedMeal = estimateMealFromText(message);
+
+            if (!estimatedMeal) {
+              return "Para registrar essa refeição diretamente, preciso de uma descrição que eu consiga estimar com segurança ou dos valores informados de calorias, proteínas, carboidratos e gorduras. Não registrei a refeição.";
+            }
+
+            data = {
+              ...data,
+              description: estimatedMeal.description,
+              calories: estimatedMeal.calories,
+              protein_g: estimatedMeal.protein_g,
+              carbs_g: estimatedMeal.carbs_g,
+              fat_g: estimatedMeal.fat_g
+            };
+          }
+
+          return processMessage(
+            userId,
             message,
+            {
+              interpretedAction: {
+                action,
+                data
+              },
 
-          current_context:
-            context
-        })
+              intentFlags
+            }
+          );
+        },
+
+        readMemory: (
+          scope
+        ) => {
+          if (
+            scope === "profile"
+          ) {
+            return {
+              profile:
+                context.profile,
+
+              preferences:
+                context.preferences
+            };
+          }
+
+          if (
+            scope === "history"
+          ) {
+            return context.history;
+          }
+
+          return {
+            ok: false,
+            error:
+              "memory_scope_not_found"
+          };
+        },
+
+        updateAvailability: ({
+          food,
+          available
+        }) => {
+          if (
+            food !== "whey" ||
+            detectWheyAvailability(
+              message
+            ) !== available
+          ) {
+            return {
+              ok: false,
+              error:
+                "availability_not_explicitly_confirmed"
+            };
+          }
+
+          const event =
+            recordMealPlanEvent(
+              userId,
+              {
+                event_type:
+                  "food_availability",
+
+                details: {
+                  food,
+                  available
+                }
+              }
+            );
+
+          return {
+            ok: true,
+            food,
+            available,
+            event_id: event.id,
+            scope: "today"
+          };
+        },
+
+        /*
+         * Os fatos explícitos sÃ£o entregues ao registry para
+         * que o resultado produzido pelo modelo seja mesclado
+         * com as informações determinísticas da mensagem.
+         */
+        explicitMealFacts
+      });
+
+    return runAgent({
+      message,
+      context,
+      registry
     });
-
-  const raw =
-    response.output_text;
-
-  const parsed =
-    parseAIResponse(raw);
+  }
 
   const result =
     normalizeAIResult(
-      parsed
+      internal.interpretedAction
     );
+
+  /*
+   * =======================================================
+   * MESCLAGEM DE FATOS EXPLÍCITOS
+   *
+   * O modelo continua responsável por interpretar a intenÃ§Ã£o,
+   * mas fatos explícitos da mensagem têm precedência.
+   * =======================================================
+   */
+
+  if (
+    result.action === "meal_suggestion"
+  ) {
+    result.data =
+      mergeExplicitMealSuggestionData(
+        result.data,
+        explicitMealFacts
+      );
+  }
+
+  /*
+   * "quick_only" só pode ser verdadeiro quando:
+   *
+   * 1. o usuário pediu explicitamente preparo rápido; ou
+   * 2. uma aÃ§Ã£o interna já trouxe esse sinal explicitamente.
+   *
+   * O modelo nÃ£o deve transformar uma refeição qualquer em
+   * "preparo rápido" por conta própria.
+   */
+  const structuredQuickOnly =
+    typeof result.data?.quick_only === "boolean"
+      ? result.data.quick_only
+      : internal.intentFlags?.quick_only;
+
+  const quickPreparationRequest =
+    explicitMealFacts.quickOnly === true
+      ? true
+      : structuredQuickOnly === true
+        ? true
+        : false;
+
+  if (
+    quickPreparationRequest
+  ) {
+    result.action =
+      "meal_suggestion";
+  }
+
+  const currentPeriod =
+    normalizeMealPeriod(
+      result.data?.meal_period,
+      explicitMealFacts.mealPeriod ||
+        getMealPeriod()
+    );
+
+  const availableFoods =
+    result.action === "meal_suggestion"
+      ? getStructuredOrLegacyFoods(
+          result.data,
+          "available_foods",
+          message
+        )
+      : extractAvailableFoods(
+          message
+        );
+
+  if (
+    result.action === "meal_suggestion"
+  ) {
+    if (
+      dailySummary.calorie_target ===
+      null
+    ) {
+      return "Ainda nÃ£o tenho uma meta diária de calorias para calcular um orçamento seguro para a sugestÃ£o. Complete seu perfil ou informe sua meta.";
+    }
+
+    const remainingMealPeriods =
+      getMealPeriods().slice(
+        getMealPeriods().indexOf(
+          currentPeriod
+        )
+      );
+
+    const preserveBudgetForFuture =
+      result.data.preserve_budget_for_future ===
+        true;
+
+    const requestedFutureMealPeriod =
+      result.data.future_meal_period
+        ? normalizeMealPeriod(
+            result.data.future_meal_period,
+            currentPeriod
+          )
+        : null;
+
+    const futureMealPeriod =
+      requestedFutureMealPeriod !==
+        currentPeriod &&
+      remainingMealPeriods.includes(
+        requestedFutureMealPeriod
+      )
+        ? requestedFutureMealPeriod
+        : null;
+
+    const mealBudget =
+      getMealBudget(
+        dailySummary,
+        currentPeriod,
+        remainingMealPeriods,
+        {
+          preserveBudgetForFuture,
+          futureMealPeriod
+        }
+      );
+
+    const budgetAnalysis =
+      analyzeRemainingNutritionBudget(
+        dailySummary
+      );
+
+    const macroPriority =
+      budgetAnalysis.priority ===
+      "protein"
+        ? "protein"
+        : null;
+
+    const plannedMeal =
+      currentPlan?.plan?.meals?.find(
+        (meal) =>
+          meal.period ===
+          currentPeriod
+      );
+
+    const macroBudget =
+      mealBudget.macro_budget;
+
+    const wheyAvailability =
+      getLatestMealPlanEvent(
+        userId,
+        "food_availability",
+        null,
+        dailySummary.date
+      )?.details;
+
+    const explicitExcludedFoods =
+      Array.isArray(
+        result.data.explicit_excluded_foods
+      )
+        ? normalizeToolFoodList(
+            result.data
+              .explicit_excluded_foods
+          )
+        : explicitMealFacts
+            .explicitExcludedFoods;
+
+    const storedExcludedCompositions = mealPlanHistory
+      .filter((event) =>
+        event.event_type === "food_composition_exclusion" &&
+        event.details &&
+        Array.isArray(event.details.ingredients)
+      )
+      .map((event) => event.details);
+
+    const explicitExcludedCompositions = [
+      ...(Array.isArray(result.data?.explicit_excluded_compositions)
+        ? result.data.explicit_excluded_compositions
+        : []),
+      ...explicitMealFacts.explicitExcludedCompositions,
+      ...storedExcludedCompositions
+    ].filter((composition, index, list) => {
+      const key = Array.isArray(composition?.ingredients)
+        ? composition.ingredients.map(String).sort().join("|")
+        : "";
+
+      return key && index === list.findIndex((item) => {
+        const otherKey = Array.isArray(item?.ingredients)
+          ? item.ingredients.map(String).sort().join("|")
+          : "";
+
+        return otherKey === key;
+      });
+    });
+
+    const requiredFoods =
+      normalizeToolFoodList(
+        result.data.required_foods
+      );
+
+    const explicitOnlyAvailable =
+      result.data.only_available_foods ===
+      true;
+
+    /*
+     * Disponibilidade declarada explicitamente pelo usuário
+     * tem precedência sobre uma interpretaÃ§Ã£o incompleta
+     * do modelo.
+     */
+    if (
+      explicitMealFacts.availableFoods.includes(
+        "whey"
+      ) &&
+      !availableFoods.includes(
+        "whey"
+      ) &&
+      !explicitExcludedFoods.includes(
+        "whey"
+      )
+    ) {
+      availableFoods.push(
+        "whey"
+      );
+    }
+
+    if (
+      wheyAvailability?.food ===
+        "whey" &&
+      wheyAvailability.available ===
+        true &&
+      !availableFoods.includes(
+        "whey"
+      ) &&
+      !explicitExcludedFoods.includes(
+        "whey"
+      )
+    ) {
+      availableFoods.push(
+        "whey"
+      );
+    }
+
+    /*
+     * O alimento desejado deve vir da mensagem explícita quando
+     * existir. A interpretaÃ§Ã£o do modelo é apenas fallback.
+     */
+    /*
+     * desired_food só pode assumir uma categoria reconhecida
+     * pelo catálogo de alimentos desejados.
+     *
+     * Isso impede que o modelo transforme alimentos comuns,
+     * como whey, frango ou arroz, em cravings.
+     */
+    const desiredFood =
+      explicitMealFacts.desiredFood ||
+      detectDesiredFood(
+        message,
+        result.data.desired_food
+      );
+
+    if (
+      desiredFood
+    ) {
+      if (
+        hasDesiredFoodAvailable(
+          message,
+          desiredFood
+        ) &&
+        !availableFoods.includes(
+          desiredFood
+        )
+      ) {
+        availableFoods.push(
+          desiredFood
+        );
+      }
+
+      const restrictions = [
+        ...getFoodRestrictions(user),
+        ...explicitExcludedFoods
+      ].map(
+        (item) =>
+          String(
+            item
+          ).toLocaleLowerCase(
+            "pt-BR"
+          )
+      );
+
+      if (
+        restrictions.some(
+          (item) =>
+            item.includes(
+              desiredFood
+            ) ||
+            desiredFood.includes(
+              item
+            )
+        )
+      ) {
+        return `Entendi que você quer ${desiredFood}, mas esse alimento consta como rejeitado/restrito no seu perfil ou nesta conversa. NÃ£o vou sugeri-lo. Se a restriÃ§Ã£o nÃ£o se aplica mais, atualize sua preferência e tento encaixá-lo.`;
+      }
+
+      const desiredOptions =
+        generateDesiredFoodOptions({
+          desiredFood,
+
+          calorieBudget:
+            mealBudget.calories,
+
+          macroBudget,
+
+          macroPriority,
+
+          dailyCalorieBudget:
+            budgetAnalysis
+              .calorie_remaining,
+
+          dailyMacroBudget: {
+            protein_g:
+              budgetAnalysis
+                .macro_remaining
+                .protein_g,
+
+            carbs_g:
+              budgetAnalysis
+                .macro_remaining
+                .carbs_g,
+
+            fat_g:
+              budgetAnalysis
+                .macro_remaining
+                .fat_g
+          },
+
+          dislikes:
+            restrictions,
+
+          availableFoods,
+
+          availabilityOnly:
+            explicitOnlyAvailable,
+
+          requestedServings:
+            explicitMealFacts
+              .requestedServings ??
+            detectRequestedServings(
+              message,
+              desiredFood,
+              result.data
+                .requested_servings
+            ),
+
+          preferredComposition:
+            detectDesiredComposition(
+              message,
+              desiredFood
+            ),
+
+          recentOptions:
+            getRecentSuggestedOptions(
+              mealPlanHistory
+            ),
+
+          excludeRecentOptions:
+            explicitMealFacts.moreOptions ===
+              true ||
+            result.data.more_options ===
+              true,
+
+          limit: 3
+        });
+
+      if (
+        desiredOptions ===
+        null
+      ) {
+        return `Ainda nÃ£o tenho uma referência nutricional confiável para ${result.data.desired_food || desiredFood}. Envie a porÃ§Ã£o e os dados do rótulo/cardápio ou os ingredientes para eu calcular o encaixe sem inventar valores.`;
+      }
+
+      const offer =
+        recordMealPlanEvent(
+          userId,
+          {
+            plan_id:
+              currentPlan?.id ??
+              null,
+
+            event_type:
+              "suggestion_offered",
+
+            meal_period:
+              currentPeriod,
+
+            option_index:
+              null,
+
+            details: {
+              options:
+                desiredOptions,
+
+              source:
+                "desired_food_suggestion",
+
+              desired_food:
+                desiredFood
+            }
+          }
+        );
+
+      const overageIndex =
+        desiredOptions.findIndex(
+          (option) =>
+            option.explicit_overage
+        );
+
+      if (
+        explicitlyAcceptsOverage(
+          message
+        ) &&
+        overageIndex >= 0
+      ) {
+        const option =
+          desiredOptions[
+            overageIndex
+          ];
+
+        recordMealPlanEvent(
+          userId,
+          {
+            plan_id:
+              currentPlan?.id ??
+              null,
+
+            event_type:
+              "option_chosen",
+
+            meal_period:
+              currentPeriod,
+
+            option_index:
+              overageIndex + 1,
+
+            details: {
+              option,
+
+              source:
+                "desired_food_suggestion",
+
+              offer_event_id:
+                offer.id
+            }
+          }
+        );
+
+        return buildMealProjectionReply(
+          {
+            data:
+              option
+          },
+          dailySummary,
+          budgetAnalysis
+        );
+      }
+
+      return buildDesiredFoodReply(
+        desiredOptions,
+        desiredFood,
+        mealBudget.calories,
+        budgetAnalysis,
+        {
+          availabilityOnly:
+            explicitOnlyAvailable,
+
+          summary:
+            dailySummary
+        }
+      );
+    }
+
+    const suggestionDislikes = [
+      ...getFoodRestrictions(user),
+      ...explicitExcludedFoods
+    ];
+
+    if (
+      wheyAvailability?.food ===
+        "whey" &&
+      wheyAvailability.available ===
+        false &&
+      !availableFoods.includes(
+        "whey"
+      ) &&
+      !suggestionDislikes.includes(
+        "whey"
+      )
+    ) {
+      suggestionDislikes.push(
+        "whey"
+      );
+    }
+
+    const recentOptions =
+      getRecentSuggestedOptions(
+        mealPlanHistory
+      );
+
+    const recentByCategory =
+      quickPreparationRequest
+        ? recentOptions.filter(
+            (option) =>
+              isActuallyQuickOption(
+                option
+              )
+          )
+        : recentOptions;
+
+    const options =
+      generateMealOptions({
+        mealPeriod:
+          currentPeriod,
+
+        calorieBudget:
+          mealBudget.calories,
+
+        macroBudget,
+
+        macroPriority,
+
+        dislikes:
+          suggestionDislikes,
+
+        availableFoods,
+
+        recentOptions:
+          recentByCategory,
+
+        additionalOptions:
+          budgetAnalysis.incompatible
+            ? []
+            : (
+                plannedMeal?.options ||
+                []
+              ),
+
+        requiredFoods,
+
+        excludedCompositions:
+          explicitExcludedCompositions,
+
+        onlyAvailableFoods:
+          explicitOnlyAvailable,
+
+        preferSmaller:
+          preserveBudgetForFuture,
+
+        quickOnly:
+          quickPreparationRequest,
+
+        excludeRecentOptions:
+          explicitMealFacts.moreOptions ===
+            true ||
+          result.data.more_options ===
+            true
+            ? true
+            : false
+      });
+
+    if (
+      !options.length
+    ) {
+      const explanation =
+        quickPreparationRequest
+          ? "NÃ£o encontrei uma opÃ§Ã£o de preparo rápido que passe pelas validações e restrições atuais. "
+          : budgetAnalysis.incompatible
+            ? `Restam ${Math.round(budgetAnalysis.calorie_remaining)} kcal no dia, mas os macros restantes exigiriam cerca de ${Math.round(budgetAnalysis.macro_calorie_requirement_kcal)} kcal. ${budgetAnalysis.priority === "protein" ? "Vou manter o limite calórico e priorizar proteína. " : "Vou manter o limite calórico e nÃ£o aumentar macros já atingidos. "}`
+            : mealBudget.calories <
+                120
+              ? `O orçamento desta refeição é de aproximadamente ${Math.round(mealBudget.calories)} kcal, insuficiente para uma porÃ§Ã£o prática. `
+              : "Com as restrições e o orçamento atuais, ";
+
+      return `${explanation}${buildMealSuggestionReply([], budgetAnalysis)}`;
+    }
+
+    recordMealPlanEvent(
+      userId,
+      {
+        plan_id:
+          currentPlan?.id ??
+          null,
+
+        event_type:
+          "suggestion_offered",
+
+        meal_period:
+          currentPeriod,
+
+        option_index:
+          null,
+
+        details: {
+          options,
+
+          source:
+            currentPlan
+              ? "daily_plan"
+              : "meal_suggestion",
+
+          suggestion_context: {
+            available_foods:
+              availableFoods,
+
+            required_foods:
+              requiredFoods,
+
+            explicit_excluded_foods:
+              explicitExcludedFoods,
+
+            explicit_excluded_compositions:
+              explicitExcludedCompositions,
+
+            only_available_foods:
+              explicitOnlyAvailable,
+
+            quick_only:
+              quickPreparationRequest,
+
+            preserve_budget_for_future:
+              preserveBudgetForFuture,
+
+            future_meal_period:
+              futureMealPeriod,
+
+            future_meal_reserved_calories:
+              mealBudget
+                .future_meal_reserved_calories
+          }
+        }
+      }
+    );
+
+    const reply =
+      buildMealSuggestionReply(
+        options,
+        budgetAnalysis
+      );
+
+    return preserveBudgetForFuture
+      ? `Como você quer preservar parte do orçamento para ${futureMealPeriod || "uma refeição posterior"}, priorizei opções mais moderadas para agora.\n\n${reply}`
+      : reply;
+  }
+  if (result.action === "meal_plan") {
+    if (dailySummary.calorie_target === null) {
+      return "Para montar um plano distribuído ao longo do dia, preciso primeiro da sua meta diária. Complete seu perfil ou informe sua meta de calorias.";
+    }
+
+    const plan = buildDailyMealPlan({
+      summary: dailySummary,
+      currentPeriod,
+
+      dislikes: [
+        ...getFoodRestrictions(user),
+        ...explicitExcludedFoods
+      ],
+
+      availableFoods,
+
+      date:
+        dailySummary.date
+    });
+
+    const savedPlan =
+      saveMealPlan(
+        userId,
+        plan
+      );
+
+    recordMealPlanEvent(
+      userId,
+      {
+        plan_id:
+          savedPlan.id,
+
+        event_type:
+          "plan_proposed",
+
+        details: {
+          valid:
+            plan.valid
+        }
+      }
+    );
+
+    return formatPlanReply(
+      plan
+    );
+  }
+
+  if (
+    result.action ===
+    "meal_plan_get"
+  ) {
+    return currentPlan
+      ? formatPlanReply(
+          currentPlan.plan
+        )
+      : "Ainda nÃ£o há um plano alimentar salvo para hoje. Quer que eu monte um agora?";
+  }
+
+  if (
+    result.action ===
+      "meal_plan_intent" ||
+    result.action ===
+      "meal_plan_decline"
+  ) {
+    if (!currentPlan) {
+      return "Ainda nÃ£o há um plano salvo para hoje. Quer que eu monte um?";
+    }
+
+    const status =
+      result.action ===
+      "meal_plan_intent"
+        ? "intended"
+        : "declined";
+
+    updateMealPlanStatus(
+      userId,
+      dailySummary.date,
+      status
+    );
+
+    recordMealPlanEvent(
+      userId,
+      {
+        plan_id:
+          currentPlan.id,
+
+        event_type:
+          status === "intended"
+            ? "plan_intended"
+            : "plan_declined"
+      }
+    );
+
+    return status ===
+      "intended"
+      ? "Combinado! Vou usar o plano como referência. A escolha de uma opÃ§Ã£o ainda nÃ£o registra consumo; me confirme quando comer."
+      : "Tudo bem — nÃ£o vou tratar o plano como consumo. Posso montar outro mais adequado �  sua rotina ou ao que você tem disponível.";
+  }
+
+  if (
+    result.action ===
+    "meal_choice"
+  ) {
+    const period =
+      normalizeMealPeriod(
+        result.data.meal_period,
+        currentPeriod
+      );
+
+    const meal =
+      currentPlan?.plan?.meals?.find(
+        (item) =>
+          item.period ===
+          period
+      );
+
+    const optionIndex =
+      Number(
+        result.data.option_index
+      );
+
+    const offer =
+      getLatestMealPlanEvent(
+        userId,
+        "suggestion_offered",
+        period,
+        dailySummary.date
+      );
+
+    const latestPlanProposal =
+      currentPlan
+        ? mealPlanHistory.find(
+            (event) =>
+              event.event_type ===
+                "plan_proposed" &&
+              event.plan_id ===
+                currentPlan.id
+          )
+        : null;
+
+    const useLatestOffer =
+      Boolean(
+        offer &&
+        (
+          !meal?.options?.length ||
+          !latestPlanProposal ||
+          offer.id >
+            latestPlanProposal.id
+        )
+      );
+
+    const suggestedOptions =
+      Array.isArray(
+        offer?.details?.options
+      )
+        ? offer.details.options
+        : [];
+
+    const suggested =
+      useLatestOffer
+        ? (
+            suggestedOptions[
+              optionIndex - 1
+            ] ??
+            (
+              optionIndex === 1
+                ? offer?.details?.option ??
+                  null
+                : null
+            )
+          )
+        : null;
+
+    const option =
+      suggested ??
+      meal?.options?.[
+        optionIndex - 1
+      ];
+
+    const mealBudget =
+      getMealBudget(
+        dailySummary,
+        period,
+        getMealPeriods().slice(
+          getMealPeriods().indexOf(
+            period
+          )
+        )
+      );
+
+    const budgetAnalysis =
+      analyzeRemainingNutritionBudget(
+        dailySummary
+      );
+
+    const macroPriority =
+      budgetAnalysis.priority ===
+      "protein"
+        ? "protein"
+        : null;
+
+    const calorieBudget =
+      mealBudget.calories;
+
+    const macroBudget =
+      mealBudget.macro_budget;
+
+    const explicitOverage =
+      option?.explicit_overage ===
+      true;
+
+    if (
+      !option ||
+      !validateMealOption(
+        option,
+        explicitOverage
+          ? null
+          : calorieBudget,
+        explicitOverage
+          ? {}
+          : macroBudget,
+        {
+          macroPriority:
+            explicitOverage
+              ? null
+              : macroPriority
+        }
+      ).valid
+    ) {
+      return `NÃ£o encontrei essa opÃ§Ã£o em ${period}. Qual número da opÃ§Ã£o você escolheu?`;
+    }
+
+    recordMealPlanEvent(
+      userId,
+      {
+        plan_id:
+          currentPlan?.id ??
+          null,
+
+        event_type:
+          "option_chosen",
+
+        meal_period:
+          period,
+
+        option_index:
+          optionIndex,
+
+        details: {
+          option,
+
+          source:
+            suggested
+              ? "meal_suggestion"
+              : "daily_plan",
+
+          ...(offer && {
+            offer_event_id:
+              offer.id
+          })
+        }
+      }
+    );
+
+    return buildMealProjectionReply(
+      {
+        data:
+          option
+      },
+      dailySummary,
+      budgetAnalysis
+    );
+  }
+
+  if (
+    result.action ===
+      "meal_consumed" ||
+    (
+      result.action ===
+        "meal" &&
+      isExplicitSelectionConfirmation(
+        message
+      )
+    )
+  ) {
+    const period =
+      normalizeMealPeriod(
+        result.data.meal_period,
+        currentPeriod
+      );
+
+    const currentDayEvents =
+      mealPlanHistory.filter(
+        (event) =>
+          String(
+            event.created_at || ""
+          ).startsWith(
+            dailySummary.date
+          ) &&
+          (
+            !event.meal_period ||
+            event.meal_period ===
+              period
+          )
+      );
+
+    const requestedSelection =
+      currentDayEvents.find(
+        (event) =>
+          event.id ===
+            result.data
+              .selection_event_id &&
+          event.event_type ===
+            "option_chosen"
+      );
+
+    const latestChoice =
+      currentDayEvents.find(
+        (event) =>
+          event.event_type ===
+          "option_chosen"
+      );
+
+    const latestOffer =
+      currentDayEvents.find(
+        (event) =>
+          event.event_type ===
+          "suggestion_offered"
+      );
+
+    const selectedEvent =
+      requestedSelection ??
+      (
+        latestChoice &&
+        (
+          !latestOffer ||
+          latestChoice.id >
+            latestOffer.id
+        )
+          ? latestChoice
+          : null
+      );
+
+    if (
+      Array.isArray(
+        latestOffer?.details?.options
+      ) &&
+      latestOffer.details.options
+        .length &&
+      !selectedEvent
+    ) {
+      return "Escolha primeiro o número de uma das opções. NÃ£o registrei consumo; depois da escolha, confirme quando tiver comido.";
+    }
+
+    const consumption =
+      consumeMealSelection(
+        userId,
+        {
+          selectionEventId:
+            selectedEvent?.id ??
+            result.data
+              .selection_event_id,
+
+          mealPeriod:
+            period,
+
+          date:
+            dailySummary.date
+        }
+      );
+
+    if (!consumption) {
+      if (
+        result.action ===
+        "meal_consumed"
+      ) {
+        return "NÃ£o encontrei uma opÃ§Ã£o escolhida para registrar. Diga qual refeição você comeu e eu registro o consumo real.";
+      }
+
+      return "NÃ£o encontrei uma opÃ§Ã£o escolhida para confirmar como consumida. Se você comeu outra refeição, descreva o que consumiu e eu registro isso separadamente.";
+    }
+
+    if (
+      consumption.alreadyConsumed
+    ) {
+      return `Essa opção (${consumption.selection.details.option.name}) já estava registrada como consumida; não registrei novamente.`;
+    }
+
+    updateMealPlanStatus(
+      userId,
+      dailySummary.date,
+      "in_progress"
+    );
+
+    return `✅ Registrei como consumida: ${consumption.selection.details.option.name} (${consumption.selection.details.option.calories} kcal estimadas). ID da refeição: ${consumption.meal.id}.`;
+  }
+
+  if (
+    result.action ===
+    "meal_correction"
+  ) {
+    const before =
+      todayMeals.find(
+        (meal) =>
+          meal.id ===
+          result.data.meal_id
+      );
+
+    if (!before) {
+      return "NÃ£o consegui identificar com segurança qual refeição de hoje corrigir. Confira o ID no resumo ou me diga a descriÃ§Ã£o e o horário.";
+    }
+
+    result.data = {
+      ...result.data,
+
+      calories:
+        result.data.calories ??
+        before.calories,
+
+      protein_g:
+        result.data.protein_g ??
+        before.protein_g,
+
+      carbs_g:
+        result.data.carbs_g ??
+        before.carbs_g,
+
+      fat_g:
+        result.data.fat_g ??
+        before.fat_g
+    };
+
+    const corrected =
+      saveAction(
+        userId,
+        result
+      );
+
+    if (!corrected) {
+      return "NÃ£o encontrei esse registro para corrigir.";
+    }
+
+    recordMealPlanEvent(
+      userId,
+      {
+        event_type:
+          "meal_corrected",
+
+        meal_period:
+          before.meal_period,
+
+        meal_id:
+          corrected.id,
+
+        details: {
+          before,
+          after:
+            corrected
+        }
+      }
+    );
+
+    return `✏️ Corrigi a refeição #${corrected.id} sem criar outro registro. O resumo do dia já considera os valores atualizados.`;
+  }
+
+  if (
+    result.action ===
+    "meal"
+  ) {
+    result.data.meal_period =
+      currentPeriod;
+
+    if (
+      currentPlan
+    ) {
+      result.data.plan_id =
+        currentPlan.id;
+    }
+  }
 
   const saved =
     saveAction(
@@ -1562,14 +4172,179 @@ export async function processMessage(
       result
     );
 
+  if (
+    result.action ===
+      "meal" &&
+    saved
+  ) {
+    const choice =
+      getLatestMealPlanEvent(
+        userId,
+        "option_chosen",
+        currentPeriod,
+        dailySummary.date
+      );
+
+    const offer =
+      getLatestMealPlanEvent(
+        userId,
+        "suggestion_offered",
+        currentPeriod,
+        dailySummary.date
+      );
+
+    const chosenName =
+      choice?.details?.option?.name ||
+      offer?.details?.option?.name;
+
+    const followed =
+      chosenName &&
+      chosenName.toLocaleLowerCase(
+        "pt-BR"
+      ) ===
+        String(
+          saved.description
+        ).toLocaleLowerCase(
+          "pt-BR"
+        );
+
+    if (
+      currentPlan ||
+      offer
+    ) {
+      recordMealPlanEvent(
+        userId,
+        {
+          plan_id:
+            currentPlan?.id ??
+            offer?.plan_id ??
+            null,
+
+          event_type:
+            currentPlan
+              ? (
+                  followed
+                    ? "plan_followed"
+                    : "plan_adapted"
+                )
+              : (
+                  followed
+                    ? "suggestion_followed"
+                    : "suggestion_not_followed"
+                ),
+
+          meal_period:
+            currentPeriod,
+
+          option_index:
+            followed
+              ? (
+                  choice?.option_index ??
+                  offer?.option_index ??
+                  null
+                )
+              : null,
+
+          meal_id:
+            saved.id,
+
+          details: {
+            description:
+              saved.description
+          }
+        }
+      );
+
+      if (
+        currentPlan &&
+        !followed
+      ) {
+        updateMealPlanStatus(
+          userId,
+          dailySummary.date,
+          "adapted"
+        );
+      }
+    }
+
+    return `✅ Registrei: ${saved.description} — ${Math.round(saved.calories)} kcal, ${Number(saved.protein_g)} g de proteína, ${Number(saved.carbs_g)} g de carboidratos e ${Number(saved.fat_g)} g de gorduras. ID da refeição: ${saved.id}.`;
+  }
+
+  if (
+    result.action ===
+      "set_calorie_target" ||
+    result.action ===
+      "set_macro_targets"
+  ) {
+    const updated =
+      saved?.user;
+
+    const balance =
+      calculateNutritionBalance({
+        calorie_target:
+          updated?.daily_calorie_target,
+
+        protein_target:
+          updated?.daily_protein_target,
+
+        carbs_target:
+          updated?.daily_carbs_target,
+
+        fat_target:
+          updated?.daily_fat_target
+      });
+
+    if (
+      balance.macros_compatible ===
+      false
+    ) {
+      return `${result.reply || "Meta personalizada salva."}\n\n� ️ As metas atuais de calorias e macros sÃ£o matematicamente incompatíveis (${Math.round(balance.macro_calorie_total)} kcal pelos macros para uma meta de ${Math.round(updated.daily_calorie_target)} kcal). Mantive os valores escolhidos sem ajustá-los silenciosamente.`;
+    }
+  }
+
   /* -------------------------------------------------------
      Perfil completo
   ------------------------------------------------------- */
 
   if (
-    result.action === "profile" &&
+    result.action ===
+      "profile" &&
     saved?.targets
   ) {
+    let reply = buildProfileReply(
+      saved.user,
+      saved.targets
+    );
+
+    const currentFreeMealSettings =
+      getFreeMealSettings(
+        userId
+      );
+
+    if (currentFreeMealSettings.setup_status === "unknown") {
+      setFreeMealSettings(
+        userId,
+        {
+          setup_status: "asked"
+        }
+      );
+
+      reply += `\n\n${buildFreeMealSetupPrompt("asked")}`;
+    }
+
+    return reply;
+  }
+
+  if (
+    result.action ===
+    "reset_nutrition_targets"
+  ) {
+    if (
+      !saved?.targets
+    ) {
+      return "Ainda faltam dados no perfil para recalcular suas metas. Complete os dados de idade, sexo, altura, peso, objetivo e nível de atividade.";
+    }
+
     return buildProfileReply(
       saved.user,
       saved.targets
@@ -1581,7 +4356,8 @@ export async function processMessage(
   ------------------------------------------------------- */
 
   if (
-    result.action === "summary"
+    result.action ===
+    "summary"
   ) {
     const updatedSummary =
       getDailySummary(
