@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   FOOD_CATALOG, EXPANDED_TEMPLATES, estimateMealFromText,
-  findFoodCandidates, getMissingMealQuantities, getQuantityQuestions
+  findFoodCandidates, getMissingMealQuantities, getQuantityQuestions, applyQuantityAnswer
 } from "../src/nutritionCatalog.js";
 
 const ids = (estimate) => (estimate?.matched_items || []).map((item) => item.id);
@@ -272,6 +272,18 @@ test("NUT-25: contagem multiplica o peso de UMA unidade (pão de queijo)", () =>
   const multi = FOOD_CATALOG.filter((food) => !/^official/.test(food.source)
     && /^\s*[2-9]\d*\s+(?!g$|ml$)/.test(food.unit));
   assert.deepEqual(multi.map((food) => food.id), []);
+});
+
+test("NUT-26: 'pizza inteira' pergunta a quantidade e '8' vale 8 fatias", () => {
+  const message = "comi uma pizza de calabresa inteira";
+  const questions = getQuantityQuestions(message);
+  assert.deepEqual(questions.map((item) => item.id), ["pizza-calabresa-direta"]);
+  for (const reply of ["8", "8 fatias"]) {
+    const answer = applyQuantityAnswer(message, questions, reply);
+    assert.equal(estimateMealFromText(answer.message).matched_items[0].grams, 8 * 90, reply);
+  }
+  assert.deepEqual(getQuantityQuestions("comi uma pizza de calabresa"), []);
+  assert.deepEqual(getQuantityQuestions("comi 4 fatias de pizza de calabresa inteira"), []);
 });
 
 test("DEC-01: peso por unidade segue a medida caseira da TBCA", () => {

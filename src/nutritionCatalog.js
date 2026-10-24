@@ -765,6 +765,9 @@ function extractQuantityDetails(text, item, fromIndex = 0, { endIndex = null } =
     if (amount) return unitToGrams(amount, match[2], item, match[3]?.replace(/s$/, "") || null);
   }
 
+  // NUT-26: "pizza inteira", "bolo inteiro" sem medida: quantidade desconhecida, perguntar.
+  if (/^\s*inteir[ao]s?\b/.test(after)) return { grams: 0, measure: null, whole: true };
+
   // Contagem direta antes/depois do alimento: "2 bananas", "meia banana", "1/2 mamão".
   const directBefore = before.match(new RegExp(`(${QUANTITY_PATTERN})\\s*$`));
   const directAfter = after.match(new RegExp(`^\\s*(${QUANTITY_PATTERN})(?![a-z0-9])`));
@@ -814,7 +817,8 @@ function groupOccurrencesByFood(text) {
     group.mentions.push({
       ...occurrence,
       explicitGrams: details?.grams > 0 ? details.grams : null,
-      measure: details?.measure || null
+      measure: details?.measure || null,
+      whole: Boolean(details?.whole)
     });
     groups.set(occurrence.item.id, group);
   }
@@ -825,13 +829,14 @@ export function getMissingMealQuantities(message) {
   const text = normalizeText(message);
   return groupOccurrencesByFood(text).groups
     .filter(({ mentions }) => !mentions.some((mention) => mention.explicitGrams))
-    .map(({ item, position }) => ({
+    .map(({ item, position, mentions }) => ({
       id: item.id,
       name: item.name,
       aliases: item.aliases || [],
       default_g: item.default_g,
       unit: item.unit,
-      position
+      position,
+      whole: mentions.some((mention) => mention.whole)
     }));
 }
 
@@ -842,7 +847,7 @@ const DEFAULT_PORTION_ACCEPTED = new Set(["whey"]);
 
 export function getQuantityQuestions(message) {
   return getMissingMealQuantities(message).filter((item) =>
-    /^\d+(?:[.,]\d+)?\s*(?:g|ml)$/i.test(String(item.unit || "").trim())
+    (item.whole || /^\d+(?:[.,]\d+)?\s*(?:g|ml)$/i.test(String(item.unit || "").trim()))
     && !DEFAULT_PORTION_ACCEPTED.has(item.id));
 }
 
@@ -857,11 +862,13 @@ export function applyQuantityAnswer(originalMessage, items, reply) {
     return { message: originalMessage, acceptDefaults: true };
   }
 
-  const quantityPhrase = (match) => {
+  const quantityPhrase = (match, item) => {
     if (!match) return null;
     const amount = parseQuantity(match[1]);
     if (!amount) return null;
     if (match[2]) return `${match[1]} ${match[2]}`;
+    // Item contado em fatias (pizza inteira): número pequeno = fatias.
+    if (amount < 10 && /fatia/.test(String(item.unit || ""))) return `${match[1]} fatias`;
     // Número solto vale como gramas quando não pode ser contagem ("150", não "2").
     return amount >= 10 ? `${match[1]} g` : null;
   };
@@ -874,9 +881,9 @@ export function applyQuantityAnswer(originalMessage, items, reply) {
   for (const item of items) {
     const inReply = replyOccurrences.find((occurrence) => occurrence.item?.id === item.id);
     const phrase = inReply
-      ? quantityPhrase(replyText.slice(0, inReply.index).match(new RegExp(`(${QUANTITY_PATTERN})${unit}\\s*(?:de|do|da)?\\s*$`)))
+      ? quantityPhrase(replyText.slice(0, inReply.index).match(new RegExp(`(${QUANTITY_PATTERN})${unit}\\s*(?:de|do|da)?\\s*$`)), item)
       : items.length === 1
-        ? quantityPhrase(replyText.match(new RegExp(`^\\s*(${QUANTITY_PATTERN})${unit}\\s*$`)))
+        ? quantityPhrase(replyText.match(new RegExp(`^\\s*(${QUANTITY_PATTERN})${unit}\\s*$`)), item)
         : null;
     const target = originalOccurrences.find((occurrence) => occurrence.item?.id === item.id);
     if (phrase && target) inserts.push({ index: target.index, text: `${phrase} de ` });
