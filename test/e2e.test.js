@@ -1031,3 +1031,29 @@ test("NUT-17 / Fase 5: meta calórica inválida já salva é ignorada e explicad
   assert.match(reply, /meta calórica salva \(100\.000 kcal\) não é válida/);
   assert.match(await send(userId, "resumo do dia"), /não é válida/);
 });
+
+test("Fase 5: 'minha neta de calorias é 1800, proteína 140g…' (erro de digitação) atualiza as metas", async () => {
+  const userId = userWithTargets();
+  const message = "Minha neta de calorias é 1800, proteína 140g carboidrato 180g gordura 60 g";
+  await send(userId, message, fakeModel([toolCall("set_calorie_target", { calories: 1800 }), finalText("ok")]));
+  await send(userId, message, fakeModel([toolCall("set_macro_targets", { protein_g: 140, carbs_g: 180, fat_g: 60 }), finalText("ok")]));
+  const user = db.getUser(userId);
+  assert.deepEqual([user.daily_calorie_target, user.daily_protein_target, user.daily_carbs_target, user.daily_fat_target], [1800, 140, 180, 60]);
+});
+
+test("CONV-02: metas entendem erros de digitação nos nomes e na palavra 'meta'", async () => {
+  const userId = userWithTargets();
+  const message = "mta de calorias 1700, protiena 150 g, carboidrto 170g e gordra 55g";
+  await send(userId, message, fakeModel([toolCall("set_calorie_target", { calories: 1700 }), finalText("ok")]));
+  await send(userId, message, fakeModel([toolCall("set_macro_targets", { protein_g: 150, carbs_g: 170, fat_g: 55 }), finalText("ok")]));
+  const user = db.getUser(userId);
+  assert.deepEqual([user.daily_calorie_target, user.daily_protein_target, user.daily_carbs_target, user.daily_fat_target], [1700, 150, 170, 55]);
+});
+
+test("CONV-02: relato de consumo não vira meta, mesmo se o modelo chamar a ferramenta", async () => {
+  const userId = userWithTargets();
+  const before = db.getUser(userId).daily_protein_target;
+  const reply = await send(userId, "comi 140 g de proteína hoje", fakeModel([toolCall("set_macro_targets", { protein_g: 140 }), finalText("ok")]));
+  assert.match(reply, /Não alterei suas metas de macros/);
+  assert.equal(db.getUser(userId).daily_protein_target, before);
+});

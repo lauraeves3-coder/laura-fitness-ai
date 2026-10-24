@@ -457,3 +457,21 @@ test("CAT-01: 'colher de chá' é medida, não a bebida", () => {
   assert.deepEqual(ids(estimateMealFromText("comi 1 colher de chá de açúcar")), ["acucar-refinado"]);
   assert.deepEqual(ids(estimateMealFromText("tomei um chá")), ["cha-sem-acucar"]);
 });
+
+// ---------- CONV-02: erros de digitação nos alimentos ----------
+
+test("CONV-02: alimentos com erro de digitação são reconhecidos e a descrição é corrigida", () => {
+  const estimate = estimateMealFromText("comi frnago com arros e fejão");
+  assert.deepEqual(ids(estimate), ["peito-de-frango-grelhado", "arroz-branco-cozido", "feijao-carioca-cozido"]);
+  assert.equal(estimate.description, "comi frango com arroz e feijão");
+  assert.deepEqual(ids(estimateMealFromText("bebi um suco de laranaj")), ["suco-de-laranja"]);
+  assert.deepEqual(ids(estimateMealFromText("comi pizza de calabreza")), ["pizza-calabresa-direta"]);
+  assert.deepEqual(ids(estimateMealFromText("comi tapioka com queijo minas")), ["tapioca-pronta", "queijo-minas-frescal"]);
+  assert.equal(estimateMealFromText("comi 150 g de frnago grelhado").matched_items[0].grams, 150);
+});
+
+test("CONV-02: palavras comuns e textos sem comida não viram alimento", () => {
+  assert.deepEqual(ids(estimateMealFromText("comi um pouco de arroz")), ["arroz-branco-cozido"]);
+  assert.equal(estimateMealFromText("hoje comi bem"), null);
+  assert.equal(estimateMealFromText("treinei bastante depois do trabalho"), null);
+});

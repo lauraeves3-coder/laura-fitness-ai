@@ -743,6 +743,81 @@ const DISH_EXPANSIONS = [
 let catalogEntries = null;
 let catalogById = null;
 
+// CONV-02: erro de digitação em nome de alimento ("frnago", "arros", "fejão"). Palavra sem
+// correspondência exata é comparada com os nomes de uma palavra do catálogo: 1 letra
+// trocada, faltando, sobrando ou duas invertidas (2 em palavras de 8+ letras). Só vale com
+// um único candidato mais próximo, e palavras comuns nunca viram alimento.
+const FUZZY_STOPWORDS = new Set(("almocei jantei lanchei comemos bebemos tomamos pouco pouca muito muita depois antes agora ainda junto " +
+  "sobre tinha estava estavam minha minhas nossa porcao porcoes prato pratos pedaco pedacos fatia fatias colher colheres " +
+  "xicara copos garrafa gramas grama quilos litro litros metade inteiro inteira cheio cheia hoje ontem manha tarde noite " +
+  "jantar almoco lanche refeicao quero queria preciso pode porque quando tambem talvez acho certo outro outra outros " +
+  "mais menos bastante umas uns duas dois tres quatro cinco seis sete oito nove dez meia meio comer beber tomar fazer " +
+  "feito feita depois casa trabalho academia treino treinei corri caminhei pesei dormi acordei sabado domingo segunda " +
+  "terca quarta quinta sexta semana obrigado obrigada tudo nada sempre nunca apenas somente")
+  .split(" "));
+let fuzzyIndex = null;
+
+// Troca, no texto original, cada palavra digitada errada pela grafia do catálogo.
+function applyCorrections(message, corrections) {
+  if (!corrections.length) return message;
+  return message.replace(/\p{L}+/gu, (word) =>
+    corrections.find(({ typed }) => normalizeText(word) === typed)?.understood ?? word);
+}
+
+function fuzzyEntriesFor(entries) {
+  return entries
+    .filter(({ key }) => !key.startsWith("generic:") && !key.startsWith("dish:"))
+    .flatMap(({ key, terms }) => terms
+      .filter((term) => !/\s/.test(term.trim()))
+      .map((term) => ({ key, original: term.trim(), norm: normalizeText(term) })))
+    .filter(({ norm }) => norm.length >= 4);
+}
+
+// Distância de edição com transposição (Damerau restrita), parando acima de `max`.
+function editDistance(a, b, max) {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  const rows = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) rows[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    let rowMin = Infinity;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      rows[i][j] = Math.min(rows[i - 1][j] + 1, rows[i][j - 1] + 1, rows[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) rows[i][j] = Math.min(rows[i][j], rows[i - 2][j - 2] + 1);
+      rowMin = Math.min(rowMin, rows[i][j]);
+    }
+    if (rowMin > max) return max + 1;
+  }
+  return rows[a.length][b.length];
+}
+
+function fuzzyOccurrences(text, exact, index) {
+  const known = new Set(index.map(({ norm }) => norm));
+  const found = [];
+  for (const match of text.matchAll(/[a-z]+/g)) {
+    const word = match[0];
+    const start = match.index;
+    const end = start + word.length;
+    if (word.length < 5 || FUZZY_STOPWORDS.has(word) || known.has(word)) continue;
+    if (exact.some((other) => start < other.end && end > other.index)) continue;
+    const max = word.length >= 8 ? 2 : 1;
+    let best = null;
+    let tied = false;
+    for (const candidate of index) {
+      const distance = editDistance(word, candidate.norm, max);
+      if (distance > max) continue;
+      if (!best || distance < best.distance) {
+        best = { ...candidate, distance };
+        tied = false;
+      } else if (distance === best.distance && candidate.key !== best.key) {
+        tied = true;
+      }
+    }
+    if (best && !tied) found.push({ key: best.key, index: start, end, fuzzy: { typed: word, understood: best.original } });
+  }
+  return found;
+}
+
 // Ocorrências de alimentos do catálogo em um texto já normalizado, por palavra inteira,
 // sem sobreposição (o nome mais longo vence) e em ordem de posição. Ocorrências de
 // termos genéricos vêm com `generic` em vez de `item`. `extraFoods` = alimentos
@@ -760,7 +835,27 @@ function findFoodOccurrences(text, extraFoods = []) {
     ? [...catalogEntries, ...extraFoods.map((item) => ({ key: item.id, terms: [item.name, ...(item.aliases || [])] }))]
     : catalogEntries;
   const byId = extraFoods.length ? new Map([...catalogById, ...extraFoods.map((item) => [item.id, item])]) : catalogById;
-  return matchFoodTerms(text, entries, { normalized: true })
+  fuzzyIndex ??= fuzzyEntriesFor(catalogEntries);
+  const index = extraFoods.length ? [...fuzzyIndex, ...fuzzyEntriesFor(entries.slice(catalogEntries.length))] : fuzzyIndex;
+  let exact = matchFoodTerms(text, entries, { normalized: true });
+  let fuzzy = fuzzyOccurrences(text, exact, index);
+  // Correção do mesmo tamanho (letra trocada ou invertida) é aplicada no texto e a busca
+  // exata roda de novo, para nomes compostos ("suco de laranaj" → "suco de laranja").
+  // As posições não mudam, então quantidades seguem lidas no texto original.
+  const inPlace = fuzzy.filter(({ fuzzy: { typed, understood } }) => normalizeText(understood).length === typed.length);
+  if (inPlace.length) {
+    let corrected = text;
+    for (const { index: start, end, fuzzy: { understood } } of inPlace) {
+      corrected = corrected.slice(0, start) + normalizeText(understood) + corrected.slice(end);
+    }
+    exact = matchFoodTerms(corrected, entries, { normalized: true }).map((occurrence) => {
+      const fixed = inPlace.filter((item) => item.index >= occurrence.index && item.end <= occurrence.end);
+      return fixed.length ? { ...occurrence, corrections: fixed.map(({ fuzzy: correction }) => correction) } : occurrence;
+    });
+    fuzzy = fuzzy.filter((item) => !exact.some((other) => item.index < other.end && item.end > other.index));
+  }
+  return [...exact, ...fuzzy.map(({ fuzzy: correction, ...occurrence }) => ({ ...occurrence, corrections: [correction] }))]
+    .sort((left, right) => left.index - right.index)
     // "colher de chá/café" é medida, não a bebida.
     .filter((occurrence) => !/\bcolher(?:es)?\s+(?:de\s+)?$/.test(text.slice(0, occurrence.index)))
     .map((occurrence) => occurrence.key.startsWith("generic:")
@@ -1086,8 +1181,11 @@ export function estimateMealFromText(message, options = {}) {
       ? "moderate"
       : "estimate";
 
+  // CONV-02: a descrição guarda a grafia corrigida ("frnago" → "frango").
+  const corrections = groups.flatMap(({ mentions }) => mentions.flatMap((mention) => mention.corrections || []));
   return {
-    description: String(message || "").trim(),
+    description: applyCorrections(String(message || "").trim(), corrections),
+    ...(corrections.length ? { corrections } : {}),
     calories: Math.round(totals.calories),
     protein_g: Math.round(totals.protein_g * 10) / 10,
     carbs_g: Math.round(totals.carbs_g * 10) / 10,

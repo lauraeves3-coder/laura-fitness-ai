@@ -647,18 +647,48 @@ function hasMatchingProvidedNutrition(message, meal) {
   );
 }
 
+// Números junto de cada nutriente, antes ou depois do nome: em "proteína 140g carboidrato
+// 180g" o 140 aparece antes de "carboidrato" e o 180 depois; os dois são candidatos.
+function explicitNutritionCandidates(text) {
+  const number = "([0-9]+(?:[.,][0-9]+)?)";
+  // Radicais tolerantes a erro de digitação ("protiena", "carboidrto", "gordra", "caloria").
+  const names = {
+    calories: "kcal|cal[a-z]*",
+    protein_g: "pro?t[a-z]*",
+    carbs_g: "carb[a-z]*|cabo[a-z]*",
+    fat_g: "gord[a-z]*|gor[a-z]*a|lipid[a-z]*"
+  };
+  const connector = "(?:[:=]|para|em|de|e|eh|sera|vai ser|fica(?:\\s+em)?)?";
+  return Object.fromEntries(Object.entries(names).map(([key, name]) => {
+    const values = [
+      ...text.matchAll(new RegExp(`${number}\\s*(?:g|kcal)?\\s*(?:de\\s*)?(?:${name})\\b`, "g")),
+      ...text.matchAll(new RegExp(`\\b(?:${name})\\s*${connector}\\s*${number}`, "g"))
+    ].map((match) => Number(match[1].replace(",", ".")));
+    return [key, values];
+  }));
+}
+
+// Pedido de meta. O modelo já escolheu a ferramenta de meta; aqui só se barra relato de
+// consumo ("comi 140 g de proteína"), para que erro de digitação ("minha neta de
+// calorias", visto no teste real) não impeça a atualização.
+function hasTargetIntent(text) {
+  if (/\b(?:meta|metas|alvo|defina|definir|ajuste|ajustar|altere|alterar|mude|mudar|atualize|atualizar)\b/.test(text)) return true;
+  return !/\b(?:comi|bebi|tomei|almocei|jantei|lanchei|consumi|ingeri|comemos|registr\w*)\b/.test(text);
+}
+
+// Valor da ferramenta confere com algum número escrito junto do nutriente na mensagem.
+function targetMatchesMessage(candidates, key, value) {
+  return Number.isFinite(Number(value))
+    && (candidates[key] || []).some((written) => Math.abs(written - Number(value)) <= 0.05);
+}
+
 function hasExplicitTargetUpdate(message, targets) {
   const text = normalizeRequestText(message);
   if (/[?？]$/.test(text)) return false;
-  const hasUpdateIntent = /\b(?:meta|alvo|defina|definir|ajuste|ajustar|altere|alterar|mude|mudar|atualize|atualizar|quero)\b/.test(text);
-  if (!hasUpdateIntent) return false;
-  const provided = extractExplicitMealNutrition(text);
-  return Object.entries(targets).every(([key, value]) => {
-    if (value === null || value === undefined) return true;
-    return provided[key] !== null
-      && Number.isFinite(Number(value))
-      && Math.abs(provided[key] - Number(value)) <= 0.05;
-  });
+  if (!hasTargetIntent(text)) return false;
+  const candidates = explicitNutritionCandidates(text);
+  return Object.entries(targets).every(([key, value]) =>
+    value === null || value === undefined || targetMatchesMessage(candidates, key, value));
 }
 
 // Fase 5: o modelo real costuma preencher todos os macros ao chamar a ferramenta, mesmo
@@ -666,13 +696,10 @@ function hasExplicitTargetUpdate(message, targets) {
 function explicitTargetSubset(message, targets) {
   const text = normalizeRequestText(message);
   if (/[?？]$/.test(text)) return null;
-  if (!/\b(?:meta|alvo|defina|definir|ajuste|ajustar|altere|alterar|mude|mudar|atualize|atualizar|quero)\b/.test(text)) return null;
-  const provided = extractExplicitMealNutrition(text);
+  if (!hasTargetIntent(text)) return null;
+  const candidates = explicitNutritionCandidates(text);
   const kept = Object.fromEntries(Object.entries(targets).filter(([key, value]) =>
-    value !== null && value !== undefined
-    && provided[key] !== null && provided[key] !== undefined
-    && Number.isFinite(Number(value))
-    && Math.abs(provided[key] - Number(value)) <= 0.05));
+    value !== null && value !== undefined && targetMatchesMessage(candidates, key, value)));
   return Object.keys(kept).length ? kept : null;
 }
 
