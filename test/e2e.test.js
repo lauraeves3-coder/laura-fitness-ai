@@ -897,10 +897,35 @@ test("VIS-01: download da mídia do WhatsApp em duas etapas", async () => {
       : { ok: true, arrayBuffer: async () => new TextEncoder().encode("abc").buffer };
   };
   try {
-    assert.deepEqual(await downloadWhatsAppMedia("123", fetchFake), { imageBase64: "YWJj", mimeType: "image/png" });
+    assert.deepEqual(await downloadWhatsAppMedia("123", fetchFake), { base64: "YWJj", mimeType: "image/png" });
     assert.equal(calls.length, 2);
     assert.equal(calls[1][1], "Bearer token-de-teste");
   } finally {
     if (previous === undefined) delete process.env.WHATSAPP_ACCESS_TOKEN; else process.env.WHATSAPP_ACCESS_TOKEN = previous;
   }
+});
+
+// ---------- CONV-10: áudio ----------
+
+test("CONV-10: áudio é transcrito e segue o fluxo de texto", async () => {
+  const { processVoiceMessage } = await import("../src/ai.js");
+  const userId = newUser();
+  const requests = [];
+  const apiClient = { audio: { transcriptions: { create: async (request) => { requests.push(request); return { text: "comi 2 ovos" }; } } } };
+  const reply = await processVoiceMessage(userId, { base64: Buffer.from("ogg").toString("base64"), mimeType: "audio/ogg; codecs=opus" }, { apiClient });
+  assert.match(reply, /^🎙️ Entendi: "comi 2 ovos"/);
+  assert.match(reply, /Registrei/);
+  assert.equal(requests[0].language, "pt");
+  assert.equal(requests[0].file.name, "audio.ogg");
+  assert.equal(db.getTodayMeals(userId).length, 1);
+});
+
+test("CONV-10: falha ou transcrição vazia pede texto e não registra", async () => {
+  const { processVoiceMessage } = await import("../src/ai.js");
+  const userId = newUser();
+  const failing = { audio: { transcriptions: { create: async () => { throw new Error("rede"); } } } };
+  assert.match(await processVoiceMessage(userId, { base64: "AAAA" }, { apiClient: failing }), /Não consegui ouvir o áudio/);
+  const silent = { audio: { transcriptions: { create: async () => ({ text: "  " }) } } };
+  assert.match(await processVoiceMessage(userId, { base64: "AAAA" }, { apiClient: silent }), /Não entendi o áudio/);
+  assert.equal(db.getTodayMeals(userId).length, 0);
 });

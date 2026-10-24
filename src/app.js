@@ -15,7 +15,7 @@ import {
   releaseWhatsAppMessage
 } from "./db.js";
 
-import { processMessage, processMealPhoto } from "./ai.js";
+import { processMessage, processMealPhoto, processVoiceMessage } from "./ai.js";
 
 const app = express();
 
@@ -256,7 +256,7 @@ app.get("/webhook/whatsapp", (req, res) => {
    WHATSAPP - ENVIO DE MENSAGEM
 ========================================================= */
 
-// VIS-01: baixa a mídia do WhatsApp (Graph API: id → URL temporária → bytes).
+// VIS-01 / CONV-10: baixa a mídia do WhatsApp (Graph API: id → URL temporária → bytes).
 export async function downloadWhatsAppMedia(mediaId, fetchImpl = fetch) {
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
   if (!accessToken) {
@@ -273,7 +273,7 @@ export async function downloadWhatsAppMedia(mediaId, fetchImpl = fetch) {
     throw new Error(`Falha ao baixar a mídia (${file.status}).`);
   }
   return {
-    imageBase64: Buffer.from(await file.arrayBuffer()).toString("base64"),
+    base64: Buffer.from(await file.arrayBuffer()).toString("base64"),
     mimeType: mimeType || "image/jpeg"
   };
 }
@@ -370,16 +370,17 @@ app.post("/webhook/whatsapp", async (req, res) => {
     }
 
     // Texto e foto de refeição (VIS-01); outros tipos são ignorados por enquanto.
-    if (message.type !== "text" && !(message.type === "image" && message.image?.id)) {
+    if (message.type !== "text" && !(message.type === "image" && message.image?.id) && !(message.type === "audio" && message.audio?.id)) {
       return res.sendStatus(200);
     }
 
     const from = message.from;
     const text = message.type === "text" ? message.text?.body?.trim() : null;
     const imageId = message.type === "image" ? message.image?.id : null;
+    const audioId = message.type === "audio" ? message.audio?.id : null;
     messageId = message.id;
 
-    if (!from || !(text || imageId) || !messageId) {
+    if (!from || !(text || imageId || audioId) || !messageId) {
       return res.status(400).json({
         ok: false,
         error: "Mensagem inválida."
@@ -402,12 +403,15 @@ app.post("/webhook/whatsapp", async (req, res) => {
       return res.sendStatus(200);
     }
 
-    const reply = imageId
-      ? await processMealPhoto(from, {
-        ...(await downloadWhatsAppMedia(imageId)),
-        caption: message.image?.caption || ""
-      })
-      : await processMessage(from, text);
+    let reply;
+    if (imageId) {
+      const media = await downloadWhatsAppMedia(imageId);
+      reply = await processMealPhoto(from, { imageBase64: media.base64, mimeType: media.mimeType, caption: message.image?.caption || "" });
+    } else if (audioId) {
+      reply = await processVoiceMessage(from, await downloadWhatsAppMedia(audioId));
+    } else {
+      reply = await processMessage(from, text);
+    }
 
     if (typeof reply !== "string" || !reply.trim()) {
       throw new Error("A resposta do processamento está vazia.");

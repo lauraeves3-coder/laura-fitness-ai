@@ -99,6 +99,7 @@ import { parseReminderCommand, buildReminderCommandReply, dueReminders, buildWat
 import { validateWorkoutRecord, buildWorkoutReply } from "./workouts.js";
 import { runAgent, getClient } from "./agent/agent.js";
 import { describeMealPhoto, buildPhotoMealText } from "./vision.js";
+import { toFile } from "openai";
 import { createAgentToolRegistry } from "./agent/tools.js";
 
 /* =========================================================
@@ -2430,6 +2431,28 @@ export async function runReminders({ now = new Date(), send }) {
     markReminderSent(user.id, reminder.key);
   }
   return results;
+}
+
+// CONV-10: áudio do WhatsApp é transcrito e segue o fluxo de texto. A resposta mostra o
+// que foi entendido, para a usuária perceber erro de transcrição.
+export async function processVoiceMessage(userId, { base64, mimeType = "audio/ogg" }, internal = {}) {
+  let transcript;
+  try {
+    const apiClient = internal.apiClient ?? getClient();
+    const extension = /mpeg|mp3/.test(mimeType) ? "mp3" : /mp4|m4a|aac/.test(mimeType) ? "m4a" : "ogg";
+    const result = await apiClient.audio.transcriptions.create({
+      file: await toFile(Buffer.from(base64, "base64"), `audio.${extension}`, { type: mimeType }),
+      model: process.env.OPENAI_TRANSCRIBE_MODEL || "gpt-4o-mini-transcribe",
+      language: "pt"
+    });
+    transcript = String(result?.text || "").trim();
+  } catch (error) {
+    console.error("Falha ao transcrever o áudio:", error.message);
+    return "Não consegui ouvir o áudio agora. Pode mandar em texto?";
+  }
+  if (!transcript) return "Não entendi o áudio. Pode repetir ou mandar em texto?";
+  const reply = await processMessage(userId, transcript, internal);
+  return `🎙️ Entendi: "${transcript}"\n\n${reply}`;
 }
 
 // VIS-01 / VIS-02: foto de refeição. O modelo lista alimentos e gramas estimadas; o
