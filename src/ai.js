@@ -33,6 +33,7 @@ import {
   saveSleep,
   getSleepOn,
   getExerciseHistory,
+  getActivityBetween,
   deleteLastWaterLog,
   getReminderUsers,
   wasReminderSent,
@@ -2691,7 +2692,8 @@ const summaryIntent = classifySummaryIntent(message);
           historyRange.start,
           historyRange.end
         ),
-        calorieTarget: dailySummary.calorie_target
+        calorieTarget: dailySummary.calorie_target,
+        activity: historyRange.single ? null : getActivityBetween(userId, historyRange.start, historyRange.end)
       });
     }
   }

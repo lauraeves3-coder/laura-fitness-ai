@@ -98,7 +98,37 @@ function sumMeals(meals) {
 }
 
 // Resposta do histórico. `calorieTarget` é a meta atual (metas antigas não são guardadas).
-export function buildPeriodHistoryReply({ range, meals, calorieTarget = null }) {
+// ACO-03: bloco das outras áreas num período (só as linhas com dado).
+function activityLines(activity) {
+  if (!activity) return [];
+  const lines = [];
+  const { workouts = [], weights = [], water = [], sleeps = [] } = activity;
+  if (workouts.length) {
+    const minutes = workouts.reduce((sum, workout) => sum + (Number(workout.duration_min) || 0), 0);
+    lines.push(`🏋️ Treinos: ${workouts.length} (${formatNumber(minutes)} min)`);
+  }
+  if (weights.length) {
+    const first = Number(weights[0].weight_kg);
+    const last = Number(weights.at(-1).weight_kg);
+    const change = Math.round((last - first) * 10) / 10;
+    const kg = (value) => value.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+    lines.push(weights.length > 1
+      ? `⚖️ Peso: ${kg(first)} → ${kg(last)} kg (${change > 0 ? "+" : change < 0 ? "−" : ""}${kg(Math.abs(change))} kg)`
+      : `⚖️ Peso: ${kg(last)} kg`);
+  }
+  if (water.length) {
+    const days = new Set(water.map((log) => String(log.logged_at).slice(0, 10)));
+    const liters = water.reduce((sum, log) => sum + Number(log.amount_ml), 0) / 1000 / days.size;
+    lines.push(`💧 Água: média de ${liters.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} L/dia (${days.size} ${days.size === 1 ? "dia" : "dias"} com registro)`);
+  }
+  if (sleeps.length) {
+    const hours = sleeps.reduce((sum, sleep) => sum + Number(sleep.hours), 0) / sleeps.length;
+    lines.push(`😴 Sono: média de ${hours.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} h (${sleeps.length} ${sleeps.length === 1 ? "noite" : "noites"})`);
+  }
+  return lines.length ? ["", "Outras áreas:", ...lines] : [];
+}
+
+export function buildPeriodHistoryReply({ range, meals, calorieTarget = null, activity = null }) {
   const days = [];
   for (let day = range.start; day <= range.end; day = addDays(day, 1)) days.push(day);
   const title = range.label === formatDay(range.start) ? formatDay(range.start) : `${range.label[0].toLocaleUpperCase("pt-BR")}${range.label.slice(1)}`;
@@ -135,6 +165,7 @@ export function buildPeriodHistoryReply({ range, meals, calorieTarget = null }) 
       lines.push(`Meta atual: ${formatNumber(calorieTarget)} kcal (média ${difference >= 0 ? `${formatNumber(difference)} kcal abaixo` : `${formatNumber(-difference)} kcal acima`}).`);
     }
   }
+  lines.push(...activityLines(activity));
   return lines.join("\n");
 }
 

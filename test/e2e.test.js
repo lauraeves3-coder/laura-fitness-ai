@@ -959,3 +959,19 @@ test("HID-02: 'apaga a última água' remove só o último registro de hoje", as
   assert.equal(db.getTodayWaterTotal(userId), 500);
   assert.match(await send(userId, "pare os lembretes de água"), /Lembretes de água desativados/);
 });
+
+test("ACO-03: resumo de período inclui treinos, peso, água e sono", async () => {
+  const userId = newUser();
+  await send(userId, "comi 2 ovos");
+  await send(userId, "pesei 80 kg");
+  await send(userId, "pesei 79,5 kg");
+  await send(userId, "corri 5 km em 30 minutos");
+  await send(userId, "bebi 2 litros de água");
+  await send(userId, "dormi 7 horas");
+  const reply = await send(userId, "resumo dos últimos 7 dias");
+  assert.match(reply, /Outras áreas:/);
+  assert.match(reply, /🏋️ Treinos: 1 \(30 min\)/);
+  assert.match(reply, /⚖️ Peso: 80 → 79,5 kg \(−0,5 kg\)/);
+  assert.match(reply, /💧 Água: média de 2 L\/dia \(1 dia com registro\)/);
+  assert.match(reply, /😴 Sono: média de 7 h \(1 noite\)/);
+});

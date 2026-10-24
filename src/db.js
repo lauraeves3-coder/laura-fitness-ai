@@ -1615,6 +1615,22 @@ export function getMealsBetween(userId, startDate, endDate) {
   `).all(userId, startDate, endDate);
 }
 
+// ACO-03: treinos, pesagens, água e sono de um período (datas AAAA-MM-DD, inclusivas).
+export function getActivityBetween(userId, startDate, endDate) {
+  ensureUser(userId);
+  const between = (table, column, fields) => db.prepare(`
+    SELECT ${fields} FROM ${table}
+    WHERE user_id = ? AND date(${column}) BETWEEN ? AND ?
+    ORDER BY ${column}, id
+  `).all(userId, startDate, endDate);
+  return {
+    workouts: between("workouts", "trained_at", "workout_type, duration_min, trained_at"),
+    weights: between("weights", "measured_at", "weight_kg, measured_at"),
+    water: between("water_logs", "logged_at", "amount_ml, logged_at"),
+    sleeps: between("sleep_logs", "logged_at", "hours, logged_at")
+  };
+}
+
 export function getMeal(userId, mealId) {
   ensureUser(userId);
   const id = Number(mealId);

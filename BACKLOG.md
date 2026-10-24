@@ -189,7 +189,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 |---|---|---|---|---|---|
 | ACO-01 | Check-in diário opcional | P2 | NÃO IMPLEMENTADO | CRP-05, HID-02 | — |
 | ACO-02 | Fechamento diário (macros, água, treino, passos, sono, metas) | P2 | PARCIAL | — | "resumo do dia" / "como estou hoje?" sai sem chamar o modelo, com calorias, macros, treinos, peso e água do dia (`test/e2e.test.js`). Faltam passos e sono (sem módulo ainda) |
-| ACO-03 | Resumo semanal e análise multimodal | P2 | NÃO IMPLEMENTADO | NUT-14 | — |
+| ACO-03 | Resumo semanal e análise multimodal | P2 | PARCIAL | — | "resumo da semana" / "últimos 7 dias" mostra a nutrição por dia e um bloco "Outras áreas" com treinos (quantidade e minutos), peso (início → fim), média de água e de sono (`getActivityBetween`, `test/e2e.test.js`). Falta análise cruzada e comparação com a semana anterior |
 | ACO-04 | Detectar metas desatualizadas e sugerir revisão (nunca em silêncio) | P2 | NÃO IMPLEMENTADO | ACO-03 | — |
 | ACO-05 | Gamificação (streaks, recordes, conquistas) sem culpa | P3 | NÃO IMPLEMENTADO | ACO-03 | — |
 
@@ -282,3 +282,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 24/10/2026 | Áudio pelo WhatsApp transcrito e tratado como texto (CONV-10 → PARCIAL). Totais: 39 testados, 1 não testado, 34 parciais, 44 não implementados, 2 bloqueados. 251 testes passando. |
 | 24/10/2026 | Sono (CRP-05), recordes de musculação (MUS-03) e correção de água (HID-02). Totais: 39 testados, 1 não testado, 36 parciais, 42 não implementados, 2 bloqueados. 254 testes passando. |
 | 24/10/2026 | CAT-01: cobertura de alimentos comuns (+37 itens TBCA, termos genéricos novos, "pão" = pão francês, "colher de chá" não vira bebida). Totais: 39 testados, 1 não testado, 36 parciais, 42 não implementados, 2 bloqueados. 256 testes passando. |
+| 24/10/2026 | ACO-03 → PARCIAL (resumo de período com treinos, peso, água e sono). Totais: 39 testados, 1 não testado, 37 parciais, 41 não implementados, 2 bloqueados. 257 testes passando. |
