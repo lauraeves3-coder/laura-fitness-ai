@@ -275,4 +275,3 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 23/10/2026 | CAT-09 → PARCIAL (cadastro de alimento pela conversa, por usuária). Totais: 38 testados, 1 não testado, 26 parciais, 53 não implementados, 2 bloqueados. 233 testes passando. |
 | 23/10/2026 | NUT-20 → PARCIAL (refeições livres com composição no catálogo). Totais: 38 testados, 1 não testado, 27 parciais, 52 não implementados, 2 bloqueados. 234 testes passando. |
 | 24/10/2026 | NUT-03 avança (PF/marmita e lanches da TBCA); CAT-05 → PARCIAL (combos McDonald's). Totais: 38 testados, 1 não testado, 28 parciais, 51 não implementados, 2 bloqueados. 238 testes passando. |
-| 24/10/2026 | NUT-03 avança (PF/marmita e lanches da TBCA); CAT-05 → PARCIAL (combos McDonald's). Totais: 38 testados, 1 não testado, 28 parciais, 51 não implementados, 2 bloqueados. 238 testes passando. |
