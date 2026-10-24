@@ -162,6 +162,24 @@ const linkToPlan = (userId) => (workout, date) => linkWorkoutToPlan(userId, work
 
 // Comandos na conversa. Retorna a resposta ou null (não é sobre o Strava).
 export async function handleStravaCommand(userId, message, { fetchImpl = fetch, now = new Date() } = {}) {
+  // Autorizou no celular: o retorno para "localhost" não abre lá, mas o endereço da página
+  // traz o código. Colar esse endereço aqui conclui a conexão.
+  const pastedCode = String(message).match(/[?&]code=([^&\s#]+)/);
+  const pastedState = String(message).match(/[?&]state=([^&\s#]+)/);
+  if (pastedCode && pastedState) {
+    const owner = verifyState(decodeURIComponent(pastedState[1]));
+    if (owner !== String(userId)) return "Esse endereço de autorização não é desta conversa ou está incompleto. Peça um novo: *conectar strava*.";
+    const scope = decodeURIComponent(String(message).match(/[?&]scope=([^&\s#]+)/)?.[1] || "");
+    if (!scope.includes("activity:read")) return "Faltou permitir o acesso às atividades. Peça um novo link (*conectar strava*) e deixe essa opção marcada.";
+    try {
+      const athlete = await connectWithCode(userId, decodeURIComponent(pastedCode[1]), fetchImpl);
+      const sync = await syncStrava(userId, { fetchImpl, now, onImported: linkToPlan(userId) });
+      return [`🔗 *Strava conectado${athlete.firstname ? `, ${athlete.firstname}` : ""}!* Vou importar suas atividades a cada 20 minutos.`, "", buildSyncReply(sync)].join("\n");
+    } catch (error) {
+      console.error("Falha ao conectar o Strava pelo endereço colado:", error.message);
+      return "O Strava não aceitou esse código (ele vale uma vez só e expira rápido). Peça um novo link com *conectar strava*, autorize e cole o endereço logo em seguida.";
+    }
+  }
   const text = normalizeTerm(message);
   if (!/\bstrava\b/.test(text)) return null;
   if (/\bdesconect\w*|\bdesvincul\w*|\bdesliga\w*/.test(text)) {
@@ -182,8 +200,10 @@ export async function handleStravaCommand(userId, message, { fetchImpl = fetch, 
     }
     return [
       "🔗 *Conectar Strava*",
-      "Abra o link, entre na sua conta do Strava e autorize o acesso às atividades:",
+      "1. Abra o link, entre na sua conta do Strava e toque em *Autorizar*:",
       buildAuthUrl(userId),
+      "",
+      "2. Se abrir uma página de erro (\"não pode se conectar ao servidor\"), tudo bem: toque na barra de endereço, *copie o endereço inteiro* e cole aqui.",
       "",
       "_Depois disso eu importo suas corridas e treinos sozinho, a cada 20 minutos._"
     ].join("\n");

@@ -8,6 +8,7 @@ import { join, resolve } from "node:path";
 
 process.env.FITPULSE_DB_PATH = join(mkdtempSync(join(tmpdir(), "fitpulse-strava-")), "strava.db");
 assert.notEqual(resolve(process.env.FITPULSE_DB_PATH), resolve("fitness.db"));
+delete process.env.OPENAI_API_KEY;
 process.env.STRAVA_CLIENT_ID = "12345";
 process.env.STRAVA_CLIENT_SECRET = "segredo-de-teste";
 process.env.PUBLIC_BASE_URL = "https://fitpulse.exemplo.test";
@@ -144,4 +145,20 @@ test("INT-01: retorno do Strava com state inválido ou sem permissão de ativida
   } finally {
     server.close();
   }
+});
+
+test("INT-01: endereço de retorno colado no WhatsApp conclui a conexão (autorização feita no celular)", async () => {
+  const userId = "5511777777777";
+  const state = new URL(strava.buildAuthUrl(userId)).searchParams.get("state");
+  const fake = fakeStrava({ activities: [run(50, "2026-10-26", 7, 42)] });
+  const pasted = `http://localhost:3000/strava/callback?state=${encodeURIComponent(state)}&code=codigo-do-celular&scope=read,activity:read_all`;
+  const reply = await strava.handleStravaCommand(userId, pasted, { fetchImpl: fake.fetchImpl, now: NOW });
+  assert.match(reply, /Strava conectado, Laura/);
+  assert.match(reply, /1 atividade importada/);
+  assert.equal(JSON.parse(fake.calls[0].options.body).code, "codigo-do-celular");
+  assert.equal(db.getUser(userId).strava_refresh_token, "refresh-1");
+  // Endereço de outra conversa não conecta.
+  assert.match(await strava.handleStravaCommand("5511666666666", pasted, { fetchImpl: fake.fetchImpl, now: NOW }), /não é desta conversa/);
+  // Sem a permissão de atividades.
+  assert.match(await strava.handleStravaCommand(userId, pasted.replace("read,activity:read_all", "read"), { fetchImpl: fake.fetchImpl, now: NOW }), /Faltou permitir/);
 });
