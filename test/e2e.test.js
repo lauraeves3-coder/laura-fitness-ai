@@ -804,3 +804,41 @@ test("ACO-02: resumo do dia sem o modelo, com água", async () => {
   assert.match(reply, /💧 Água: 0,5 L de 2 L/);
   assert.match(await send(userId, "como estou hoje?"), /Resumo de hoje/);
 });
+
+// ---------- CONV-11 / ARQ-04: lembretes ----------
+
+test("CONV-11: comandos de lembrete ativam e desativam", async () => {
+  const userId = newUser();
+  assert.match(await send(userId, "me lembre de beber água"), /Lembretes de água ativados/);
+  assert.match(await send(userId, "me mande o resumo do dia às 21h"), /resumo do dia todos os dias às 21:00/);
+  assert.equal(db.getUser(userId).reminder_water, 1);
+  assert.equal(db.getUser(userId).reminder_summary_time, "21:00");
+  assert.match(await send(userId, "pare os lembretes de água"), /Lembretes de água desativados/);
+  assert.equal(db.getUser(userId).reminder_water, 0);
+});
+
+test("ARQ-04: lembretes devidos saem uma vez por horário e só abaixo do ritmo da meta", async () => {
+  const { runReminders } = await import("../src/ai.js");
+  const { brazilClock } = await import("../src/reminders.js");
+  const userId = newUser();
+  await send(userId, "me lembre de beber água");
+  await send(userId, "me mande o resumo do dia às 21h");
+  const outbox = [];
+  const sendFake = async (to, text) => { outbox.push([to, text]); };
+  const at = (hhmm) => new Date(`${brazilClock().date}T${hhmm}:00-03:00`);
+
+  await runReminders({ now: at("12:00"), send: sendFake });
+  const mine = () => outbox.filter(([to]) => to === userId);
+  assert.equal(mine().length, 1);
+  assert.match(mine()[0][1], /Lembrete de água/);
+  await runReminders({ now: at("12:30"), send: sendFake });
+  assert.equal(mine().length, 1, "não repete no mesmo horário");
+
+  await send(userId, "bebi 2 litros de água");
+  await runReminders({ now: at("14:00"), send: sendFake });
+  assert.equal(mine().length, 1, "acima do ritmo não lembra");
+
+  await runReminders({ now: at("21:05"), send: sendFake });
+  assert.equal(mine().length, 2);
+  assert.match(mine()[1][1], /Resumo de hoje/);
+});

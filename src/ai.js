@@ -29,6 +29,10 @@ import {
   getUserFoods,
   saveWaterLog,
   getTodayWaterTotal,
+  setReminder,
+  getReminderUsers,
+  wasReminderSent,
+  markReminderSent,
   setWaterGoal,
   getUser,
   getDailySummary,
@@ -91,6 +95,7 @@ import {
 import { parsePastMealDate, formatDay } from "./dates.js";
 import { getQuantityQuestions, applyQuantityAnswer } from "./nutritionCatalog.js";
 import { parseFoodRegistration, buildFoodRegistrationReply } from "./userFoods.js";
+import { parseReminderCommand, buildReminderCommandReply, dueReminders, buildWaterReminder } from "./reminders.js";
 import { validateWorkoutRecord, buildWorkoutReply } from "./workouts.js";
 import { runAgent } from "./agent/agent.js";
 import { createAgentToolRegistry } from "./agent/tools.js";
@@ -2390,6 +2395,33 @@ function handleFreeMealConversation({
    PROCESSAR MENSAGEM
 ========================================================= */
 
+// ARQ-04: envia os lembretes devidos agora. `send(to, text)` é o envio do WhatsApp; cada
+// lembrete é marcado como enviado mesmo se o envio falhar (ex.: fora da janela de 24 h
+// do WhatsApp), para não repetir a cada minuto.
+export async function runReminders({ now = new Date(), send }) {
+  const users = getReminderUsers().map((user) => ({
+    ...user,
+    goalMl: waterGoalFor(user),
+    waterMl: getTodayWaterTotal(user.id, now)
+  }));
+  const results = [];
+  for (const reminder of dueReminders(users, now, wasReminderSent)) {
+    const user = users.find(({ id }) => id === reminder.userId);
+    const text = reminder.kind === "water"
+      ? buildWaterReminder(user.waterMl, user.goalMl)
+      : buildSummaryReply(getDailySummary(user.id), user, user.waterMl);
+    try {
+      await send(user.id, text);
+      results.push({ ...reminder, sent: true });
+    } catch (error) {
+      console.error(`Lembrete ${reminder.key} não enviado:`, error.message);
+      results.push({ ...reminder, sent: false });
+    }
+    markReminderSent(user.id, reminder.key);
+  }
+  return results;
+}
+
 export async function processMessage(
   userId,
   message,
@@ -2485,6 +2517,15 @@ const summaryIntent = classifySummaryIntent(message);
 
     if (clarificationReply) {
       return clarificationReply;
+    }
+
+    // CONV-11: "me lembre de beber água", "me mande o resumo às 21h".
+    const reminderCommand = parseReminderCommand(message);
+    if (reminderCommand) {
+      setReminder(userId, reminderCommand.kind === "water"
+        ? { water: reminderCommand.enabled }
+        : { summaryTime: reminderCommand.time });
+      return buildReminderCommandReply(reminderCommand);
     }
 
     // Registros e consultas frequentes vão direto, sem o modelo (economia e previsibilidade).

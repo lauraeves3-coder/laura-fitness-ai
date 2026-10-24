@@ -259,6 +259,16 @@ ensureColumn("users", "free_meal_preferences", "TEXT");
 ensureColumn("users", "pending_meal_clarification", "TEXT");
 ensureColumn("users", "water_goal_ml", "REAL");
 ensureColumn("meals", "meal_period", "TEXT");
+ensureColumn("users", "reminder_water", "INTEGER DEFAULT 0");
+ensureColumn("users", "reminder_summary_time", "TEXT");
+db.exec(`
+  CREATE TABLE IF NOT EXISTS reminder_log (
+    user_id TEXT NOT NULL,
+    key TEXT NOT NULL,
+    sent_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, key)
+  );
+`);
 ensureColumn("meals", "plan_id", "INTEGER");
 ensureColumn("meals", "plan_option_index", "INTEGER");
 db.prepare("UPDATE users SET calorie_target_mode = 'automatic' WHERE calorie_target_mode IS NULL").run();
@@ -1288,6 +1298,32 @@ export function saveWeight(
     FROM weights
     WHERE id = ?
   `).get(inserted.lastInsertRowid);
+}
+
+/* =========================================================
+   LEMBRETES (CONV-11 / ARQ-04)
+========================================================= */
+
+export function setReminder(userId, { water, summaryTime }) {
+  ensureUser(userId);
+  if (water !== undefined) db.prepare(`UPDATE users SET reminder_water = ? WHERE id = ?`).run(water ? 1 : 0, userId);
+  if (summaryTime !== undefined) db.prepare(`UPDATE users SET reminder_summary_time = ? WHERE id = ?`).run(summaryTime, userId);
+  return getUser(userId);
+}
+
+export function getReminderUsers() {
+  return db.prepare(`
+    SELECT * FROM users
+    WHERE reminder_water = 1 OR reminder_summary_time IS NOT NULL
+  `).all();
+}
+
+export function wasReminderSent(userId, key) {
+  return Boolean(db.prepare(`SELECT 1 FROM reminder_log WHERE user_id = ? AND key = ?`).get(userId, key));
+}
+
+export function markReminderSent(userId, key) {
+  db.prepare(`INSERT OR IGNORE INTO reminder_log (user_id, key) VALUES (?, ?)`).run(userId, key);
 }
 
 /* =========================================================

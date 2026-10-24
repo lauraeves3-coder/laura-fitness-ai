@@ -35,7 +35,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | CONV-08 | Memória estruturada: perfil, preferências/hábitos, contexto episódico | P1 | PARCIAL | — | tabela `users` (perfil, dislikes, preferências), `meal_plan_events`; sem memória de rotinas, eventos, provas |
 | CONV-09 | Pergunta pendente com estado (responder "patinho" após "qual bife?") | P0 | IMPLEMENTADO E TESTADO | — | `resolveGenericFoodAnswer` (`mealIntent.js`), estado em `users.pending_meal_clarification`, `handlePendingMealClarification` (15 min); `test/intent.test.js`, `test/db.test.js`, `test/e2e.test.js` |
 | CONV-10 | Áudio: receber, transcrever, interpretar; depois responder em áudio | P2 | NÃO IMPLEMENTADO | DEC-03 | `app.js` ignora mensagens que não são texto |
-| CONV-11 | Notificações, lembretes e proatividade sem excesso | P2 | NÃO IMPLEMENTADO | ARQ-04 | sem agendador |
+| CONV-11 | Notificações, lembretes e proatividade sem excesso | P2 | PARCIAL | — | "me lembre de beber água" (aviso às 10h–20h a cada 2 h, só abaixo do ritmo da meta) e "me mande o resumo do dia às 21h" ativam; "pare os lembretes…" desativa; cada lembrete sai uma vez por horário (`src/reminders.js`, `test/e2e.test.js`). Limite do WhatsApp: fora da janela de 24 h exige template aprovado (não implementado). Faltam lembretes de refeição/treino e preferências de silêncio |
 
 ## NUT — Nutrição e registro alimentar
 
@@ -207,7 +207,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | ARQ-01 | Modularizar em core/agent/router/memory + skills por domínio | P1 | PARCIAL | — | `foodMatching.js`, `mealIntent.js`, `nutrition.js`, `nutritionCatalog.js` separados; `ai.js` ainda tem 4.089 linhas |
 | ARQ-02 | Agente central chama uma ou várias skills | P1 | PARCIAL | ARQ-01 | `agent/agent.js` + 16 ferramentas em `agent/tools.js` |
 | ARQ-03 | Fluxo mensagem → normalização → router → skill → validação → persistência → memória → resposta | P1 | PARCIAL | ARQ-01 | etapas misturadas em `ai.js processMessage` |
-| ARQ-04 | Agendador para lembretes e tarefas proativas | P2 | NÃO IMPLEMENTADO | DEC-09 | — |
+| ARQ-04 | Agendador para lembretes e tarefas proativas | P2 | PARCIAL | — | agendador em `server.js` (a cada 60 s, só com WhatsApp configurado) chama `runReminders`, que calcula os lembretes devidos (função pura `dueReminders`) e registra o envio em `reminder_log` (`test/e2e.test.js`). Sem fila persistente nem tarefas além dos lembretes |
 | ARQ-05 | Testes de integração com WhatsApp e OpenAI reais (Fase 5) | P0 | BLOQUEADO | autorização da usuária (créditos) | — |
 | ARQ-06 | Testes de `db.js` com banco temporário | P0 | IMPLEMENTADO E TESTADO | — | `FITPULSE_DB_PATH` em `db.js`; `test/db.test.js` usa SQLite temporário |
 | ARQ-07 | Testes de `ai.js` ponta a ponta sem API (modelo simulado) | P1 | IMPLEMENTADO E TESTADO | — | `test/e2e.test.js`: `processMessage` real + SQLite temporário + cliente simulado (`internal.apiClient`); cliente OpenAI criado só no primeiro uso (`agent.js`) e chave removida nos testes |
@@ -277,3 +277,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 24/10/2026 | NUT-03 avança (PF/marmita e lanches da TBCA); CAT-05 → PARCIAL (combos McDonald's). Totais: 38 testados, 1 não testado, 28 parciais, 51 não implementados, 2 bloqueados. 238 testes passando. |
 | 24/10/2026 | HID-01 → IMPLEMENTADO E TESTADO; HID-02 → PARCIAL (água sem o modelo, meta e saldo). Totais: 39 testados, 1 não testado, 29 parciais, 49 não implementados, 2 bloqueados. 241 testes passando. |
 | 24/10/2026 | Peso ("pesei 72,5 kg"), treino simples ("corri 5 km em 30 min", "fiz 40 min de musculação") e resumo do dia passam a sair sem o modelo (economia de API e previsibilidade); resumo inclui água (ACO-02). Totais: 39 testados, 1 não testado, 29 parciais, 49 não implementados, 2 bloqueados. 243 testes passando. |
+| 24/10/2026 | Lembretes de água e resumo diário pelo WhatsApp (CONV-11, ARQ-04 → PARCIAL). Totais: 39 testados, 1 não testado, 31 parciais, 47 não implementados, 2 bloqueados. 245 testes passando. |

@@ -256,7 +256,7 @@ app.get("/webhook/whatsapp", (req, res) => {
    WHATSAPP - ENVIO DE MENSAGEM
 ========================================================= */
 
-async function sendWhatsAppMessage(to, message) {
+export async function sendWhatsAppMessage(to, message) {
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
 
