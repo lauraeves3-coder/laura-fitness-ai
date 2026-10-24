@@ -4620,7 +4620,7 @@ const summaryIntent = classifySummaryIntent(message);
     const pastNote = savedDate < dailySummary.date
       ? ` Data: ${formatDay(savedDate)}${saved.meal_period ? ` (${saved.meal_period})` : ""}; não entra no saldo de hoje.`
       : "";
-    return `✅ Registrei: ${saved.description} — ${Math.round(saved.calories)} kcal, ${Number(saved.protein_g)} g de proteína, ${Number(saved.carbs_g)} g de carboidratos e ${Number(saved.fat_g)} g de gorduras. ID da refeição: ${saved.id}.${pastNote}`;
+    return `✅ Registrei: ${saved.description} — ${Math.round(saved.calories)} kcal, ${formatKg(saved.protein_g)} g de proteína, ${formatKg(saved.carbs_g)} g de carboidratos e ${formatKg(saved.fat_g)} g de gorduras. ID da refeição: ${saved.id}.${pastNote}`;
   }
 
   if (
