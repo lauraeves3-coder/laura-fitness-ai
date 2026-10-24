@@ -180,8 +180,9 @@ test("NC-11: 'bife' é reconhecido em prato feito e pede o corte", () => {
 // ---------- NC-04: confiança ----------
 
 test("NC-04: confiança só é 'high' com fonte verificada", () => {
-  const estimate = estimateMealFromText("comi farinha de mandioca");
-  assert.notEqual(estimate.confidence, "high");
+  // farofa temperada continua estimativa curada (sem equivalente na TBCA).
+  assert.notEqual(estimateMealFromText("comi 40 g de farofa").confidence, "high");
+  assert.equal(estimateMealFromText("comi 30 g de farinha de mandioca").confidence, "high");
 });
 
 // ---------- CAT-03 / NUT-08 / CAT-06: cortes, preparos e fontes (TBCA, 23/10/2026) ----------
@@ -292,4 +293,22 @@ test("CAT-10: gorduras, oleaginosas, embutidos e peixes com valores da TBCA", ()
 test("CAT-10: atum em óleo e atum em água são itens distintos", () => {
   assert.equal(firstId("comi 120 g de atum em óleo"), "atum-enlatado-oleo");
   assert.equal(firstId("comi 120 g de atum em água"), "atum-enlatado-agua");
+});
+
+test("CAT-10: pratos, doces e bebidas com preparações da TBCA", () => {
+  const values = (id) => { const food = FOOD_CATALOG.find((entry) => entry.id === id); return [food.kcal, food.reference.match(/BRC\d{4}[A-Z]/)[0]]; };
+  assert.deepEqual(values("feijoada"), [131, "BRC0064T"]);
+  assert.deepEqual(values("strogonoff-frango"), [152, "BRC0225F"]);
+  assert.deepEqual(values("lasanha-carne"), [178, "BRC0395A"]);
+  assert.deepEqual(values("coxinha-frango"), [273, "BRC0100F"]);
+  assert.deepEqual(values("brigadeiro"), [387, "BRC0190K"]);
+  assert.deepEqual(values("suco-de-laranja"), [36, "BRC0042C"]);
+});
+
+test("CAT-10: sem equivalente na TBCA, segue estimativa sem referência", () => {
+  for (const id of ["pao-de-queijo", "doce-de-leite", "cafe-sem-acucar", "farofa-pronta", "polenta-frita", "cuscuz-de-milho-cozido", "sorvete-chocolate"]) {
+    const food = FOOD_CATALOG.find((entry) => entry.id === id);
+    assert.equal(food.reference, undefined, id);
+    assert.notEqual(food.source, "tbca_verified", id);
+  }
 });

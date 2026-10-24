@@ -16,6 +16,11 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | lentilha-cozida | Lentilha cozida | BRC0018T | 99 | 7.3 | 19.6 | 0.46 | cozida e drenada |
 | ervilha-cozida | Ervilha cozida | BRC0071T | 91 | 7.45 | 17.6 | 0.58 | grão fresco cozido |
 | milho-cozido | Milho cozido | BRC0138A | 97 | 3.4 | 18.4 | 2 | milho verde no vapor |
+| aveia-em-flocos | Aveia em flocos | BRC0024A | 379 | 15.6 | 64.5 | 8.6 | flocos finos |
+| granola-tradicional | Granola tradicional | BRC0396A | 410 | 10.7 | 61.8 | 15.1 | artesanal, c/ óleo e mel |
+| farinha-de-mandioca | Farinha de mandioca | BRC0088B | 351 | 1.23 | 89.2 | 0.29 | torrada |
+| tapioca-pronta | Tapioca pronta | BRC0906B | 289 | 0.36 | 71.9 | 0 | sem manteiga e sem recheio |
+| macarrao-cozido | Macarrão cozido | BRC0195A | 125 | 3.5 | 27.3 | 0.46 | s/ ovos, cozido e drenado |
 | pao-frances | Pão francês | BRC0002A | 300 | 9.83 | 61.6 | 2.12 | — |
 | pao-forma | Pão de forma tradicional | BRC0003A | 256 | 10.1 | 49.6 | 2.49 | média de marcas |
 | pao-integral | Pão integral | BRC0155A | 249 | 10.5 | 48.6 | 2.55 | de forma, média de marcas |
@@ -23,6 +28,9 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | pao-de-hamburguer | Pão de hambúrguer | BRC0158A | 283 | 9.67 | 53.3 | 4.14 | — |
 | pao-sirio | Pão sírio | BRC0575A | 266 | 9.1 | 55.7 | 1.2 | dado importado pela TBCA |
 | torrada-integral | Torrada integral | BRC0170A | 398 | 13 | 71 | 7 | — |
+| biscoito-cream-cracker | Biscoito cream cracker | BRC0060A | 435 | 11.6 | 70.9 | 12.4 | — |
+| biscoito-maizena | Biscoito maisena | BRC0200A | 437 | 8.07 | 75.2 | 12 | — |
+| biscoito-recheado-chocolate | Biscoito recheado de chocolate | BRC0045A | 489 | 5.4 | 69.6 | 21.8 | — |
 | patinho-grelhado | Patinho grelhado | BRC0045F | 211 | 36 | 0 | 7.5 | — |
 | patinho-cru | Patinho cru | BRC0075F | 114 | 21.1 | 0 | 3.33 | — |
 | patinho-frito | Patinho frito | BRC0633F | 265 | 33 | 0 | 14.7 | — |
@@ -153,11 +161,36 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | nozes | Nozes | BRC0009U | 649 | 14 | 18.4 | 59.4 | crua |
 | chia | Semente de chia | BRC0402A | 443 | 16.5 | 42.1 | 30.7 | semente seca; dado importado pela TBCA |
 | linhaça | Linhaça | BRC0006U | 453 | 14.1 | 43.3 | 32.3 | semente |
+| brigadeiro | Brigadeiro | BRC0190K | 387 | 6.31 | 57.8 | 14.6 | artesanal, c/ chocolate ao leite (única versão na TBCA) |
+| beijinho | Beijinho | BRC0191K | 350 | 5.45 | 46.5 | 16.1 | caseiro |
+| goiabada | Goiabada | BRC0097C | 309 | 0.42 | 78.7 | 0.1 | cascão |
+| chocolate-ao-leite | Chocolate ao leite | BRC0046K | 535 | 7.22 | 59.6 | 30.3 | média de marcas |
+| chocolate-meio-amargo | Chocolate meio amargo | BRC0054K | 548 | 4.86 | 62.4 | 29.9 | — |
+| sorvete-creme | Sorvete de creme | BRC0141K | 210 | 3.5 | 26.6 | 10.1 | industrializado, sabor não especificado; dado importado pela TBCA |
+| coxinha-frango | Coxinha de frango | BRC0100F | 273 | 9.61 | 34.5 | 11.8 | industrializada, frita |
+| pastel-carne | Pastel de carne | BRC0166A | 383 | 17.1 | 22.6 | 25.1 | frito, artesanal |
+| esfiha-carne | Esfiha de carne | BRC0422A | 276 | 16 | 39.7 | 6.25 | esfirra de carne caseira, assada |
+| empada-frango | Empada de frango | BRC0443A | 354 | 6.94 | 47.5 | 15.6 | assada |
+| cachorro-quente | Cachorro-quente | BRC0240A | 225 | 6.87 | 13.3 | 16.4 | pão de leite, salsicha, ketchup, mostarda e maionese |
+| lasanha-carne | Lasanha à bolonhesa | BRC0395A | 178 | 11.3 | 15.2 | 8.23 | bolonhesa, artesanal, assada |
+| strogonoff-frango | Strogonoff de frango | BRC0225F | 152 | 17.6 | 2.59 | 7.96 | — |
+| strogonoff-carne | Strogonoff de carne | BRC0224F | 169 | 15 | 2.98 | 10.8 | — |
+| feijoada | Feijoada | BRC0064T | 131 | 9.59 | 11.8 | 6.23 | — |
+| escondidinho-carne | Escondidinho de carne | BRC0765B | 177 | 7.99 | 16.3 | 9.14 | carne bovina |
+| parmegiana-frango | Frango à parmegiana | BRC0494F | 292 | 20.6 | 12.5 | 12.9 | filé de frango à parmegiana |
+| parmegiana-carne | Bife à parmegiana | BRC0312F | 342 | 17.2 | 10 | 20.3 | bife à parmegiana |
 | sashimi-salmao | Sashimi de salmão | BRC0065E | 165 | 19.4 | 0 | 9.7 | salmão cru s/ pele; fatia de 25 g é estimativa |
+| pure-de-batata | Purê de batata | BRC1037B | 100 | 3.7 | 10.4 | 5.12 | — |
 | mandioca-frita | Mandioca frita | BRC0091B | 304 | 1.38 | 50.3 | 11.2 | — |
 | acucar-refinado | Açúcar refinado | BRC0007K | 397 | 0.16 | 99 | 0 | — |
 | acucar-cristal | Açúcar cristal | BRC0005K | 400 | 0.32 | 99.6 | 0 | — |
 | acucar-mascavo | Açúcar mascavo | BRC0006K | 382 | 0.76 | 94.5 | 0.09 | — |
 | mel | Mel de abelha | BRC0028K | 324 | 0.17 | 80.9 | 0 | — |
+| suco-de-laranja | Suco de laranja | BRC0042C | 36 | 0.98 | 8.08 | 0.09 | natural, laranja-pera, sem diluição |
+| suco-de-uva | Suco de uva | BRC0226C | 61 | 0.37 | 14.8 | 0.13 | integral; dado importado pela TBCA |
+| refrigerante-cola | Refrigerante de cola | BRC0030H | 35 | 0 | 8.66 | 0 | regular, c/ açúcar |
+| refrigerante-zero | Refrigerante zero | BRC0047N | 0 | 0 | 0.11 | 0 | c/ adoçante, média de sabores |
+| agua-de-coco | Água de coco | BRC0174C | 21 | 0 | 5.29 | 0 | industrializada |
+| milk-shake-chocolate | Milk-shake de chocolate | BRC0144H | 113 | 2.84 | 21.8 | 5.86 | baunilha c/ calda de chocolate; os macros publicados somam ~151 kcal, mantido o valor de energia publicado |
 
-Total: 150 itens.
+Total: 183 itens.
