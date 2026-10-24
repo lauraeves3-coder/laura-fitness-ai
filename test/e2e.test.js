@@ -975,3 +975,15 @@ test("ACO-03: resumo de período inclui treinos, peso, água e sono", async () =
   assert.match(reply, /💧 Água: média de 2 L\/dia \(1 dia com registro\)/);
   assert.match(reply, /😴 Sono: média de 7 h \(1 noite\)/);
 });
+
+// ---------- Fase 5: comportamentos vistos com o modelo real ----------
+
+test("Fase 5: meta de um macro só altera esse macro, mesmo se o modelo enviar os três", async () => {
+  const userId = userWithTargets();
+  const before = db.getUser(userId);
+  await setMacros(userId, { protein_g: 140, carbs_g: 250, fat_g: 70 }, "minha meta de proteína é 140 g");
+  const after = db.getUser(userId);
+  assert.equal(after.daily_protein_target, 140);
+  assert.equal(after.daily_carbs_target, before.daily_carbs_target);
+  assert.equal(after.daily_fat_target, before.daily_fat_target);
+});

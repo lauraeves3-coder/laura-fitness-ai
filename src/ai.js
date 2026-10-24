@@ -602,20 +602,20 @@ function extractExplicitMealNutrition(message) {
   return {
     calories: extract([
       new RegExp(`${number}\\s*(?:kcal|calorias?)\\b`),
-      new RegExp(`\\b(?:kcal|calorias?)\\s*(?:e\\s*)?(?:[:=]|para|em)?\\s*${number}`)
+      new RegExp(`\\b(?:kcal|calorias?)\\s*(?:e\\s*)?(?:[:=]|para|em|eh|sera|vai ser|fica(?:\\s+em)?)?\\s*${number}`)
     ]),
     // "proteína para 140 g", "proteína em 140", "proteína: 140" (NUT-17).
     protein_g: extract([
       new RegExp(`${number}\\s*g?\\s*(?:de\\s*)?proteinas?\\b`),
-      new RegExp(`\\bproteinas?\\s*(?:[:=]|para|em|de)?\\s*${number}\\s*g?\\b`)
+      new RegExp(`\\bproteinas?\\s*(?:[:=]|para|em|de|e|eh|sera|vai ser|fica(?:\\s+em)?)?\\s*${number}\\s*g?\\b`)
     ]),
     carbs_g: extract([
       new RegExp(`${number}\\s*g?\\s*(?:de\\s*)?carboidratos?\\b`),
-      new RegExp(`\\bcarboidratos?\\s*(?:[:=]|para|em|de)?\\s*${number}\\s*g?\\b`)
+      new RegExp(`\\bcarboidratos?\\s*(?:[:=]|para|em|de|e|eh|sera|vai ser|fica(?:\\s+em)?)?\\s*${number}\\s*g?\\b`)
     ]),
     fat_g: extract([
       new RegExp(`${number}\\s*g?\\s*(?:de\\s*)?gorduras?\\b`),
-      new RegExp(`\\bgorduras?\\s*(?:[:=]|para|em|de)?\\s*${number}\\s*g?\\b`)
+      new RegExp(`\\bgorduras?\\s*(?:[:=]|para|em|de|e|eh|sera|vai ser|fica(?:\\s+em)?)?\\s*${number}\\s*g?\\b`)
     ])
   };
 }
@@ -659,6 +659,21 @@ function hasExplicitTargetUpdate(message, targets) {
       && Number.isFinite(Number(value))
       && Math.abs(provided[key] - Number(value)) <= 0.05;
   });
+}
+
+// Fase 5: o modelo real costuma preencher todos os macros ao chamar a ferramenta, mesmo
+// quando a mensagem cita só um. Fica só o que a mensagem informou; null se nada bate.
+function explicitTargetSubset(message, targets) {
+  const text = normalizeRequestText(message);
+  if (/[?？]$/.test(text)) return null;
+  if (!/\b(?:meta|alvo|defina|definir|ajuste|ajustar|altere|alterar|mude|mudar|atualize|atualizar|quero)\b/.test(text)) return null;
+  const provided = extractExplicitMealNutrition(text);
+  const kept = Object.fromEntries(Object.entries(targets).filter(([key, value]) =>
+    value !== null && value !== undefined
+    && provided[key] !== null && provided[key] !== undefined
+    && Number.isFinite(Number(value))
+    && Math.abs(provided[key] - Number(value)) <= 0.05));
+  return Object.keys(kept).length ? kept : null;
 }
 
 function isExplicitOptionChoice(message, requestedIndex) {
@@ -2974,14 +2989,12 @@ const summaryIntent = classifySummaryIntent(message);
             return "Não alterei sua meta: confirme uma nova meta calórica com o valor desejado.";
           }
 
-          if (
-            action === "set_macro_targets" &&
-            !hasExplicitTargetUpdate(
-              message,
-              data
-            )
-          ) {
-            return "Não alterei suas metas de macros: informe explicitamente cada macro e o valor desejado.";
+          if (action === "set_macro_targets") {
+            const explicitTargets = explicitTargetSubset(message, data);
+            if (!explicitTargets) {
+              return "Não alterei suas metas de macros: informe explicitamente cada macro e o valor desejado.";
+            }
+            data = explicitTargets;
           }
 
           const normalizedMessage =

@@ -42,6 +42,9 @@ for (const message of messages) {
   console.log(`> ${message}\n${reply}\n(${Date.now() - started} ms)\n`);
 }
 
-fs.rmSync(tempDir, { recursive: true, force: true });
+// No Windows o banco ainda está aberto; a pasta temporária fica para o sistema limpar.
+try {
+  fs.rmSync(tempDir, { recursive: true, force: true });
+} catch {}
 console.log(failures ? `${failures} mensagem(ns) falharam.` : "Todas as mensagens tiveram resposta.");
 process.exit(failures ? 1 : 0);
