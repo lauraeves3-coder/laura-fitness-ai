@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ai } from "./helpers/aiPure.js";
 import { generateDesiredFoodOptions } from "../src/nutrition.js";
-import { FOOD_CATALOG, estimateMealFromText } from "../src/nutritionCatalog.js";
+import { FOOD_CATALOG, estimateMealFromText, generateFreeMealOptions } from "../src/nutritionCatalog.js";
 import { findFoodNames, JAPANESE_FILLINGS } from "../src/foodMatching.js";
 
 const desired = (message) => ai.detectDesiredFood(message);
@@ -149,4 +149,17 @@ test("NC-02: fatia de sashimi igual no catálogo e no gerador", () => {
   const [option] = generateDesiredFoodOptions({ desiredFood: "japonesa", calorieBudget: 900, preferredComposition: "japonesa-sashimi" });
   assert.ok(Math.abs(option.calories - perSlice) <= 1, `${option.calories} vs ${perSlice}`);
   assert.equal(estimateMealFromText("comi 1 sashimi de salmão").calories, option.calories);
+});
+
+// ---------- NUT-20: refeições livres com ingredientes ----------
+
+test("NUT-20: refeição livre com composição usa os valores do catálogo", () => {
+  const options = generateFreeMealOptions({ remainingCalories: 2000, limit: 50 });
+  const byKey = (key) => options.find((option) => option.key === key);
+  assert.equal(byKey("pizza-mucarela-2").calories, Math.round(estimateMealFromText("comi 2 fatias de pizza de muçarela").calories));
+  assert.deepEqual(byKey("feijoada-completa").ingredients.map(({ id, grams }) => [id, grams]),
+    [["feijoada", 300], ["arroz-branco-cozido", 150], ["farofa-pronta", 40]]);
+  assert.equal(byKey("feijoada-completa").source, "catalog");
+  assert.equal(byKey("japones-combinado-20").source, "curated_estimate");
+  assert.equal(byKey("japones-combinado-20").ingredients, undefined);
 });

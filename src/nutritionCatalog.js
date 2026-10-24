@@ -1032,6 +1032,51 @@ const FREE_MEAL_OPTIONS = [
   { key: "nachos-carne-queijo", name: "Nachos com carne, queijo e guacamole", category: "mexicana", calories: 820, protein_g: 28, carbs_g: 64, fat_g: 52 }
 ];
 
+// NUT-20 / NC-08: composição das refeições livres em itens do catálogo [id, gramas]. Com
+// composição, totais, ingredientes e fonte vêm do catálogo (sugestão = registro); sem
+// ela, a opção segue como estimativa agregada (`source: "curated_estimate"`).
+const FREE_MEAL_COMPOSITIONS = {
+  "pizza-mucarela-2": [["pizza-mucarela-direta", 180]],
+  "pizza-calabresa-2": [["pizza-calabresa-direta", 180]],
+  "pizza-frango-cat-2": [["pizza-frango-catupiry-direta", 180]],
+  "pizza-portuguesa-2": [["pizza-portuguesa-direta", 180]],
+  "pizza-quatro-queijos-2": [["pizza-quatro-queijos-direta", 180]],
+  "pizza-pepperoni-2": [["pizza-pepperoni-direta", 180]],
+  "pizza-frango-bacon-2": [["pizza-frango-bacon-direta", 180]],
+  "pizza-moda-casa-2": [["pizza-moda-da-casa-direta", 180]],
+  "mcd-big-mac-combo": [["mcd-big-mac", 220], ["mcd-fritas-m", 110], ["refrigerante-cola", 500]],
+  "mcd-quarterao-combo": [["mcd-quarterao-queijo", 210], ["mcd-fritas-m", 110], ["refrigerante-cola", 500]],
+  "mcd-mcchicken-combo": [["mcd-mcchicken", 175], ["mcd-fritas-m", 110], ["refrigerante-cola", 500]],
+  "hamburguer-artesanal-batata": [["hamburguer-artesanal", 120], ["batata-frita", 100]],
+  "cachorro-quente-completo": [["cachorro-quente", 170], ["batata-frita", 100]],
+  "lasanha-bolonhesa-350": [["lasanha-carne", 350]],
+  "frango-parmegiana-completo": [["parmegiana-frango", 250], ["arroz-branco-cozido", 150], ["batata-frita", 100]],
+  "feijoada-completa": [["feijoada", 300], ["arroz-branco-cozido", 150], ["farofa-pronta", 40]],
+  "pastel-3-combo": [["pastel-carne", 300]],
+  "hot-roll-12": [["hot-roll-philadelphia", 360]],
+  "temaki-hot-roll": [["temaki-philadelphia", 90], ["hot-roll-philadelphia", 240]],
+  "yakisoba-500": [["yakisoba-brasileiro", 500]]
+};
+
+for (const option of FREE_MEAL_OPTIONS) {
+  const components = (FREE_MEAL_COMPOSITIONS[option.key] || [])
+    .map(([id, grams]) => ({ item: FOOD_CATALOG.find((food) => food.id === id), grams }));
+  if (!components.length || components.some(({ item }) => !item)) {
+    if (components.length) TEMPLATE_ISSUES.push({ template: option.name, component: "refeição livre com id inexistente" });
+    option.source = "curated_estimate";
+    continue;
+  }
+  const total = (field) => Math.round(components.reduce((sum, { item, grams }) => sum + item[field] * grams / 100, 0) * 10) / 10;
+  Object.assign(option, {
+    calories: Math.round(total("kcal")),
+    protein_g: total("protein"),
+    carbs_g: total("carbs"),
+    fat_g: total("fat"),
+    ingredients: components.map(({ item, grams }) => ({ id: item.id, name: item.name, grams, source: item.source })),
+    source: "catalog"
+  });
+}
+
 export function generateFreeMealOptions({
   dailyCalorieTarget = null,
   dailyCaloriesRemaining = null,

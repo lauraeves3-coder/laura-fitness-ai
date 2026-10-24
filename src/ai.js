@@ -2077,7 +2077,11 @@ function buildFreeMealSuggestionReply(options, settings, mealBudget) {
     lines.push(
       `${index + 1}️⃣ ${option.name}`,
       `≈ ${Math.round(option.calories)} kcal · P ${Math.round(option.protein_g)} g · C ${Math.round(option.carbs_g)} g · G ${Math.round(option.fat_g)} g`,
-      `📌 ${fit}`,
+      // NUT-20: porções de cada ingrediente quando a opção tem composição no catálogo.
+      ...(option.ingredients?.length
+        ? [`🧾 ${option.ingredients.map(({ name, grams }) => `${name.toLocaleLowerCase("pt-BR")} (${grams} g)`).join(" · ")}`]
+        : []),
+      `📌 ${fit}${option.source === "curated_estimate" ? " · valores estimados" : ""}`,
       ""
     );
   });
