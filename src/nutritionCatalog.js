@@ -625,14 +625,6 @@ export const EXPANDED_TEMPLATES = {
   ceia: commonCeia
 };
 
-const aliasMap = new Map();
-for (const item of FOOD_CATALOG) {
-  for (const alias of [item.name, ...(item.aliases || [])]) {
-    const normalized = normalizeText(alias);
-    if (normalized) aliasMap.set(normalized, item);
-  }
-}
-
 export function normalizeText(value) {
   return String(value || "")
     .normalize("NFD")

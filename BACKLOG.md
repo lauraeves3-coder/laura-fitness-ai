@@ -214,7 +214,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | ARQ-08 | Testes unitários e de regressão do núcleo nutricional | P0 | IMPLEMENTADO E TESTADO | — | 94 testes em `test/` |
 | ARQ-09 | Métricas de qualidade (acerto, perguntas desnecessárias, duplicações, custo) | P2 | NÃO IMPLEMENTADO | ARQ-05 | — |
 | ARQ-10 | Encoding UTF-8 correto nos arquivos ativos | P0 | IMPLEMENTADO E TESTADO | — | `scripts/fix-mojibake.mjs`; teste ENC-01 |
-| ARQ-11 | Limpeza: `aliasMap` não usado e ~40 cópias de backup soltas | P1 | NÃO IMPLEMENTADO | DEC-10 | backups fora do Git (ignorados) |
+| ARQ-11 | Limpeza: `aliasMap` não usado e ~40 cópias de backup soltas | P1 | PARCIAL | DEC-10 | `aliasMap` removido (não era usado). Restam 42 cópias de backup soltas (28 em `src/`, 14 na raiz), fora do Git; não foram apagadas porque apagar arquivos da usuária exige a confirmação dela (DEC-10) |
 
 ## SEG — Segurança e regras de desenvolvimento
 
@@ -270,3 +270,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 23/10/2026 | NUT-06 → IMPLEMENTADO E TESTADO (medidas caseiras por alimento da TBCA, cheia/rasa). Totais: 36 testados, 1 não testado, 23 parciais, 58 não implementados, 2 bloqueados. 226 testes passando. |
 | 23/10/2026 | NUT-26 → PARCIAL (inteiro pergunta a quantidade). Totais: 36 testados, 1 não testado, 24 parciais, 57 não implementados, 2 bloqueados. 227 testes passando. |
 | 23/10/2026 | DEC-07 decidida (sugerir revisão). CRP-02 → IMPLEMENTADO E TESTADO; corrigido `saveWeight` devolvendo a pesagem errada. Totais: 37 testados, 1 não testado, 24 parciais, 56 não implementados, 2 bloqueados. 228 testes passando. |
+| 23/10/2026 | ARQ-11 → PARCIAL (`aliasMap` removido; backups aguardam DEC-10). Totais: 37 testados, 1 não testado, 25 parciais, 55 não implementados, 2 bloqueados. 228 testes passando. |
