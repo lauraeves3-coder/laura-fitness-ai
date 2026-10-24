@@ -75,6 +75,20 @@ export const TBCA_HOUSEHOLD_MEASURES = {
   "acucar-refinado": { "colher de café cheia": 2, "colher de café rasa": 1, "colher de chá cheia": 5, "colher de chá rasa": 3, "colher de sobremesa cheia": 16, "colher de sobremesa rasa": 9, "colher de sopa cheia": 24, "colher de sopa rasa": 15, "xícara": 170 },
   "acucar-cristal": { "colher de café cheia": 2, "colher de café rasa": 1, "colher de chá cheia": 5, "colher de chá rasa": 3, "colher de sobremesa cheia": 16, "colher de sobremesa rasa": 9, "colher de sopa cheia": 24, "colher de sopa rasa": 15, "xícara": 170 },
   "acucar-mascavo": { "colher de café cheia": 2.3, "colher de café rasa": 1, "colher de chá cheia": 4, "colher de chá rasa": 2.5, "colher de sobremesa cheia": 12.5, "colher de sobremesa rasa": 7, "colher de sopa cheia": 19, "colher de sopa rasa": 11, "xícara": 170 },
+  "margarina": { "colher de chá cheia": 8, "colher de chá rasa": 4, "colher de sobremesa cheia": 23, "colher de sobremesa rasa": 13, "colher de sopa cheia": 32, "colher de sopa rasa": 19 },
+  "chuchu-cozido": { "colher de servir cheia": 45, "colher de servir rasa": 28, "colher de sopa cheia": 20, "colher de sopa rasa": 15, "escumadeira cheia": 110, "escumadeira rasa": 60 },
+  "beterraba-cozida": { "colher de servir cheia": 38, "colher de sopa cheia": 20, "colher de sopa rasa": 14, "escumadeira rasa": 45 },
+  "beterraba-crua": { "colher de sopa cheia": 25, "colher de sopa rasa": 16 },
+  "pudim-de-leite": { "colher de sopa cheia": 40, "colher de sopa rasa": 25, "fatia": 80 },
+  "pipoca": { "colher de sopa cheia": 5, "escumadeira rasa": 15, "xícara": 25 },
+  "caldo-verde": { "colher de sopa cheia": 20, "concha cheia": 130 },
+  "arroz-com-frango": { "colher de servir cheia": 55, "colher de servir rasa": 40 },
+  "baiao-de-dois": { "colher de servir cheia": 90 },
+  "canjica": { "colher de sopa cheia": 25, "concha cheia": 120 },
+  "quiabo-cozido": { "colher de sopa cheia": 20, "colher de sopa rasa": 16 },
+  "couve-refogada": { "colher de servir rasa": 30, "colher de sopa rasa": 10 },
+  "repolho-cru": { "colher de sopa cheia": 10, "colher de sopa rasa": 5 },
+  "gelatina": { "colher de sopa cheia": 25 },
   "mel": { "colher de café rasa": 2, "colher de chá rasa": 3, "colher de sobremesa rasa": 9, "colher de sopa rasa": 15 }
 };
 

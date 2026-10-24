@@ -27,7 +27,9 @@ test("catálogo: campos nutricionais numéricos e não negativos", () => {
 });
 
 test("catálogo: energia coerente com macros (tolerância 25% ou 40 kcal)", () => {
-  for (const item of FOOD_CATALOG) {
+  // Bebidas alcoólicas: o álcool (7 kcal/g) não entra em proteína, carboidrato ou gordura.
+  const alcoholic = new Set(["cerveja", "vinho", "vinho-branco"]);
+  for (const item of FOOD_CATALOG.filter((food) => !alcoholic.has(food.id))) {
     const fromMacros = item.protein * 4 + item.carbs * 4 + item.fat * 9;
     const diff = Math.abs(fromMacros - item.kcal);
     assert.ok(diff <= Math.max(40, item.kcal * 0.25), `${item.id}: ${item.kcal} vs ${Math.round(fromMacros)}`);
@@ -430,4 +432,28 @@ test("NUT-03: lanches de lanchonete com valores da TBCA", () => {
   for (const [message, id] of [["comi um x-salada", "x-salada"], ["comi 2 mistos quentes", "misto-quente"], ["comi um x burguer", "x-burguer"], ["comi um misto frio", "misto-frio"]]) {
     assert.deepEqual(ids(estimateMealFromText(message)), [id], message);
   }
+});
+
+// ---------- CAT-01: cobertura do que o brasileiro costuma comer ----------
+
+test("CAT-01: alimentos comuns (dieta e fora dela) são reconhecidos ou geram pergunta", () => {
+  const common = ["pão francês", "pão", "manteiga", "margarina", "requeijão", "café com leite", "iogurte", "granola", "aveia",
+    "banana", "maçã", "mamão", "pera", "tapioca", "cuscuz", "ovo", "omelete", "queijo minas", "presunto", "arroz", "feijão",
+    "macarrão", "lasanha", "carne moída", "frango", "bife", "linguiça", "salsicha", "bacon", "peixe", "atum", "batata frita",
+    "purê", "mandioca", "farofa", "salada", "chuchu", "beterraba", "couve", "repolho", "quiabo", "feijoada", "strogonoff",
+    "escondidinho", "coxinha", "pastel", "esfiha", "pão de queijo", "empada", "cachorro-quente", "pizza", "x-salada", "açaí",
+    "sorvete", "brigadeiro", "pudim", "chocolate", "biscoito recheado", "pipoca", "amendoim", "castanha", "refrigerante",
+    "suco de laranja", "cerveja", "vinho", "café", "chá", "água de coco", "whey", "mingau", "caldo verde", "galinhada",
+    "baião de dois", "acarajé", "pamonha", "canjica", "pé de moleque", "sushi", "temaki", "yakisoba", "nuggets",
+    "virado à paulista", "bolinho de chuva", "churros", "rabanada", "panqueca", "crepe", "paçoca", "gelatina", "misto quente"];
+  const missing = common.filter((food) => {
+    const estimate = estimateMealFromText(`comi ${food}`);
+    return !estimate || (!estimate.matched_items.length && !(estimate.needs_clarification || []).length);
+  });
+  assert.deepEqual(missing, []);
+});
+
+test("CAT-01: 'colher de chá' é medida, não a bebida", () => {
+  assert.deepEqual(ids(estimateMealFromText("comi 1 colher de chá de açúcar")), ["acucar-refinado"]);
+  assert.deepEqual(ids(estimateMealFromText("tomei um chá")), ["cha-sem-acucar"]);
 });

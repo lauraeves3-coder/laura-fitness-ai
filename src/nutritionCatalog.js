@@ -49,7 +49,7 @@ export const FOOD_CATALOG = [
   F("tapioca-pronta", "Tapioca pronta", ["tapioca", "massa de tapioca"], 289, 0.36, 71.9, 0, 60, "60 g", "tbca_verified", "TBCA BRC0906B, sem manteiga e sem recheio (consulta 23/10/2026)"),
   F("macarrao-cozido", "Macarrão cozido", ["macarrão", "macarrao", "massa"], 125, 3.5, 27.3, 0.46, 160, "160 g", "tbca_verified", "TBCA BRC0195A, s/ ovos, cozido e drenado (consulta 23/10/2026)"),
   F("macarrao-instantaneo", "Macarrão instantâneo preparado", ["miojo", "macarrão instantâneo", "miojo preparado"], 450, 8.5, 62.0, 18.0, 80, "80 g", "curated_estimate"),
-  F("pao-frances", "Pão francês", ["pão francês", "pao frances", "pão de sal", "cacetinho"], 300, 9.83, 61.6, 2.12, 50, "1 unidade", "tbca_verified", "TBCA BRC0002A, unidade média de 50 g (consulta 23/10/2026)"),
+  F("pao-frances", "Pão francês", ["pão francês", "pao frances", "pão de sal", "cacetinho", "pão", "pao", "pães", "paes", "pãozinho", "paozinho", "pão na chapa"], 300, 9.83, 61.6, 2.12, 50, "1 unidade", "tbca_verified", "TBCA BRC0002A, unidade média de 50 g (consulta 23/10/2026)"),
   F("pao-forma", "Pão de forma tradicional", ["pão de forma", "pao de forma", "pão branco fatiado"], 256, 10.1, 49.6, 2.49, 25, "1 fatia", "tbca_verified", "TBCA BRC0003A, média de marcas, fatia média de 25 g (consulta 23/10/2026)"),
   F("pao-integral", "Pão integral", ["pão integral", "pao integral"], 249, 10.5, 48.6, 2.55, 25, "1 fatia", "tbca_verified", "TBCA BRC0155A, de forma, média de marcas, fatia média de 25 g (consulta 23/10/2026)"),
   F("pao-de-leite", "Pão de leite", ["pão de leite", "pao de leite"], 284, 8.15, 53.9, 4.63, 40, "1 unidade", "tbca_verified", "TBCA BRC0147A, industrializado, unidade média de 40 g (consulta 23/10/2026)"),
@@ -371,6 +371,44 @@ export const FOOD_CATALOG = [
   F("refrigerante-zero", "Refrigerante zero", ["coca zero", "refrigerante zero", "zero"], 0, 0, 0.11, 0, 350, "350 ml", "tbca_verified", "TBCA BRC0047N, c/ adoçante, média de sabores (consulta 23/10/2026)"),
   F("agua-de-coco", "Água de coco", ["água de coco", "agua de coco"], 21, 0, 5.29, 0, 300, "300 ml", "tbca_verified", "TBCA BRC0174C, industrializada (consulta 23/10/2026)"),
   F("milk-shake-chocolate", "Milk-shake de chocolate", ["milk shake", "milk-shake", "milkshake"], 113, 2.84, 21.8, 5.86, 400, "400 ml", "tbca_verified", "TBCA BRC0144H, baunilha c/ calda de chocolate; os macros publicados somam ~151 kcal, mantido o valor de energia publicado (consulta 23/10/2026)"),
+  // CAT-01: alimentos comuns que faltavam (consulta 24/10/2026).
+  F("margarina", "Margarina", ["margarina"], 640, 0, 0, 71.1, 8, "1 colher de chá", "tbca_verified", "TBCA BRC0008D, média c/ e s/ sal (consulta 24/10/2026)"),
+  F("pera", "Pera", ["pera","peras","pêra"], 54, 0.4, 14, 0.23, 110, "1 unidade", "tbca_verified", "TBCA BRC0030C, c/ casca, unidade média de 110 g (consulta 24/10/2026)"),
+  F("omelete", "Omelete com queijo", ["omelete","omeletes","omelete de queijo","omelete com queijo","omelete de ovo"], 215, 13.4, 2.19, 17, 100, "1 unidade", "tbca_verified", "TBCA BRC0031J, c/ muçarela, unidade média de 100 g (consulta 24/10/2026)"),
+  F("salsicha", "Salsicha", ["salsicha","salsichas"], 222, 12.9, 7.91, 15.4, 50, "1 unidade", "tbca_verified", "TBCA BRC0213F, média de tipos, unidade média de 50 g (consulta 24/10/2026)"),
+  F("salsicha-frango", "Salsicha de frango", ["salsicha de frango","salsichas de frango"], 182, 13.4, 4.15, 12.4, 50, "1 unidade", "tbca_verified", "TBCA BRC0214F, unidade média de 50 g (consulta 24/10/2026)"),
+  F("chuchu-cozido", "Chuchu cozido", ["chuchu","chuchu cozido"], 21, 0.5, 5.09, 0.15, 100, "100 g", "tbca_verified", "TBCA BRC0050B, s/ óleo (consulta 24/10/2026)"),
+  F("beterraba-cozida", "Beterraba cozida", ["beterraba","beterraba cozida"], 27, 1.23, 6.29, 0.09, 60, "60 g", "tbca_verified", "TBCA BRC0044B, s/ óleo (consulta 24/10/2026)"),
+  F("beterraba-crua", "Beterraba crua", ["beterraba crua","beterraba ralada"], 46, 1.95, 11.1, 0.09, 50, "50 g", "tbca_verified", "TBCA BRC0015B (consulta 24/10/2026)"),
+  F("pudim-de-leite", "Pudim de leite", ["pudim","pudim de leite","pudim de leite condensado"], 220, 6.02, 36.9, 5.43, 80, "1 fatia", "tbca_verified", "TBCA BRC0227K, artesanal, fatia média de 80 g (consulta 24/10/2026)"),
+  F("pipoca", "Pipoca", ["pipoca","pipocas","pipoca salgada"], 436, 9.93, 70.3, 15.9, 25, "1 xícara", "tbca_verified", "TBCA BRC0129A, preparada c/ óleo, xícara de 25 g (consulta 24/10/2026)"),
+  F("cerveja", "Cerveja", ["cerveja","cervejas","chopp","chope","latinha de cerveja","latão de cerveja"], 41, 0.56, 3.34, 0, 350, "1 lata", "tbca_verified", "TBCA BRC0009H, Pilsen, lata de 350 ml (consulta 24/10/2026)"),
+  F("cerveja-sem-alcool", "Cerveja sem álcool", ["cerveja sem álcool","cerveja sem alcool","cerveja zero"], 36, 0.21, 8.1, 0.12, 350, "1 lata", "tbca_verified", "TBCA BRC0156H, dado importado pela TBCA (consulta 24/10/2026)"),
+  F("vinho", "Vinho", ["vinho","vinho tinto","taça de vinho","tacas de vinho"], 92, 0.08, 3.41, 0, 100, "1 taça", "tbca_verified", "TBCA BRC0034H, média de amostras, taça de 100 ml (consulta 24/10/2026)"),
+  F("vinho-branco", "Vinho branco", ["vinho branco"], 90, 0.08, 2.94, 0, 100, "1 taça", "tbca_verified", "TBCA BRC0035H, taça de 100 ml (consulta 24/10/2026)"),
+  F("cha-sem-acucar", "Chá sem açúcar", ["chá","cha","chá preto","chá mate","mate","chá verde","chá de camomila","chá de hortelã","chá sem açúcar"], 3, 0, 0.63, 0, 200, "1 xícara", "tbca_verified", "TBCA BRC0013H, chá preto, infusão; outros chás sem açúcar têm valor desprezível (consulta 24/10/2026)"),
+  F("mingau-de-aveia", "Mingau de aveia", ["mingau","mingau de aveia"], 117, 4.6, 16, 4.08, 240, "1 tigela", "tbca_verified", "TBCA BRC0053G, c/ açúcar, copo de 240 ml (consulta 24/10/2026)"),
+  F("caldo-verde", "Caldo verde", ["caldo verde"], 81, 4.45, 5.99, 4.6, 260, "1 prato", "tbca_verified", "TBCA BRC0681B, concha cheia de 130 g; prato = 2 conchas (consulta 24/10/2026)"),
+  F("arroz-com-frango", "Arroz com frango (galinhada)", ["galinhada","arroz com frango"], 121, 7.1, 17.5, 2.85, 250, "1 prato", "tbca_verified", "TBCA BRC0541A, c/ sal (consulta 24/10/2026)"),
+  F("baiao-de-dois", "Baião de dois", ["baião de dois","baiao de dois","baião"], 126, 5.17, 23.1, 2.3, 180, "1 porção (2 colheres de servir)", "tbca_verified", "TBCA BRC0188A, colher de servir cheia de 90 g (consulta 24/10/2026)"),
+  F("acaraje", "Acarajé", ["acarajé","acaraje","acarajés"], 270, 8.31, 19, 19.8, 80, "1 unidade", "tbca_verified", "TBCA BRC0203T, s/ recheio, unidade média de 80 g (consulta 24/10/2026)"),
+  F("pamonha", "Pamonha", ["pamonha","pamonhas"], 172, 2.55, 30.7, 4.85, 100, "1 unidade", "tbca_verified", "TBCA BRC0142A, milho verde, unidade média de 100 g (consulta 24/10/2026)"),
+  F("pamonha-queijo", "Pamonha com queijo", ["pamonha com queijo","pamonha de queijo"], 202, 6.81, 24.9, 8.76, 100, "1 unidade", "tbca_verified", "TBCA BRC1050A, c/ muçarela, unidade média de 100 g (consulta 24/10/2026)"),
+  F("canjica", "Canjica doce", ["canjica","mungunzá","munguzá"], 113, 2.36, 23.6, 1.24, 120, "1 concha", "tbca_verified", "TBCA BRC0184A, c/ leite e açúcar, concha de 120 g (consulta 24/10/2026)"),
+  F("pe-de-moleque", "Pé de moleque", ["pé de moleque","pe de moleque","pé-de-moleque"], 517, 13.2, 54.7, 28, 30, "1 unidade", "tbca_verified", "TBCA BRC0082K, unidade média de 30 g (consulta 24/10/2026)"),
+  F("nuggets-frango", "Nuggets de frango", ["nuggets","nugget","nuggets de frango","empanado de frango"], 339, 15.4, 24.7, 20.3, 18, "1 unidade", "tbca_verified", "TBCA BRC0474F, frito; unidade de 18 g é estimativa (TBCA só dá a porção de 110 g) (consulta 24/10/2026)"),
+  F("quiabo-cozido", "Quiabo", ["quiabo","quiabo cozido","quiabo refogado"], 20, 1.32, 5.07, 0.12, 100, "100 g", "tbca_verified", "TBCA BRC0055B, cozido s/ óleo (consulta 24/10/2026)"),
+  F("couve-refogada", "Couve refogada", ["couve","couve refogada","couve manteiga","couve mineira"], 83, 2.03, 7.07, 6.41, 60, "60 g", "tbca_verified", "TBCA BRC0102B, c/ óleo, cebola e alho (consulta 24/10/2026)"),
+  F("repolho-cru", "Repolho cru", ["repolho","repolho cru","salada de repolho"], 20, 1.12, 4.42, 0.14, 50, "50 g", "tbca_verified", "TBCA BRC0033B, branco (consulta 24/10/2026)"),
+  F("virado-a-paulista", "Virado à paulista", ["virado à paulista","virado a paulista","virado"], 242, 14.8, 12, 15.3, 250, "1 prato", "tbca_verified", "TBCA BRC0154T, prato de 250 g (consulta 24/10/2026)"),
+  F("bolinho-de-chuva", "Bolinho de chuva", ["bolinho de chuva","bolinhos de chuva"], 342, 8.17, 61.6, 7.37, 20, "1 unidade", "tbca_verified", "TBCA BRC0871A, c/ açúcar e canela; unidade de 20 g é estimativa (TBCA dá porção de 60 g) (consulta 24/10/2026)"),
+  F("churros", "Churros", ["churros","churro"], 412, 7.53, 49.8, 20.5, 90, "1 unidade", "tbca_verified", "TBCA BRC0919A, recheio de doce de leite, unidade média de 90 g (consulta 24/10/2026)"),
+  F("rabanada", "Rabanada", ["rabanada","rabanadas"], 314, 5.83, 37.5, 15.8, 60, "1 unidade", "tbca_verified", "TBCA BRC0436A, unidade de 60 g é estimativa (consulta 24/10/2026)"),
+  F("panqueca-carne", "Panqueca de carne", ["panqueca","panquecas","panqueca de carne"], 243, 17.1, 16.6, 12.1, 80, "1 unidade", "tbca_verified", "TBCA BRC0814A, s/ molho, unidade de 80 g (consulta 24/10/2026)"),
+  F("crepe-presunto-queijo", "Crepe de presunto e queijo", ["crepe de presunto e queijo","crepe salgado"], 230, 15.2, 13.4, 12.9, 80, "1 unidade", "tbca_verified", "TBCA BRC0438A, unidade média de 80 g (consulta 24/10/2026)"),
+  F("crepe-banana-chocolate", "Crepe de banana com chocolate", ["crepe de banana com chocolate","crepe doce","crepe de chocolate"], 206, 4.68, 26.6, 9.41, 80, "1 unidade", "tbca_verified", "TBCA BRC0437A, porção média de 80 g (consulta 24/10/2026)"),
+  F("pacoca", "Paçoca", ["paçoca","pacoca","paçoquinha","pacoquinha"], 494, 16, 52.4, 26.1, 30, "1 unidade", "tbca_verified", "TBCA BRC0081K, amendoim, unidade de 30 g (consulta 24/10/2026)"),
+  F("gelatina", "Gelatina", ["gelatina"], 57, 1.24, 12.8, 0.08, 120, "1 taça", "tbca_verified", "TBCA BRC0060K, preparada c/ água; taça de 120 g é estimativa (consulta 24/10/2026)"),
 ];
 
 
@@ -657,7 +695,17 @@ export function normalizeText(value) {
 const GENERIC_FOOD_TERMS = [
   { term: "batata", options: ["batata-cozida", "batata-assada", "batata-frita", "batata-rustica"] },
   { term: "bife", options: ["patinho-grelhado", "alcatra-grelhada", "bife-acebolado"] },
-  { term: "queijo", options: ["muçarela", "queijo-minas-frescal", "queijo-prato"] }
+  { term: "queijo", options: ["muçarela", "queijo-minas-frescal", "queijo-prato"] },
+  { term: "peixe", options: ["tilapia-grelhada", "salmao-grelhado", "merluza-grelhada", "sardinha-assada"] },
+  { term: "atum", options: ["atum-enlatado-agua", "atum-enlatado-oleo", "atum-fresco-grelhado"] },
+  { term: "strogonoff", options: ["strogonoff-frango", "strogonoff-carne"] },
+  { term: "estrogonofe", options: ["strogonoff-frango", "strogonoff-carne"] },
+  { term: "castanha", options: ["castanha-do-para", "castanha-de-caju"] },
+  { term: "castanhas", options: ["castanha-do-para", "castanha-de-caju"] },
+  { term: "linguiça", options: ["linguica-toscana-assada", "calabresa-grelhada"] },
+  { term: "linguica", options: ["linguica-toscana-assada", "calabresa-grelhada"] },
+  { term: "sushi", options: ["uramaki-salmao-pepino", "hot-roll-philadelphia", "nigiri-salmao", "hossomaki-salmao"] },
+  { term: "crepe", options: ["crepe-presunto-queijo", "crepe-banana-chocolate"] }
 ];
 
 // NUT-03 / CAT-05: pratos e combos que se desdobram em itens do catálogo. Componentes já
@@ -697,6 +745,8 @@ function findFoodOccurrences(text, extraFoods = []) {
     : catalogEntries;
   const byId = extraFoods.length ? new Map([...catalogById, ...extraFoods.map((item) => [item.id, item])]) : catalogById;
   return matchFoodTerms(text, entries, { normalized: true })
+    // "colher de chá/café" é medida, não a bebida.
+    .filter((occurrence) => !/\bcolher(?:es)?\s+(?:de\s+)?$/.test(text.slice(0, occurrence.index)))
     .map((occurrence) => occurrence.key.startsWith("generic:")
       ? { ...occurrence, generic: GENERIC_FOOD_TERMS.find(({ term }) => `generic:${term}` === occurrence.key) }
       : occurrence.key.startsWith("dish:")

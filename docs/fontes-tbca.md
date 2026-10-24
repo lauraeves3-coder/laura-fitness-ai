@@ -239,5 +239,42 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | refrigerante-zero | Refrigerante zero | BRC0047N | 0 | 0 | 0.11 | 0 | c/ adoçante, média de sabores |
 | agua-de-coco | Água de coco | BRC0174C | 21 | 0 | 5.29 | 0 | industrializada |
 | milk-shake-chocolate | Milk-shake de chocolate | BRC0144H | 113 | 2.84 | 21.8 | 5.86 | baunilha c/ calda de chocolate; os macros publicados somam ~151 kcal, mantido o valor de energia publicado |
+| margarina | Margarina | BRC0008D | 640 | 0 | 0 | 71.1 | média c/ e s/ sal |
+| pera | Pera | BRC0030C | 54 | 0.4 | 14 | 0.23 | c/ casca, unidade média de 110 g |
+| omelete | Omelete com queijo | BRC0031J | 215 | 13.4 | 2.19 | 17 | c/ muçarela, unidade média de 100 g |
+| salsicha | Salsicha | BRC0213F | 222 | 12.9 | 7.91 | 15.4 | média de tipos, unidade média de 50 g |
+| salsicha-frango | Salsicha de frango | BRC0214F | 182 | 13.4 | 4.15 | 12.4 | unidade média de 50 g |
+| chuchu-cozido | Chuchu cozido | BRC0050B | 21 | 0.5 | 5.09 | 0.15 | s/ óleo |
+| beterraba-cozida | Beterraba cozida | BRC0044B | 27 | 1.23 | 6.29 | 0.09 | s/ óleo |
+| beterraba-crua | Beterraba crua | BRC0015B | 46 | 1.95 | 11.1 | 0.09 | — |
+| pudim-de-leite | Pudim de leite | BRC0227K | 220 | 6.02 | 36.9 | 5.43 | artesanal, fatia média de 80 g |
+| pipoca | Pipoca | BRC0129A | 436 | 9.93 | 70.3 | 15.9 | preparada c/ óleo, xícara de 25 g |
+| cerveja | Cerveja | BRC0009H | 41 | 0.56 | 3.34 | 0 | Pilsen, lata de 350 ml |
+| cerveja-sem-alcool | Cerveja sem álcool | BRC0156H | 36 | 0.21 | 8.1 | 0.12 | dado importado pela TBCA |
+| vinho | Vinho | BRC0034H | 92 | 0.08 | 3.41 | 0 | média de amostras, taça de 100 ml |
+| vinho-branco | Vinho branco | BRC0035H | 90 | 0.08 | 2.94 | 0 | taça de 100 ml |
+| cha-sem-acucar | Chá sem açúcar | BRC0013H | 3 | 0 | 0.63 | 0 | chá preto, infusão; outros chás sem açúcar têm valor desprezível |
+| mingau-de-aveia | Mingau de aveia | BRC0053G | 117 | 4.6 | 16 | 4.08 | c/ açúcar, copo de 240 ml |
+| caldo-verde | Caldo verde | BRC0681B | 81 | 4.45 | 5.99 | 4.6 | concha cheia de 130 g; prato = 2 conchas |
+| arroz-com-frango | Arroz com frango (galinhada) | BRC0541A | 121 | 7.1 | 17.5 | 2.85 | c/ sal |
+| baiao-de-dois | Baião de dois | BRC0188A | 126 | 5.17 | 23.1 | 2.3 | colher de servir cheia de 90 g |
+| acaraje | Acarajé | BRC0203T | 270 | 8.31 | 19 | 19.8 | s/ recheio, unidade média de 80 g |
+| pamonha | Pamonha | BRC0142A | 172 | 2.55 | 30.7 | 4.85 | milho verde, unidade média de 100 g |
+| pamonha-queijo | Pamonha com queijo | BRC1050A | 202 | 6.81 | 24.9 | 8.76 | c/ muçarela, unidade média de 100 g |
+| canjica | Canjica doce | BRC0184A | 113 | 2.36 | 23.6 | 1.24 | c/ leite e açúcar, concha de 120 g |
+| pe-de-moleque | Pé de moleque | BRC0082K | 517 | 13.2 | 54.7 | 28 | unidade média de 30 g |
+| nuggets-frango | Nuggets de frango | BRC0474F | 339 | 15.4 | 24.7 | 20.3 | frito; unidade de 18 g é estimativa (TBCA só dá a porção de 110 g) |
+| quiabo-cozido | Quiabo | BRC0055B | 20 | 1.32 | 5.07 | 0.12 | cozido s/ óleo |
+| couve-refogada | Couve refogada | BRC0102B | 83 | 2.03 | 7.07 | 6.41 | c/ óleo, cebola e alho |
+| repolho-cru | Repolho cru | BRC0033B | 20 | 1.12 | 4.42 | 0.14 | branco |
+| virado-a-paulista | Virado à paulista | BRC0154T | 242 | 14.8 | 12 | 15.3 | prato de 250 g |
+| bolinho-de-chuva | Bolinho de chuva | BRC0871A | 342 | 8.17 | 61.6 | 7.37 | c/ açúcar e canela; unidade de 20 g é estimativa (TBCA dá porção de 60 g) |
+| churros | Churros | BRC0919A | 412 | 7.53 | 49.8 | 20.5 | recheio de doce de leite, unidade média de 90 g |
+| rabanada | Rabanada | BRC0436A | 314 | 5.83 | 37.5 | 15.8 | unidade de 60 g é estimativa |
+| panqueca-carne | Panqueca de carne | BRC0814A | 243 | 17.1 | 16.6 | 12.1 | s/ molho, unidade de 80 g |
+| crepe-presunto-queijo | Crepe de presunto e queijo | BRC0438A | 230 | 15.2 | 13.4 | 12.9 | unidade média de 80 g |
+| crepe-banana-chocolate | Crepe de banana com chocolate | BRC0437A | 206 | 4.68 | 26.6 | 9.41 | porção média de 80 g |
+| pacoca | Paçoca | BRC0081K | 494 | 16 | 52.4 | 26.1 | amendoim, unidade de 30 g |
+| gelatina | Gelatina | BRC0060K | 57 | 1.24 | 12.8 | 0.08 | preparada c/ água; taça de 120 g é estimativa |
 
-Total: 230 itens.
+Total: 267 itens.
