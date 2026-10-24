@@ -3,14 +3,14 @@
 // ajustes por cansaço/dor e ligação do treino feito com o plano.
 import {
   saveTrainingPlan, getActiveTrainingPlan, getPendingTrainingRequest, setPendingTrainingRequest, getPlannedSessions, updatePlannedSession,
-  linkWorkoutToSession, getRunsBetween
+  linkWorkoutToSession, getRunsBetween, updateTrainingPlan
 } from "../db.js";
 import { addDays, weekdayOf } from "../dates.js";
 import { buildTrainingPlan } from "./plan.js";
-import { RUNNING_GOALS, describePaces } from "./running.js";
+import { RUNNING_GOALS, describePaces, describeTargetAnalysis, expectedFiveK, paceForSession } from "./running.js";
 import { STRENGTH_GOALS } from "./strength.js";
 import { ENDURANCE_MODALITIES } from "./endurance.js";
-import { fiveKFromReference, formatPace, parseDuration } from "./paces.js";
+import { fiveKFromReference, formatDuration, formatPace, parseDuration, trainingPaces } from "./paces.js";
 import {
   adaptSession, buildDayReply, buildPlanCreatedReply, buildProgressReply, buildWeekReply,
   compareWithPlan, matchPlannedSession, modalityOf, runningProgress, weekSummary
@@ -83,7 +83,14 @@ function buildPlanFromRequest(userId, request, today) {
       easyPaceSeconds: parseDuration(request.easy_pace)
     });
     if (!fiveK && runningGoal !== "comecar") missing.push("um tempo recente (ex.: 5 km em 30 min) ou o pace em que corre conversando, para calcular seus ritmos");
+    // COR-06: meta de tempo ("5 km abaixo de 25 min") ou de pace ("pace 5:00 nos 10 km").
+    const distance = RUNNING_GOALS[runningGoal].distance;
+    const targetSeconds = distance
+      ? parseDuration(request.target_time) || (parseDuration(request.target_pace) ? Math.round(parseDuration(request.target_pace) * distance) : null)
+      : null;
     goals.push({
+      targetSeconds,
+      fiveKEstimated: Boolean(targetSeconds && !(request.reference_distance_km > 0 && parseDuration(request.reference_time))),
       modality: "corrida",
       goal: runningGoal,
       level: runningGoal === "comecar" ? "iniciante" : request.running_level || "iniciante",
@@ -124,6 +131,10 @@ function buildPlanFromRequest(userId, request, today) {
   // na segunda seguinte.
   const startDate = [1, 2, 3, 4].includes(weekdayOf(today)) ? mondayOf(today) : today;
   const built = buildTrainingPlan({ goals, startDate });
+  const running = goals.find((goal) => goal.modality === "corrida");
+  if (running && built.analysis) {
+    running.target = { seconds: built.analysis.target, five_k: built.analysis.target_five_k, pace: built.analysis.target_pace };
+  }
   const saved = saveTrainingPlan(userId, {
     goals, startDate: built.parts[0]?.plan?.start_date || startDate, weeks: built.weeks,
     paces: built.paces, warnings: built.warnings, sessions: built.sessions.filter((session) => session.date >= today)
@@ -136,13 +147,14 @@ function buildPlanFromRequest(userId, request, today) {
     firstWeek,
     today,
     paceLines: describePaces(built.paces) || [],
+    analysisLines: describeTargetAnalysis(built.analysis),
     warnings: built.warnings
   }) };
 }
 
 function describeGoals(goals) {
   return goals.map((goal) => {
-    if (goal.modality === "corrida") return `🏃 Corrida: ${RUNNING_GOALS[goal.goal].label} · ${LEVEL_LABEL[goal.level]} · ${goal.availableDays?.length || goal.daysPerWeek}×/semana${goal.eventDate ? ` · prova em ${goal.eventDate.split("-").reverse().join("/")}` : ""}`;
+    if (goal.modality === "corrida") return `🏃 Corrida: ${RUNNING_GOALS[goal.goal].label}${goal.targetSeconds ? ` em ${formatDuration(goal.targetSeconds)}` : ""} · ${LEVEL_LABEL[goal.level]} · ${goal.availableDays?.length || goal.daysPerWeek}×/semana${goal.eventDate ? ` · prova em ${goal.eventDate.split("-").reverse().join("/")}` : ""}`;
     if (goal.modality === "musculacao") return `🏋️ Musculação: ${STRENGTH_GOALS[goal.goal].label} · ${goal.daysPerWeek}×/semana · ${goal.equipment}`;
     return `🚴 ${ENDURANCE_MODALITIES[goal.modality].label}: ${goal.daysPerWeek}×/semana`;
   }).join("\n");
@@ -151,6 +163,12 @@ function describeGoals(goals) {
 // Intenções de treino resolvidas sem o modelo.
 export function detectTrainingIntent(message) {
   const text = normalize(message);
+  // COR-06: resultado do teste ("teste 3 km em 15:10", "fiz o teste em 15 min e 20 s").
+  const testTime = /\bteste\b/.test(text) && text.match(/\bem\s+(\d{1,2}:\d{2}(?::\d{2})?|\d+\s*(?:min|minutos?)(?:\s*e?\s*\d+\s*(?:s|seg|segundos?))?)/)?.[1];
+  if (testTime && parseDuration(testTime)) {
+    const distanceKm = Number(text.match(/(\d+(?:[.,]\d+)?)\s*(?:km|k\b|quilometros?)/)?.[1]?.replace(",", ".") || 3);
+    return { type: "test", distanceKm, seconds: parseDuration(testTime) };
+  }
   if (/\b(?:progresso|evolucao|desempenho|resultado)\b.*\b(?:corrida|correr|corridas|treinos?)\b|\bcomo (?:esta|anda|vai) (?:a )?minha corrida\b/.test(text)) return { type: "progress" };
   if (/\btreinos?\b.*\bamanha\b|\bamanha\b.*\btreino\b/.test(text)) return { type: "day", offset: 1 };
   if (/\btreinos? da semana\b|\bplano da semana\b|\bsemana de treinos?\b|\bmeu plano de treino\b|\bmeus treinos\b/.test(text)) return { type: "week" };
@@ -195,6 +213,11 @@ export function handleTrainingMessage(userId, message, today) {
     const pastSessions = plan ? getPlannedSessions(userId, plan.start_date, addDays(today, -1)) : [];
     const adherence = pastSessions.length ? pastSessions.filter((session) => session.status === "feito").length / pastSessions.length : null;
     return buildProgressReply(runningProgress(runs, today), { adherence });
+  }
+  if (intent.type === "test") {
+    const pending = getPlannedSessions(userId, addDays(today, -3), today).find((session) => session.session_type === "teste" && session.status === "planejado");
+    if (pending) updatePlannedSession(pending.id, { status: "feito" });
+    return recalibrateFromTest(userId, intent, today) || "Anotei o teste, mas você ainda não tem um plano de corrida para recalibrar. Me peça para montar um com sua meta (ex.: *5 km abaixo de 25 min*).";
   }
   if (!plan) {
     return intent.type === "adapt" || intent.type === "skip"
@@ -251,5 +274,53 @@ export function linkWorkoutToPlan(userId, workout, date) {
   if (!session) return [];
   updatePlannedSession(session.id, { status: "feito", workout_id: workout.id });
   linkWorkoutToSession(workout.id, session.id);
-  return compareWithPlan(session, workout);
+  const lines = compareWithPlan(session, workout);
+  if (session.session_type !== "teste") return lines;
+  // Teste registrado só com os 3 km: recalibra direto; com aquecimento junto, pede o tempo.
+  if (workout.distance_km >= 2.8 && workout.distance_km <= 3.4 && workout.duration_min > 0) {
+    return [...lines, "", recalibrateFromTest(userId, { distanceKm: workout.distance_km, seconds: workout.duration_min * 60 }, date)];
+  }
+  return [...lines, "", "🔬 Me mande o tempo só dos 3 km do teste (ex.: _teste 3 km em 15:30_) para eu recalibrar seus ritmos."];
+}
+
+// COR-06: novo tempo medido num teste → 5 km atual. Os treinos futuros de corrida ganham
+// ritmos novos: leves pelo condicionamento medido, qualidade pela progressão até a meta.
+export function recalibrateFromTest(userId, { distanceKm, seconds }, today) {
+  const plan = getActiveTrainingPlan(userId);
+  const running = plan?.goals?.find((goal) => goal.modality === "corrida");
+  const fiveK = fiveKFromReference({ distanceKm, timeSeconds: seconds });
+  if (!running || !fiveK) return null;
+  const before = plan.paces?.five_k ? plan.paces.five_k * 5 : running.fiveKSeconds;
+  const recent = getPlannedSessions(userId, addDays(today, -6), today).filter((session) => session.week);
+  const future = getPlannedSessions(userId, addDays(today, 1), addDays(today, 7 * 30))
+    .filter((session) => session.modality === "corrida" && session.status === "planejado");
+  const testWeek = recent.at(-1)?.week ?? Math.max(1, (future[0]?.week ?? 2) - 1);
+  const target = running.target || null;
+  for (const session of future) {
+    const expected = expectedFiveK({ current: fiveK, target: target?.five_k, week: session.week || testWeek + 1, fromWeek: testWeek + 1, totalWeeks: plan.weeks });
+    const pace = paceForSession(session, { current: fiveK, expected, targetPace: target?.pace, goal: running.goal });
+    if (!pace) continue;
+    updatePlannedSession(session.id, { target_pace: pace, duration_min: session.distance_km ? Math.round(session.distance_km * pace[1] / 60) : session.duration_min });
+  }
+  const paces = trainingPaces(fiveK);
+  updateTrainingPlan(plan.id, { paces, goals: plan.goals.map((goal) => (goal === running ? { ...goal, fiveKSeconds: fiveK } : goal)) });
+
+  const change = before ? (before - fiveK) / before : 0;
+  const percent = String(Math.abs(Math.round(change * 1000) / 10)).replace(".", ",");
+  const evolution = !before || Math.abs(change) < 0.005 ? "igual ao previsto" : change > 0 ? `${percent}% mais rápido 🎉` : `${percent}% mais lento — ajustei para não sobrecarregar`;
+  const distance = RUNNING_GOALS[running.goal]?.distance;
+  const currentAtGoal = distance ? Math.round(fiveK * (distance / 5) ** 1.06) : null;
+  const targetLine = target?.seconds && distance
+    ? currentAtGoal <= target.seconds
+      ? `🎯 Você já está no ritmo da meta (${formatDuration(target.seconds)} nos ${String(distance).replace(".", ",")} km)!`
+      : `🎯 Meta: ${formatDuration(target.seconds)} — hoje você faria ~${formatDuration(currentAtGoal)} (faltam ${String(Math.round((currentAtGoal - target.seconds) / currentAtGoal * 1000) / 10).replace(".", ",")}%)`
+    : null;
+  return [
+    `🔬 *Teste registrado:* ${String(distanceKm).replace(".", ",")} km em ${formatDuration(seconds)} (${formatPace(seconds / distanceKm)}/km)`,
+    `• 5 km estimado agora: *${formatDuration(fiveK)}*${before ? ` (antes ${formatDuration(before)}) — ${evolution}` : ""}`,
+    targetLine,
+    "",
+    `✅ Atualizei os ritmos de ${future.length} treino${future.length === 1 ? "" : "s"} daqui em diante:`,
+    ...describePaces(paces).slice(0, 4).map((line) => `• ${line}`)
+  ].filter((line) => line !== null).join("\n");
 }

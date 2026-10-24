@@ -410,7 +410,9 @@ export function createAgentToolRegistry({
       goal_ml: { type: "number", minimum: 100 }
     }),
     defineTool("create_training_plan", "Criar ou refazer o plano de treino personalizado quando o usuário pedir para montar treinos (corrida, musculação, ciclismo, natação, caminhada, funcional, HIIT). Preencha só o que o usuário informou; o restante como null ou lista vazia. A ferramenta devolve as perguntas que faltam ou o plano criado.", {
-      running_goal: { type: ["string", "null"], enum: ["comecar", "5k", "10k", "21k", "42k", "manter", null] },
+      running_goal: { type: ["string", "null"], enum: ["comecar", "5k", "10k", "21k", "42k", "manter", "voltar", "aumentar_volume", null], description: "distância do objetivo (inclusive para melhorar tempo/pace nela); voltar = retomar depois de pausa; aumentar_volume = correr mais km/resistência; manter = saúde" },
+      target_time: { type: ["string", "null"], description: "meta de tempo na distância do objetivo, ex.: \"25:00\" para 5 km abaixo de 25 min, \"1:55:00\" na meia" },
+      target_pace: { type: ["string", "null"], description: "meta de pace por km na distância do objetivo, ex.: \"5:00\"; use quando a pessoa falar em pace em vez de tempo" },
       running_level: { type: ["string", "null"], enum: ["iniciante", "intermediario", "avancado", null] },
       running_days_per_week: { type: ["integer", "null"], minimum: 2, maximum: 6 },
       available_days: { type: "array", items: { type: "string", enum: ["seg", "ter", "qua", "qui", "sex", "sab", "dom"] } },

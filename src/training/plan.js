@@ -6,7 +6,7 @@ import { generateRunningPlan, mondayOnOrAfter } from "./running.js";
 import { generateStrengthPlan } from "./strength.js";
 import { generateEndurancePlan, ENDURANCE_MODALITIES } from "./endurance.js";
 
-const HARD_RUN = new Set(["longao", "intervalado", "limiar", "ritmo_prova", "prova"]);
+const HARD_RUN = new Set(["longao", "intervalado", "limiar", "ritmo_prova", "prova", "teste"]);
 const LEG_HEAVY = /Pernas|Inferiores|Corpo inteiro|Fortalecimento/;
 const STRENGTH_DAYS = { 1: [3], 2: [1, 4], 3: [1, 3, 5], 4: [1, 2, 4, 5], 5: [1, 2, 3, 4, 5], 6: [1, 2, 3, 4, 5, 6] };
 
@@ -62,6 +62,7 @@ export function buildTrainingPlan({ goals, startDate }) {
     weeks = plan.weeks.length;
     result.sessions.push(...plan.weeks.flatMap((week) => week.sessions.map((session) => ({ ...session, week: week.number, phase: week.phase }))));
     result.paces = plan.paces;
+    result.analysis = plan.analysis || null;
     result.warnings.push(...(plan.warnings || []));
     result.parts.push({ modality: "corrida", plan });
   }

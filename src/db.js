@@ -1555,6 +1555,11 @@ export function updatePlannedSession(id, changes) {
   return parsePlannedSession(db.prepare(`SELECT * FROM planned_sessions WHERE id = ?`).get(id));
 }
 
+// COR-06: ritmos e objetivos recalibrados após um teste.
+export function updateTrainingPlan(planId, { paces, goals }) {
+  db.prepare(`UPDATE training_plans SET paces = ?, goals = ? WHERE id = ?`).run(JSON.stringify(paces), JSON.stringify(goals), planId);
+}
+
 export function linkWorkoutToSession(workoutId, sessionId) {
   db.prepare(`UPDATE workouts SET planned_session_id = ? WHERE id = ?`).run(sessionId, workoutId);
 }

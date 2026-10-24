@@ -186,11 +186,12 @@ export function buildProgressReply(progress, { adherence = null } = {}) {
   ].filter((line) => line !== null).join("\n");
 }
 
-export function buildPlanCreatedReply({ plan, goalsDescription, firstWeek, today, paceLines = [], warnings = [] }) {
+export function buildPlanCreatedReply({ plan, goalsDescription, firstWeek, today, paceLines = [], analysisLines = [], warnings = [] }) {
   return [
     "🗓️ *Plano de treino criado*",
     goalsDescription,
     `Duração: ${plan.weeks} semanas · início ${formatDay(plan.start_date)}`,
+    ...(analysisLines.length ? ["", ...analysisLines] : []),
     paceLines.length ? "" : null,
     ...(paceLines.length ? ["⏱️ *Seus ritmos*", ...paceLines.map((line) => `• ${line}`)] : []),
     ...(warnings.length ? ["", ...warnings.map((warning) => `⚠️ ${warning}`)] : []),

@@ -215,3 +215,67 @@ test("COR-02: o histórico recente preenche volume, maior corrida, pace e nível
   assert.match(reply, /Plano de treino criado/);
   assert.match(reply, /Usei suas corridas das últimas 4 semanas: ~5 km\/semana, maior corrida 7,4 km, pace médio 7:12\/km/);
 });
+
+test("COR-06: meta de tempo — análise, ritmos progressivos, testes e blocos no ritmo da meta", async () => {
+  const { analyzeRunningTarget } = await import("../src/training/running.js");
+  // 5 km hoje ~28:40 (pace confortável 7:17), meta 25:00.
+  const analysis = analyzeRunningTarget({ goal: "5k", targetSeconds: 1500, fiveKSeconds: 1720, level: "intermediario" });
+  assert.equal(analysis.current, 1720);
+  assert.ok(analysis.gap > 0.12 && analysis.gap < 0.13);
+  assert.equal(analysis.verdict, "medio_prazo");
+  assert.equal(analysis.target_pace, 300);
+  // Prazo curto: marco intermediário realista em vez da meta.
+  const short = analyzeRunningTarget({ goal: "5k", targetSeconds: 1500, fiveKSeconds: 1720, level: "intermediario", weeks: 8 });
+  assert.equal(short.verdict, "ambiciosa");
+  assert.ok(short.milestone > 1500 && short.milestone < 1720);
+  assert.equal(analyzeRunningTarget({ goal: "5k", targetSeconds: 1800, fiveKSeconds: 1720, level: "iniciante" }).verdict, "alcancada");
+
+  const plan = generateRunningPlan({ goal: "5k", level: "iniciante", startDate: TUESDAY, daysPerWeek: 3, currentWeeklyKm: 5, longestRunKm: 7.4, fiveKSeconds: 1720, targetSeconds: 1500, fiveKEstimated: true });
+  const sessions = plan.weeks.flatMap((week) => week.sessions.map((session) => ({ ...session, week: week.number })));
+  assert.equal(plan.weeks.length, plan.analysis.weeks);
+  assert.equal(sessions.find((session) => session.week === 1 && session.session_type === "teste")?.title, "🔬 Teste de 3 km", "teste na 1ª semana quando o tempo é estimado");
+  assert.ok(sessions.filter((session) => session.session_type === "teste").length >= 3, "teste a cada bloco de 4 semanas");
+  assert.ok(sessions.some((session) => session.title === "Blocos no ritmo da meta" && session.target_pace[0] === 300));
+  const last = plan.weeks.at(-1).sessions.at(-1);
+  assert.match(last.title, /Teste final — 5 km/);
+  assert.deepEqual(last.target_pace, [300, 300]);
+  // Leves no ritmo de hoje; intervalados ficam mais rápidos ao longo do plano.
+  const easy = sessions.filter((session) => session.session_type === "rodagem").map((session) => session.target_pace[0]);
+  assert.equal(new Set(easy).size, 1);
+  const intervals = sessions.filter((session) => session.session_type === "intervalado" && !/400/.test(session.title)).map((session) => session.target_pace[0]);
+  assert.ok(intervals.at(-1) < intervals[0]);
+  // Volume cresce, nunca mais de 10% por semana fora a 1ª.
+  const totals = plan.weeks.map((week) => week.total_km);
+  assert.ok(Math.max(...totals) > totals[0] + 4);
+});
+
+test("COR-06: pedido com meta pela conversa e recalibração depois do teste de 3 km", () => {
+  const userId = "svc-target";
+  const reply = service.createTrainingPlanFromRequest(userId, {
+    ...request, running_goal: "5k", running_level: "iniciante", running_days_per_week: 3, current_weekly_km: 8, longest_run_km: 7,
+    reference_distance_km: null, reference_time: null, easy_pace: "7:17", target_time: "25:00", target_pace: null,
+    strength_days_per_week: null, equipment: null
+  }, TUESDAY);
+  assert.match(reply, /5 km em 25:00/);
+  assert.match(reply, /📊 \*Análise da sua meta\*[\s\S]*Hoje: 5 km em ~28:4\d[\s\S]*Meta: 5 km em 25:00 \(5:00\/km\) — 12,\d% mais rápido[\s\S]*semanas no seu nível/);
+  assert.match(reply, /🔬 Teste de 3 km/);
+
+  assert.deepEqual(detectTrainingIntent("fiz o teste 3 km em 15:30"), { type: "test", distanceKm: 3, seconds: 930 });
+  const before = db.getPlannedSessions(userId, "2026-11-02", "2027-12-31").find((session) => session.session_type === "intervalado");
+  const answer = service.handleTrainingMessage(userId, "teste 3 km em 15:30", TUESDAY);
+  assert.match(answer, /Teste registrado:\* 3 km em 15:30 \(5:10\/km\)/);
+  assert.match(answer, /5 km estimado agora: \*26:\d\d\*.*mais rápido/);
+  assert.match(answer, /Meta: 25:00 — hoje você faria/);
+  assert.equal(db.getPlannedSessions(userId, TUESDAY, TUESDAY).find((session) => session.session_type === "teste").status, "feito");
+  const after = db.getPlannedSessions(userId, before.date, before.date).find((session) => session.id === before.id);
+  assert.ok(after.target_pace[0] < before.target_pace[0], "ritmos recalibrados ficam mais rápidos");
+  assert.ok(db.getActiveTrainingPlan(userId).paces.five_k < 340);
+});
+
+test("COR-06: novas opções de objetivo (voltar a correr, aumentar volume)", () => {
+  const back = generateRunningPlan({ goal: "voltar", level: "intermediario", startDate: TUESDAY, daysPerWeek: 3, currentWeeklyKm: 25, fiveKSeconds: 1650 });
+  assert.ok(back.weeks[0].total_km <= 17, "volta com ~60% do volume de antes");
+  const volume = generateRunningPlan({ goal: "aumentar_volume", level: "intermediario", startDate: TUESDAY, daysPerWeek: 4, currentWeeklyKm: 20, fiveKSeconds: 1650 });
+  assert.ok(volume.weeks.at(-1).total_km > volume.weeks[0].total_km);
+  assert.ok(Math.max(...longRuns(volume).map((session) => session.distance_km)) >= 12);
+});
