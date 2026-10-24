@@ -156,6 +156,13 @@ db.exec(`
     details_json TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS water_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    amount_ml REAL NOT NULL,
+    logged_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 /* =========================================================
@@ -235,6 +242,7 @@ ensureColumn("users", "free_meal_days", "TEXT");
 ensureColumn("users", "free_meal_period", "TEXT");
 ensureColumn("users", "free_meal_preferences", "TEXT");
 ensureColumn("users", "pending_meal_clarification", "TEXT");
+ensureColumn("users", "water_goal_ml", "REAL");
 ensureColumn("meals", "meal_period", "TEXT");
 ensureColumn("meals", "plan_id", "INTEGER");
 ensureColumn("meals", "plan_option_index", "INTEGER");
@@ -1237,7 +1245,7 @@ export function saveWeight(
     return null;
   }
 
-  db.prepare(`
+  const inserted = db.prepare(`
     INSERT INTO weights (
       user_id,
       weight_kg,
@@ -1259,13 +1267,12 @@ export function saveWeight(
     userId
   );
 
+  // Pela linha inserida: duas pesagens no mesmo segundo têm o mesmo measured_at.
   return db.prepare(`
     SELECT *
     FROM weights
-    WHERE user_id = ?
-    ORDER BY measured_at DESC
-    LIMIT 1
-  `).get(userId);
+    WHERE id = ?
+  `).get(inserted.lastInsertRowid);
 }
 
 /* =========================================================
@@ -1909,4 +1916,38 @@ export function releaseWhatsAppMessage(messageId) {
     WHERE message_id = ?
       AND status = 'processing'
   `).run(messageId);
+}
+
+/* =========================================================
+   HIDRATAÇÃO (HID-01, HID-02)
+========================================================= */
+
+// HID-02: registra um consumo de água em ml
+export function saveWaterLog(userId, amount_ml) {
+  ensureUser(userId);
+  const stmt = db.prepare(`
+    INSERT INTO water_logs (user_id, amount_ml, logged_at)
+    VALUES (?, ?, ?)
+  `);
+  const info = stmt.run(userId, Number(amount_ml), getBrazilDateTime());
+  return { id: info.lastInsertRowid, user_id: userId, amount_ml: Number(amount_ml) };
+}
+
+// HID-02: total de água consumida hoje (em ml)
+export function getTodayWaterTotal(userId, date = new Date()) {
+  ensureUser(userId);
+  const day = getBrazilDate(date);
+  const row = db.prepare(`
+    SELECT COALESCE(SUM(amount_ml), 0) AS total_ml
+    FROM water_logs
+    WHERE user_id = ? AND date(logged_at) = ?
+  `).get(userId, day);
+  return Number(row?.total_ml || 0);
+}
+
+// HID-01: define meta diária de água (em ml)
+export function setWaterGoal(userId, goal_ml) {
+  ensureUser(userId);
+  db.prepare(`UPDATE users SET water_goal_ml = ? WHERE id = ?`).run(Number(goal_ml), userId);
+  return { user_id: userId, water_goal_ml: Number(goal_ml) };
 }

@@ -25,6 +25,9 @@ import {
   getLatestMealPlanEvent,
   saveWorkout,
   saveWeight,
+  saveWaterLog,
+  getTodayWaterTotal,
+  setWaterGoal,
   getUser,
   getDailySummary,
   getRecentHistory,
@@ -120,6 +123,9 @@ function normalizeAIResult(result) {
     "meal_choice",
     "meal_consumed",
     "meal_plan_get",
+    "water",
+    "water_goal",
+    "water_status",
     "none"
   ];
 
@@ -394,6 +400,30 @@ function normalizeAIResult(result) {
       },
       reply
     };
+  }
+
+  if (action === "water") {
+    return {
+      action,
+      data: {
+        amount_ml: normalizeNumber(data.amount_ml)
+      },
+      reply
+    };
+  }
+
+  if (action === "water_goal") {
+    return {
+      action,
+      data: {
+        goal_ml: normalizeNumber(data.goal_ml)
+      },
+      reply
+    };
+  }
+
+  if (action === "water_status") {
+    return { action, data: {}, reply };
   }
 
   if (action === "profile") {
@@ -1162,6 +1192,7 @@ function formatPlanReply(plan) {
 ========================================================= */
 
 const PENDING_CLARIFICATION_MAX_AGE_MS = 15 * 60000;
+const WEIGHT_CHANGE_REVIEW_KG = 2;
 
 // CONV-09: guarda a pergunta de preparo/corte para aceitar a resposta curta depois.
 function askMealClarification(userId, message, estimate) {
@@ -1319,6 +1350,14 @@ function saveAction(
       userId,
       result.data.weight_kg
     );
+  }
+
+  if (result.action === "water") {
+    return saveWaterLog(userId, result.data.amount_ml);
+  }
+
+  if (result.action === "water_goal") {
+    return setWaterGoal(userId, result.data.goal_ml);
   }
 
   if (result.action === "profile") {
@@ -2365,6 +2404,26 @@ const summaryIntent = classifySummaryIntent(message);
       dailySummary,
       user
     );
+  }
+
+  if (internal.interpretedAction?.action === "water_status") {
+    const totalMl = getTodayWaterTotal(userId);
+    const goalMl = user?.water_goal_ml ?? 2000;
+    const remainingMl = Math.max(0, goalMl - totalMl);
+    const pct = goalMl > 0 ? Math.round((totalMl / goalMl) * 100) : 0;
+    const totalStr = totalMl >= 1000
+      ? `${(totalMl / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} L`
+      : `${Math.round(totalMl)} ml`;
+    const goalStr = goalMl >= 1000
+      ? `${(goalMl / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} L`
+      : `${Math.round(goalMl)} ml`;
+    const remainStr = remainingMl >= 1000
+      ? `${(remainingMl / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} L`
+      : `${Math.round(remainingMl)} ml`;
+    if (totalMl >= goalMl) {
+      return `💧 Hidratação de hoje: ${totalStr} — meta de ${goalStr} atingida! 🎉`;
+    }
+    return `💧 Hidratação de hoje: ${totalStr} de ${goalStr} (${pct}%). Faltam ${remainStr} para atingir a meta.`;
   }
 
   const recentHistory =
@@ -4198,9 +4257,41 @@ const summaryIntent = classifySummaryIntent(message);
   }
 
   if (result.action === "weight") {
-    return saved
-      ? `⚖️ Registrei seu peso: ${Number(saved.weight_kg).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kg. Seu perfil foi atualizado; as metas automáticas não foram recalculadas.`
-      : "Não registrei o peso: informe um valor válido em kg.";
+    if (!saved) return "Não registrei o peso: informe um valor válido em kg.";
+    const format = (value) => Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+    const reply = `⚖️ Registrei seu peso: ${format(saved.weight_kg)} kg. Seu perfil foi atualizado; as metas automáticas não foram recalculadas.`;
+    // CRP-02 (DEC-07): mudança de 2 kg ou mais só sugere revisar as metas.
+    const previous = Number(user?.weight_kg);
+    const change = Number(saved.weight_kg) - previous;
+    return previous > 0 && Math.abs(change) >= WEIGHT_CHANGE_REVIEW_KG
+      ? `${reply}\nSeu peso mudou ${change > 0 ? "+" : "−"}${format(Math.abs(change))} kg em relação ao anterior (${format(previous)} kg). Se quiser recalcular as metas com o peso novo, diga "restaure minhas metas automáticas".`
+      : reply;
+  }
+
+  if (result.action === "water") {
+    if (!saved) return "Não registrei a água: informe um valor válido.";
+    const totalMl = getTodayWaterTotal(userId);
+    const goalMl = user?.water_goal_ml ?? 2000;
+    const pct = goalMl > 0 ? Math.round((totalMl / goalMl) * 100) : 0;
+    const fmt = (ml) => ml >= 1000
+      ? `${(ml / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} L`
+      : `${Math.round(ml)} ml`;
+    const addedStr = fmt(saved.amount_ml);
+    const totalStr = fmt(totalMl);
+    const goalStr = fmt(goalMl);
+    if (totalMl >= goalMl) {
+      return `💧 +${addedStr} registrado! Total hoje: ${totalStr} — meta de ${goalStr} atingida! 🎉`;
+    }
+    return `💧 +${addedStr} registrado. Total hoje: ${totalStr} de ${goalStr} (${pct}%).`;
+  }
+
+  if (result.action === "water_goal") {
+    if (!saved) return "Não consegui definir a meta de água.";
+    const goalMl = saved.water_goal_ml;
+    const goalStr = goalMl >= 1000
+      ? `${(goalMl / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} L`
+      : `${Math.round(goalMl)} ml`;
+    return `💧 Meta diária de água definida: ${goalStr} por dia.`;
   }
 
   if (

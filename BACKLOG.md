@@ -178,7 +178,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
 | CRP-01 | Registrar peso com data e histórico | P1 | IMPLEMENTADO E TESTADO | — | tabela `weights`; `saveWeight` atualiza `users.weight_kg`, recusa peso fora de 20–400 kg e confirma o registro (antes: sem validação e sem confirmação); `test/e2e.test.js` |
-| CRP-02 | Atualizar metas automáticas quando o peso muda | P1 | NÃO IMPLEMENTADO | DEC-07 | `saveWeight` não recalcula metas |
+| CRP-02 | Atualizar metas automáticas quando o peso muda | P1 | IMPLEMENTADO E TESTADO | — | DEC-07: mudança de 2 kg ou mais em relação ao peso anterior sugere revisar as metas ("restaure minhas metas automáticas"); nada é recalculado sozinho (`test/e2e.test.js`). Corrigido junto: a confirmação mostrava a primeira pesagem do mesmo segundo (`saveWeight` agora devolve a linha inserida) |
 | CRP-03 | Medidas/circunferências, gráficos e tendências | P2 | NÃO IMPLEMENTADO | — | — |
 | CRP-04 | Fotos privadas de evolução com consentimento | P3 | NÃO IMPLEMENTADO | VIS-04 | — |
 | CRP-05 | Sono (horas, qualidade), energia, fadiga; cruzar sem inferir causalidade | P2 | NÃO IMPLEMENTADO | — | — |
@@ -238,7 +238,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | DEC-04 | Fonte e frequência de atualização dos cardápios de fast food | CAT-04 |
 | DEC-05 | Quando iniciar a pesquisa de marcas/sabores de suplementos e quais fontes oficiais usar | SUP-01 |
 | DEC-06 | Conta de desenvolvedor Strava e escopo de dados autorizados | INT-01 |
-| DEC-07 | Recalcular metas automaticamente ao registrar peso, ou só sugerir revisão | CRP-02 |
+| DEC-07 | **Decidido em 23/10/2026 (autonomia dada pela usuária):** só sugerir revisão quando o peso muda 2 kg ou mais; o recálculo fica com a usuária | CRP-02 |
 | DEC-08 | Modelo de autenticação do painel (login por usuário, vínculo com o número do WhatsApp) | WEB-02 |
 | DEC-09 | Onde rodar o agendador (processo do servidor, cron externo) e limites de mensagens proativas | ARQ-04, CONV-11 |
 | DEC-10 | Se as ~40 cópias de backup soltas podem ser removidas da pasta (estão fora do Git) | ARQ-11 |
@@ -269,3 +269,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 23/10/2026 | DEC-01 decidida (medidas caseiras da TBCA; sem medida, estimativa marcada). NUT-25 → IMPLEMENTADO E TESTADO; novo item NUT-26 (pizza inteira). Totais: 35 testados, 1 não testado, 24 parciais, 58 não implementados, 2 bloqueados. 225 testes passando. |
 | 23/10/2026 | NUT-06 → IMPLEMENTADO E TESTADO (medidas caseiras por alimento da TBCA, cheia/rasa). Totais: 36 testados, 1 não testado, 23 parciais, 58 não implementados, 2 bloqueados. 226 testes passando. |
 | 23/10/2026 | NUT-26 → PARCIAL (inteiro pergunta a quantidade). Totais: 36 testados, 1 não testado, 24 parciais, 57 não implementados, 2 bloqueados. 227 testes passando. |
+| 23/10/2026 | DEC-07 decidida (sugerir revisão). CRP-02 → IMPLEMENTADO E TESTADO; corrigido `saveWeight` devolvendo a pesagem errada. Totais: 37 testados, 1 não testado, 24 parciais, 56 não implementados, 2 bloqueados. 228 testes passando. |

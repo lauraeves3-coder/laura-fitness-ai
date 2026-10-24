@@ -711,3 +711,16 @@ test("CRP-01: peso confirma; valor implausível é recusado e não altera o perf
   assert.match(reply, /Não registrei o peso/);
   assert.equal(db.getUser(userId).weight_kg, 72.5);
 });
+
+test("CRP-02: mudança de 2 kg ou mais sugere revisar as metas, sem recalcular", async () => {
+  const userId = newUser();
+  const weigh = (kg) => send(userId, `pesei ${kg} kg`, fakeModel([toolCall("record_weight", { weight_kg: kg }), finalText("ok")]));
+  await weigh(80);
+  const targetBefore = db.getUser(userId).daily_calorie_target;
+  assert.doesNotMatch(await weigh(79), /Seu peso mudou/);
+  const reply = await weigh(76.5);
+  assert.match(reply, /Seu peso mudou −2,5 kg em relação ao anterior \(79 kg\)/);
+  assert.match(reply, /restaure minhas metas automáticas/);
+  assert.equal(db.getUser(userId).weight_kg, 76.5);
+  assert.equal(db.getUser(userId).daily_calorie_target, targetBefore);
+});
