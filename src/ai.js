@@ -4643,12 +4643,30 @@ const summaryIntent = classifySummaryIntent(message);
           updated?.daily_fat_target
       });
 
-    if (
-      balance.macros_compatible ===
-      false
-    ) {
-      return `${result.reply || "Meta personalizada salva."}\n\n⚠️ As metas atuais de calorias e macros são matematicamente incompatíveis (${Math.round(balance.macro_calorie_total)} kcal pelos macros para uma meta de ${Math.round(updated.daily_calorie_target)} kcal). Mantive os valores escolhidos sem ajustá-los silenciosamente.`;
+    // Fase 5: calorias e macros na mesma mensagem viram duas chamadas; a checagem de
+    // compatibilidade fica para a dos macros, senão compara com os macros antigos.
+    const candidates = explicitNutritionCandidates(normalizeRequestText(message));
+    const macrosComingNext = result.action === "set_calorie_target"
+      && ["protein_g", "carbs_g", "fat_g"].some((key) => candidates[key]?.length);
+    const fmt = (value) => Math.round(Number(value)).toLocaleString("pt-BR");
+    if (macrosComingNext) {
+      return `🔥 Meta de calorias salva: ${fmt(updated.daily_calorie_target)} kcal`;
     }
+
+    const macroLine = [
+      updated.daily_protein_target ? `🥩 P ${fmt(updated.daily_protein_target)} g` : null,
+      updated.daily_carbs_target ? `🍚 C ${fmt(updated.daily_carbs_target)} g` : null,
+      updated.daily_fat_target ? `🥑 G ${fmt(updated.daily_fat_target)} g` : null
+    ].filter(Boolean).join(" · ");
+    return [
+      "🎯 *Metas atualizadas*",
+      updated.daily_calorie_target ? `🔥 Calorias: ${fmt(updated.daily_calorie_target)} kcal` : null,
+      macroLine || null,
+      balance.macro_calorie_total ? `_Os macros somam ≈ ${fmt(balance.macro_calorie_total)} kcal._` : null,
+      balance.macros_compatible === false
+        ? `\n⚠️ Calorias e macros não fecham (${fmt(balance.macro_calorie_total)} kcal pelos macros para uma meta de ${fmt(updated.daily_calorie_target)} kcal). Mantive os valores escolhidos; ajuste um deles se quiser.`
+        : null
+    ].filter(Boolean).join("\n");
   }
 
   /* -------------------------------------------------------

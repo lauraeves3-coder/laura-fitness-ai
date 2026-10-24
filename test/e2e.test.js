@@ -421,7 +421,18 @@ test("NUT-17: meta incompatível com os macros é salva com aviso, sem ajuste si
   const reply = await setCalories(userId, 1000);
   assert.equal(db.getUser(userId).daily_calorie_target, 1000);
   assert.equal(db.getUser(userId).daily_protein_target, macrosBefore.daily_protein_target);
-  assert.match(reply, /matematicamente incompatíveis/);
+  assert.match(reply, /Calorias e macros não fecham/);
+});
+
+test("Fase 5: calorias e macros na mesma mensagem: um painel só, sem aviso desatualizado", async () => {
+  const userId = userWithTargets();
+  const reply = await send(userId, "Minha neta de calorias é 1800, proteína 140g carboidrato 180g gordura 60 g", fakeModel([
+    toolCall("set_calorie_target", { calories: 1800 }, "c1"),
+    toolCall("set_macro_targets", { protein_g: 140, carbs_g: 180, fat_g: 60 }, "c2"),
+    finalText("Pronto!")
+  ]));
+  assert.match(reply, /🎯 \*Metas atualizadas\*\n🔥 Calorias: 1\.800 kcal\n🥩 P 140 g · 🍚 C 180 g · 🥑 G 60 g/);
+  assert.doesNotMatch(reply, /não fecham|Entendi\. Como posso/);
 });
 
 test("NUT-17: meta calórica zero, negativa ou absurda é recusada e informada", async () => {
