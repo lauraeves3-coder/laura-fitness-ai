@@ -10,6 +10,8 @@
   - Valores estimativos curados para itens sem referência específica no catálogo.
 */
 
+import { fileURLToPath } from "node:url";
+import { loadExtraFoods } from "./catalogExtra.js";
 import { tbcaMeasureGrams } from "./householdMeasures.js";
 import { matchFoodTerms, normalizeFoodText, parseQuantity, QUANTITY_PATTERN } from "./foodMatching.js";
 
@@ -488,6 +490,15 @@ const BRANDED_FAST_FOOD_CATALOG = [
 ];
 
 FOOD_CATALOG.push(...BRANDED_FAST_FOOD_CATALOG);
+
+// CAT-08: alimentos extras em JSON, sem editar código. Entradas inválidas ficam em
+// CATALOG_EXTRA_ISSUES.
+const extraCatalog = loadExtraFoods(
+  process.env.FITPULSE_CATALOG_EXTRA || fileURLToPath(new URL("../data/catalogo-extra.json", import.meta.url)),
+  new Set(FOOD_CATALOG.map((food) => food.id))
+);
+FOOD_CATALOG.push(...extraCatalog.foods);
+export const CATALOG_EXTRA_ISSUES = extraCatalog.issues;
 
 
 // CAT-12: componentes com id inexistente ou gramagem inválida não entram no modelo,
