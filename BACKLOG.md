@@ -36,6 +36,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | CONV-09 | Pergunta pendente com estado (responder "patinho" após "qual bife?") | P0 | IMPLEMENTADO E TESTADO | — | `resolveGenericFoodAnswer` (`mealIntent.js`), estado em `users.pending_meal_clarification`, `handlePendingMealClarification` (15 min); `test/intent.test.js`, `test/db.test.js`, `test/e2e.test.js` |
 | CONV-10 | Áudio: receber, transcrever, interpretar; depois responder em áudio | P2 | PARCIAL | ARQ-05 | áudio do WhatsApp é baixado, transcrito (`gpt-4o-mini-transcribe`, pt) e segue o fluxo de texto; a resposta mostra o que foi entendido; falha ou áudio vazio pedem texto (`test/e2e.test.js`, transcrição simulada). Falta responder em áudio e validar com a OpenAI real (Fase 5) |
 | CONV-11 | Notificações, lembretes e proatividade sem excesso | P2 | PARCIAL | — | "me lembre de beber água" (aviso às 10h–20h a cada 2 h, só abaixo do ritmo da meta) e "me mande o resumo do dia às 21h" ativam; "pare os lembretes…" desativa; cada lembrete sai uma vez por horário (`src/reminders.js`, `test/e2e.test.js`). Limite do WhatsApp: fora da janela de 24 h exige template aprovado (não implementado). Faltam lembretes de refeição/treino e preferências de silêncio |
+| CONV-12 | Perfil de comunicação: aprender se a pessoa prefere respostas curtas ou detalhadas e manter o tom natural, amigável e sem julgamento (prompt mestre §95) | P2 | NÃO IMPLEMENTADO | CONV-08 | — |
 
 ## NUT — Nutrição e registro alimentar
 
@@ -67,6 +68,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | NUT-24 | Validação nutricional ao salvar refeição | P0 | IMPLEMENTADO E TESTADO | — | `validateMealRecord` (`nutrition.js`) em `saveMeal`/`correctMeal` e no `ai.js`; `test/db.test.js` |
 | NUT-25 | Peso por unidade correto em itens multiunidade (pão de queijo) | P1 | IMPLEMENTADO E TESTADO | — | porção contável = 1 item (pão de queijo 60 g/2 un. → 30 g/1 un.); pesos por unidade conferidos nas medidas caseiras da TBCA (DEC-01): pizza 120→90 g/fatia, coxinha e empada 100→50 g, pão de hambúrguer 55→70, pão de leite 50→40, iogurte 170/150→100 g/pote, kiwi, laranja, mexerica, mamão, esfiha, cachorro-quente, queijo coalho; sugestões de pizza derivam do catálogo (`test/catalog.test.js`, `test/desiredFood.test.js`). Mantidos por divergirem da unidade inteira: banana prata (TBCA 40 g por pedaço; catálogo 90 g), sorvete (TBCA porção 50 g; catálogo 1 bola 60 g), ovo mexido e clara (TBCA por porção) |
 | NUT-26 | "Pizza inteira" e outros inteiros (bolo, pacote) não viram 1 porção | P1 | PARCIAL | — | "pizza de calabresa inteira" / "bolo inteiro" sem medida viram pergunta de quantidade (fluxo NUT-09); resposta "8" vale 8 fatias para itens em fatias (`test/catalog.test.js`). Falta: "pizza inteira de calabresa" (sabor depois de "inteira") ainda vira pizza genérica + calabresa |
+| NUT-27 | Ajuste do dia em tempo real: refeição maior que o plano recalcula o saldo e adapta as próximas refeições, sem tom moralista (prompt mestre §87) | P1 | NÃO IMPLEMENTADO | — | — |
 
 ## CAT — Catálogo alimentar brasileiro
 
@@ -145,6 +147,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | ESP-04 | Objetivos de longo prazo, provas, prazos e calendário | P2 | IMPLEMENTADO E TESTADO | — | objetivos com prova e data (`training_plans`, `planned_sessions`); plano datado semana a semana; "treino de hoje/amanhã", "treinos da semana" sem o modelo; plano criado de segunda a quinta começa na semana atual, sexta a domingo na segunda seguinte (`test/training.test.js`, `test/e2e.test.js`) |
 | ESP-05 | Adaptar treino (sem tempo, cansaço, sono ruim, sem equipamento, sessão perdida, dor) | P2 | PARCIAL | — | cansaço/sono ruim troca treino forte por rodagem leve e reduz o volume; dor troca por descanso com orientação; "pulei o treino" marca sem compensar; semana anterior abaixo de 60% mantém a carga em vez de subir. Faltam sem tempo/sem equipamento e remarcação |
 | ESP-06 | Planejado ≠ realizado; feedback pós-treino | P2 | IMPLEMENTADO E TESTADO | — | treino registrado é ligado à sessão do dia (ou de ontem pendente) e comparado: distância e, em sessões contínuas, pace no alvo; qualidade não compara pace médio (inclui aquecimento); semana mostra feito/pulado/ajustado |
+| ESP-07 | Gasto energético estimado do treino (tipo, duração, distância, intensidade, peso), sempre como estimativa e sem repor automaticamente na dieta (prompt mestre antigo, "Gasto energético") | P2 | NÃO IMPLEMENTADO | ESP-02 | — |
 
 ## MUS — Musculação
 
@@ -165,6 +168,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | COR-03 | Tipos de treino (rodagem, longão, intervalado, fartlek, limiar, strides…) | P2 | IMPLEMENTADO E TESTADO | — | rodagem, longão, regenerativo, fartlek, acelerações, intervalado (800 m / 1 km), limiar e blocos no ritmo de prova, por fase |
 | COR-04 | Periodização e planos semanais; adaptar faltas sem progressão agressiva | P2 | IMPLEMENTADO E TESTADO | — | periodização base → construção → específico → polimento; alvo semanal sobe até 10%, recuperação a cada 4 semanas, longão cresce em separado até o teto do objetivo; treinos fortes nunca em dias seguidos; faltas não são compensadas |
 | COR-05 | Registro por texto, feedback, recordes; manual ≠ planejado ≠ importado | P2 | PARCIAL | — | "corri 5 km em 30 min" registra com pace e compara com o plano; "progresso da corrida" mostra km por semana, maior corrida, melhor pace e adesão ao plano. Falta importar de relógio/apps (INT-01) |
+| COR-06 | Objetivo por tempo/pace alvo ("fazer 10 km em 50 min", "melhorar meu pace nos 5 km"): ritmos do plano a partir do alvo, checando se é realista para o tempo atual (prompt mestre §58) | P2 | NÃO IMPLEMENTADO | COR-01 | — |
 
 ## INT — Integrações fitness
 
@@ -285,3 +289,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 24/10/2026 | ACO-03 → PARCIAL (resumo de período com treinos, peso, água e sono). Totais: 39 testados, 1 não testado, 37 parciais, 41 não implementados, 2 bloqueados. 257 testes passando. |
 | 24/10/2026 | Fase 5: "minha neta de calorias…" era recusada; CONV-02 avança (erros de digitação em metas e alimentos). Totais: 39 testados, 1 não testado, 37 parciais, 41 não implementados, 2 bloqueados. 268 testes passando. |
 | 24/10/2026 | Treinos personalizados: motor `src/training/` (corrida, musculação e outras modalidades), plano datado com acompanhamento e ajustes, lembrete de treino. ESP-04, ESP-06, MUS-04, COR-01, COR-03, COR-04 → IMPLEMENTADO E TESTADO; ESP-02/03/05, MUS-02/05, COR-02/05 → PARCIAL. Totais: 45 testados, 1 não testado, 44 parciais, 28 não implementados, 2 bloqueados. 284 testes passando. |
+| 24/10/2026 | Análise do prompt mestre (FitPulse_AI_Prompt_Mestre.txt): itens sem ID entram como NUT-27, ESP-07, COR-06 e CONV-12. Escopo do catálogo mantido (grande maioria do que se come, não todas as comidas). Totais: 45 testados, 1 não testado, 44 parciais, 32 não implementados, 2 bloqueados. |
