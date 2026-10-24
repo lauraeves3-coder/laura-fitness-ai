@@ -401,6 +401,13 @@ export function createAgentToolRegistry({
       food_dislikes: STRING_OR_NULL
     }),
     defineTool("record_weight", "Registrar um peso informado pelo usuário.", { weight_kg: { type: "number", minimum: 0.1 } }),
+    defineTool("record_water", "Registrar consumo de água quando o usuário informar que bebeu um líquido em ml ou L.", {
+      amount_ml: { type: "number", minimum: 1 }
+    }),
+    defineTool("get_water_status", "Consultar total de água bebida hoje e meta diária.", {}),
+    defineTool("set_water_goal", "Definir ou atualizar a meta diária de consumo de água.", {
+      goal_ml: { type: "number", minimum: 100 }
+    }),
     defineTool("record_workout", "Registrar somente um treino que o usuário informou que realizou.", {
       workout_type: { type: "string" },
       duration_min: { type: "number", minimum: 0 },
@@ -493,7 +500,10 @@ export function createAgentToolRegistry({
     restore_automatic_targets: () => executeAction("reset_nutrition_targets", {}),
     update_user_profile: (args) => executeAction("profile", nullableFields(args)),
     record_weight: (args) => executeAction("weight", args),
-    record_workout: (args) => executeAction("workout", args)
+    record_workout: (args) => executeAction("workout", args),
+    record_water: (args) => executeAction("water", args),
+    get_water_status: () => executeAction("water_status", {}),
+    set_water_goal: (args) => executeAction("water_goal", args)
   };
 
   return { definitions, handlers };

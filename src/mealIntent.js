@@ -326,6 +326,25 @@ export function normalizeRequestText(message) {
   return String(message || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
 }
 
+// HID-02: "bebi 500 ml de \u00e1gua", "tomei 2 copos d'\u00e1gua" sem passar pelo modelo.
+// Copo/garrafa/x\u00edcara usam as medidas gen\u00e9ricas (200/500/150 ml). Retorna ml ou null.
+const WATER_UNITS = [[/^(?:ml|mililitros?)$/, 1], [/^(?:l|litros?)$/, 1000], [/^copos?$/, 200], [/^(?:garrafas?|garrafinhas?)$/, 500], [/^xicaras?$/, 150]];
+export function detectWaterIntake(message) {
+  const text = normalizeRequestText(message);
+  if (/\bnao\s+(?:bebi|tomei)\b/.test(text)) return null;
+  const match = text.match(new RegExp(`\\b(?:bebi|tomei|bebemos|tomamos)\\s+(?:mais\\s+)?(${QUANTITY_PATTERN})\\s*(ml|mililitros?|l|litros?|copos?|garrafas?|garrafinhas?|xicaras?)\\s+(?:de\\s+|d['\u2019]\\s*)?agua\\b(?!\\s+de\\s+coco)`));
+  if (!match) return null;
+  const amount = parseQuantity(match[1]);
+  const factor = WATER_UNITS.find(([pattern]) => pattern.test(match[2]))?.[1];
+  return amount > 0 && factor ? Math.round(amount * factor) : null;
+}
+
+export function detectWaterStatusQuery(message) {
+  const text = normalizeRequestText(message);
+  return /\b(?:quant[ao]s?|qual)\b[^.?!]*\bagua\b(?!\s+de\s+coco)/.test(text)
+    && !/\b(?:bebi|tomei)\s+\d/.test(text);
+}
+
 export function normalizeToolFoodList(value) {
   if (!Array.isArray(value)) return [];
   const aliases = new Map([

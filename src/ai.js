@@ -78,6 +78,8 @@ import {
   isMealDeletionConfirmation,
   isMealDeletionCancellation,
   resolveGenericFoodAnswer,
+  detectWaterIntake,
+  detectWaterStatusQuery,
   isExplicitRepeatMeal,
   detectHistoryQuery,
   buildPeriodHistoryReply,
@@ -1196,6 +1198,14 @@ function formatPlanReply(plan) {
 
 const PENDING_CLARIFICATION_MAX_AGE_MS = 15 * 60000;
 const WEIGHT_CHANGE_REVIEW_KG = 2;
+
+// HID-01: meta de água definida pela usuária; sem ela, estimativa de 35 ml/kg (arredondada
+// a 100 ml) ou 2 L sem peso. É estimativa geral, não orientação profissional.
+function waterGoalFor(user) {
+  if (Number(user?.water_goal_ml) > 0) return Number(user.water_goal_ml);
+  const weight = Number(user?.weight_kg);
+  return weight > 0 ? Math.round(weight * 35 / 100) * 100 : 2000;
+}
 
 // CONV-09: guarda a pergunta de preparo/corte para aceitar a resposta curta depois.
 function askMealClarification(userId, message, estimate) {
@@ -2415,7 +2425,7 @@ const summaryIntent = classifySummaryIntent(message);
 
   if (internal.interpretedAction?.action === "water_status") {
     const totalMl = getTodayWaterTotal(userId);
-    const goalMl = user?.water_goal_ml ?? 2000;
+    const goalMl = waterGoalFor(user);
     const remainingMl = Math.max(0, goalMl - totalMl);
     const pct = goalMl > 0 ? Math.round((totalMl / goalMl) * 100) : 0;
     const totalStr = totalMl >= 1000
@@ -2465,6 +2475,17 @@ const summaryIntent = classifySummaryIntent(message);
 
     if (clarificationReply) {
       return clarificationReply;
+    }
+
+    // HID-02: água relatada ou consultada vai direto, sem o modelo.
+    const waterMl = detectWaterIntake(message);
+    if (waterMl || detectWaterStatusQuery(message)) {
+      return processMessage(userId, message, {
+        ...internal,
+        interpretedAction: waterMl
+          ? { action: "water", data: { amount_ml: waterMl }, reply: "" }
+          : { action: "water_status", data: {}, reply: "" }
+      });
     }
 
     // CAT-09: "cadastrar alimento: ..." grava o alimento só para esta usuária.
@@ -4285,7 +4306,7 @@ const summaryIntent = classifySummaryIntent(message);
   if (result.action === "water") {
     if (!saved) return "Não registrei a água: informe um valor válido.";
     const totalMl = getTodayWaterTotal(userId);
-    const goalMl = user?.water_goal_ml ?? 2000;
+    const goalMl = waterGoalFor(user);
     const pct = goalMl > 0 ? Math.round((totalMl / goalMl) * 100) : 0;
     const fmt = (ml) => ml >= 1000
       ? `${(ml / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} L`

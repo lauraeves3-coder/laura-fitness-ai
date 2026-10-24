@@ -759,3 +759,27 @@ test("NUT-03: 'comi um pf' pergunta a proteína e 'frango' completa o prato", as
   assert.equal(meals.length, 1);
   assert.equal(meals[0].calories, estimateMealFromText("comi um pf com peito de frango grelhado").calories);
 });
+
+// ---------- HID-01 / HID-02: água ----------
+
+test("HID-02: água relatada é registrada sem o modelo e soma no dia", async () => {
+  const userId = newUser();
+  assert.match(await send(userId, "bebi 500 ml de água"), /\+500 ml registrado\. Total hoje: 500 ml de 2 L/);
+  assert.match(await send(userId, "tomei 2 copos d'água"), /Total hoje: 900 ml/);
+  assert.equal(db.getTodayWaterTotal(userId), 900);
+  assert.equal(db.getTodayMeals(userId).length, 0);
+  assert.match(await send(userId, "quanto de água falta?"), /Faltam 1,1 L|Faltam 1100 ml/);
+});
+
+test("HID-01: meta de água pelo agente e registro pelo agente", async () => {
+  const userId = newUser();
+  assert.match(await send(userId, "minha meta de água é 3 litros", fakeModel([toolCall("set_water_goal", { goal_ml: 3000 }), finalText("ok")])), /Meta diária de água definida: 3 L/);
+  assert.match(await send(userId, "bebi uma garrafinha", fakeModel([toolCall("record_water", { amount_ml: 500 }), finalText("ok")])), /de 3 L/);
+  assert.equal(db.getTodayWaterTotal(userId), 500);
+});
+
+test("HID-01: sem meta definida, a meta de água é estimada pelo peso (35 ml/kg)", async () => {
+  const userId = newUser();
+  await send(userId, "pesei 70 kg", fakeModel([toolCall("record_weight", { weight_kg: 70 }), finalText("ok")]));
+  assert.match(await send(userId, "bebi 500 ml de água"), /500 ml de 2,5 L/);
+});

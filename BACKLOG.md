@@ -131,8 +131,8 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
-| HID-01 | Meta diária individualizada (estimativa ≠ orientação profissional) | P2 | NÃO IMPLEMENTADO | — | sem tabela de água |
-| HID-02 | Registrar ml/L, saldo, histórico, correções ("quanto falta?") | P2 | NÃO IMPLEMENTADO | HID-01 | — |
+| HID-01 | Meta diária individualizada (estimativa ≠ orientação profissional) | P2 | IMPLEMENTADO E TESTADO | — | meta definida pela usuária ("minha meta de água é 3 litros", ferramenta `set_water_goal`); sem meta, estimativa de 35 ml/kg arredondada a 100 ml, ou 2 L sem peso (`waterGoalFor`, `test/e2e.test.js`). É estimativa geral, não orientação profissional |
+| HID-02 | Registrar ml/L, saldo, histórico, correções ("quanto falta?") | P2 | PARCIAL | — | "bebi 500 ml de água", "tomei 2 copos d'água" registram sem o modelo (copo 200 ml, garrafa 500, xícara 150); "quanto de água falta?" mostra total, meta e saldo; o agente tem `record_water`, `get_water_status` e `set_water_goal` (`test/e2e.test.js`). Faltam histórico por dia e correção/exclusão de um registro de água |
 | HID-03 | Lembretes e integração com fechamento diário e painel | P3 | NÃO IMPLEMENTADO | CONV-11, ACO-02 | — |
 
 ## ESP — Motor esportivo multimodal
@@ -275,3 +275,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 23/10/2026 | CAT-09 → PARCIAL (cadastro de alimento pela conversa, por usuária). Totais: 38 testados, 1 não testado, 26 parciais, 53 não implementados, 2 bloqueados. 233 testes passando. |
 | 23/10/2026 | NUT-20 → PARCIAL (refeições livres com composição no catálogo). Totais: 38 testados, 1 não testado, 27 parciais, 52 não implementados, 2 bloqueados. 234 testes passando. |
 | 24/10/2026 | NUT-03 avança (PF/marmita e lanches da TBCA); CAT-05 → PARCIAL (combos McDonald's). Totais: 38 testados, 1 não testado, 28 parciais, 51 não implementados, 2 bloqueados. 238 testes passando. |
+| 24/10/2026 | HID-01 → IMPLEMENTADO E TESTADO; HID-02 → PARCIAL (água sem o modelo, meta e saldo). Totais: 39 testados, 1 não testado, 29 parciais, 49 não implementados, 2 bloqueados. 241 testes passando. |
