@@ -370,6 +370,51 @@ export function detectSimpleWorkout(message) {
   };
 }
 
+// CRP-05: "dormi 7h", "dormi 6 horas e 30 min, mal". Retorna { hours, quality } ou null.
+export function detectSleepReport(message) {
+  const text = normalizeRequestText(message);
+  const match = text.match(/\bdormi\s+(?:umas?\s+|cerca de\s+|so\s+|quase\s+)?(\d+(?:[.,]\d+)?)\s*(?:horas?|h)(?:\s*(?:e\s*)?(\d{1,2})\s*(?:min|minutos?)?)?/);
+  if (!match) return null;
+  // Valor fora do plausível segue para saveSleep, que recusa e a resposta explica.
+  const hours = Number(match[1].replace(",", ".")) + Number(match[2] || 0) / 60;
+  const quality = text.match(/\b(muito bem|bem|mal|muito mal|otimo|pessimo|ruim|agitado|tranquilo)\b/)?.[1] || null;
+  return { hours: Math.round(hours * 100) / 100, quality };
+}
+
+// MUS-03: "qual meu recorde no supino?". Retorna o nome do exercício ou null.
+export function detectRecordQuery(message) {
+  const text = normalizeRequestText(message).replace(/[?!.]+$/, "").trim();
+  const match = text.match(/\b(?:recorde|pr|maior carga|carga maxima|melhor marca)\b(?:\s+\w+)?\s+(?:no|na|em|de|do|da)\s+([a-z0-9 ]{3,40})$/);
+  return match ? match[1].trim() : null;
+}
+
+// Recorde de carga por exercício (nome sem acento/caixa). history: linhas com name,
+// reps, weight_kg, trained_at, em ordem cronológica.
+export function exerciseRecords(history) {
+  const records = new Map();
+  for (const row of history) {
+    const key = normalizeRequestText(row.name).trim();
+    const best = records.get(key);
+    if (!best || row.weight_kg > best.weight_kg || (row.weight_kg === best.weight_kg && row.reps > best.reps)) {
+      records.set(key, row);
+    }
+  }
+  return records;
+}
+
+export function findExerciseRecord(history, query) {
+  const wanted = normalizeRequestText(query).trim();
+  const matches = [...exerciseRecords(history)].filter(([key]) => key.includes(wanted) || wanted.includes(key));
+  return matches.sort(([, a], [, b]) => b.weight_kg - a.weight_kg)[0]?.[1] || null;
+}
+
+// HID-02: "apaga a última água", "desfaz o registro de água" (não lembretes).
+export function detectUndoWater(message) {
+  const text = normalizeRequestText(message);
+  return /\b(?:apag\w*|desfa\w*|remov\w*|exclu\w*|cancel\w*)\b/.test(text)
+    && /\bagua\b/.test(text) && !/\blembr|aviso|resumo\b/.test(text);
+}
+
 export function detectWaterStatusQuery(message) {
   const text = normalizeRequestText(message);
   return /\b(?:quant[ao]s?|qual)\b[^.?!]*\bagua\b(?!\s+de\s+coco)/.test(text)

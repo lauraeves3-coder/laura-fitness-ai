@@ -132,7 +132,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
 | HID-01 | Meta diária individualizada (estimativa ≠ orientação profissional) | P2 | IMPLEMENTADO E TESTADO | — | meta definida pela usuária ("minha meta de água é 3 litros", ferramenta `set_water_goal`); sem meta, estimativa de 35 ml/kg arredondada a 100 ml, ou 2 L sem peso (`waterGoalFor`, `test/e2e.test.js`). É estimativa geral, não orientação profissional |
-| HID-02 | Registrar ml/L, saldo, histórico, correções ("quanto falta?") | P2 | PARCIAL | — | "bebi 500 ml de água", "tomei 2 copos d'água" registram sem o modelo (copo 200 ml, garrafa 500, xícara 150); "quanto de água falta?" mostra total, meta e saldo; o agente tem `record_water`, `get_water_status` e `set_water_goal` (`test/e2e.test.js`). Faltam histórico por dia e correção/exclusão de um registro de água |
+| HID-02 | Registrar ml/L, saldo, histórico, correções ("quanto falta?") | P2 | PARCIAL | — | "bebi 500 ml de água", "tomei 2 copos d'água" registram sem o modelo (copo 200 ml, garrafa 500, xícara 150); "quanto de água falta?" mostra total, meta e saldo; "apaga a última água" remove o último registro de hoje; o agente tem `record_water`, `get_water_status` e `set_water_goal` (`test/e2e.test.js`). Falta histórico de água por dia |
 | HID-03 | Lembretes e integração com fechamento diário e painel | P3 | NÃO IMPLEMENTADO | CONV-11, ACO-02 | — |
 
 ## ESP — Motor esportivo multimodal
@@ -152,7 +152,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 |---|---|---|---|---|---|
 | MUS-01 | Séries, repetições e carga por exercício | P1 | IMPLEMENTADO E TESTADO | — | tabela `exercises`; `src/workouts.js` (validação: séries 0–100 inteiras, repetições 0–1000, carga 0–1000 kg, duração 0–1440 min; confirmação com volume); `saveWorkout` em transação; `getWorkoutsBetween`; `test/workouts.test.js`, `test/e2e.test.js`. Bug corrigido: treino registrado respondia "Entendi. Como posso te ajudar?" |
 | MUS-02 | Grupo muscular, RPE/RIR, descanso, técnica, equipamento, fadiga | P2 | NÃO IMPLEMENTADO | MUS-01 | — |
-| MUS-03 | Volume por músculo, progressão e PRs | P2 | NÃO IMPLEMENTADO | MUS-02 | — |
+| MUS-03 | Volume por músculo, progressão e PRs | P2 | PARCIAL | — | recorde de carga por exercício ("qual meu recorde no supino?") e aviso "🏆 Novo recorde" quando um treino supera a marca anterior (`exerciseRecords`, `test/e2e.test.js`). Falta volume por músculo e progressão |
 | MUS-04 | Criar/adaptar treinos por objetivo, nível, divisão, equipamento, limitações | P2 | NÃO IMPLEMENTADO | MUS-02 | — |
 | MUS-05 | Reagendar e comparar planejado x realizado | P2 | NÃO IMPLEMENTADO | ESP-06 | — |
 
@@ -181,7 +181,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | CRP-02 | Atualizar metas automáticas quando o peso muda | P1 | IMPLEMENTADO E TESTADO | — | DEC-07: mudança de 2 kg ou mais em relação ao peso anterior sugere revisar as metas ("restaure minhas metas automáticas"); nada é recalculado sozinho (`test/e2e.test.js`). Corrigido junto: a confirmação mostrava a primeira pesagem do mesmo segundo (`saveWeight` agora devolve a linha inserida) |
 | CRP-03 | Medidas/circunferências, gráficos e tendências | P2 | NÃO IMPLEMENTADO | — | — |
 | CRP-04 | Fotos privadas de evolução com consentimento | P3 | NÃO IMPLEMENTADO | VIS-04 | — |
-| CRP-05 | Sono (horas, qualidade), energia, fadiga; cruzar sem inferir causalidade | P2 | NÃO IMPLEMENTADO | — | — |
+| CRP-05 | Sono (horas, qualidade), energia, fadiga; cruzar sem inferir causalidade | P2 | PARCIAL | — | "dormi 7h", "dormi 6 horas e 30 min, mal" registram horas e qualidade em `sleep_logs` sem o modelo; valores fora de 0–16 h são recusados; o resumo do dia mostra o sono (`test/e2e.test.js`). Faltam energia/fadiga e cruzamentos |
 
 ## ACO — Check-ins, analytics e reavaliação
 
@@ -280,3 +280,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 24/10/2026 | Lembretes de água e resumo diário pelo WhatsApp (CONV-11, ARQ-04 → PARCIAL). Totais: 39 testados, 1 não testado, 31 parciais, 47 não implementados, 2 bloqueados. 245 testes passando. |
 | 24/10/2026 | Foto de refeição pelo WhatsApp (VIS-01, VIS-02 → PARCIAL; validação real depende da Fase 5). Totais: 39 testados, 1 não testado, 33 parciais, 45 não implementados, 2 bloqueados. 249 testes passando. |
 | 24/10/2026 | Áudio pelo WhatsApp transcrito e tratado como texto (CONV-10 → PARCIAL). Totais: 39 testados, 1 não testado, 34 parciais, 44 não implementados, 2 bloqueados. 251 testes passando. |
+| 24/10/2026 | Sono (CRP-05), recordes de musculação (MUS-03) e correção de água (HID-02). Totais: 39 testados, 1 não testado, 36 parciais, 42 não implementados, 2 bloqueados. 254 testes passando. |

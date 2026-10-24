@@ -30,6 +30,10 @@ import {
   saveWaterLog,
   getTodayWaterTotal,
   setReminder,
+  saveSleep,
+  getSleepOn,
+  getExerciseHistory,
+  deleteLastWaterLog,
   getReminderUsers,
   wasReminderSent,
   markReminderSent,
@@ -86,6 +90,11 @@ import {
   detectWaterStatusQuery,
   detectWeightReport,
   detectSimpleWorkout,
+  detectSleepReport,
+  detectRecordQuery,
+  findExerciseRecord,
+  exerciseRecords,
+  detectUndoWater,
   isExplicitRepeatMeal,
   detectHistoryQuery,
   buildPeriodHistoryReply,
@@ -1210,6 +1219,15 @@ const WEIGHT_CHANGE_REVIEW_KG = 2;
 
 // HID-01: meta de água definida pela usuária; sem ela, estimativa de 35 ml/kg (arredondada
 // a 100 ml) ou 2 L sem peso. É estimativa geral, não orientação profissional.
+const formatKg = (value) => Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+
+// 7.5 → "7 h 30 min"; 7 → "7 h".
+function formatHours(hours) {
+  const whole = Math.floor(hours);
+  const minutes = Math.round((hours - whole) * 60);
+  return minutes ? `${whole} h ${minutes} min` : `${whole} h`;
+}
+
 function waterGoalFor(user) {
   if (Number(user?.water_goal_ml) > 0) return Number(user.water_goal_ml);
   const weight = Number(user?.weight_kg);
@@ -1581,7 +1599,8 @@ function buildSpecificNutritionSummary(summary, metrics) {
 function buildSummaryReply(
   summary,
   user,
-  waterMl = null
+  waterMl = null,
+  sleep = null
 ) {
   const lines = [];
 
@@ -1621,6 +1640,9 @@ function buildSummaryReply(
   if (waterMl !== null) {
     const liters = (ml) => `${(ml / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} L`;
     lines.push(`💧 Água: ${liters(waterMl)} de ${liters(waterGoalFor(user))}`);
+  }
+  if (sleep) {
+    lines.push(`😴 Sono: ${formatHours(sleep.hours)}${sleep.quality ? ` (${sleep.quality})` : ""}`);
   }
 
   /* =======================================================
@@ -2420,7 +2442,7 @@ export async function runReminders({ now = new Date(), send }) {
     const user = users.find(({ id }) => id === reminder.userId);
     const text = reminder.kind === "water"
       ? buildWaterReminder(user.waterMl, user.goalMl)
-      : buildSummaryReply(getDailySummary(user.id), user, user.waterMl);
+      : buildSummaryReply(getDailySummary(user.id), user, user.waterMl, getSleepOn(user.id, getDailySummary(user.id).date));
     try {
       await send(user.id, text);
       results.push({ ...reminder, sent: true });
@@ -2529,7 +2551,8 @@ const summaryIntent = classifySummaryIntent(message);
     return buildSummaryReply(
       dailySummary,
       user,
-      getTodayWaterTotal(userId)
+      getTodayWaterTotal(userId),
+      getSleepOn(userId, dailySummary.date)
     );
   }
 
@@ -2594,6 +2617,28 @@ const summaryIntent = classifySummaryIntent(message);
         ? { water: reminderCommand.enabled }
         : { summaryTime: reminderCommand.time });
       return buildReminderCommandReply(reminderCommand);
+    }
+
+    // CRP-05 / MUS-03 / HID-02: sono, recorde e correção de água, sem o modelo.
+    const sleep = detectSleepReport(message);
+    if (sleep) {
+      const saved = saveSleep(userId, sleep.hours, sleep.quality);
+      return saved
+        ? `😴 Registrei ${formatHours(saved.hours)} de sono${saved.quality ? ` (${saved.quality})` : ""}.`
+        : "Não registrei o sono: informe as horas (ex.: \"dormi 7h\").";
+    }
+    const recordQuery = detectRecordQuery(message);
+    if (recordQuery) {
+      const record = findExerciseRecord(getExerciseHistory(userId), recordQuery);
+      return record
+        ? `🏆 Seu recorde em ${record.name}: ${formatKg(record.weight_kg)} kg${record.reps ? ` × ${record.reps}` : ""} (${String(record.trained_at).slice(8, 10)}/${String(record.trained_at).slice(5, 7)}).`
+        : `Ainda não tenho cargas registradas de ${recordQuery}. Registre o treino com séries, repetições e carga.`;
+    }
+    if (detectUndoWater(message)) {
+      const removed = deleteLastWaterLog(userId);
+      return removed
+        ? `💧 Removi o último registro de água de hoje (${Math.round(removed.amount_ml)} ml). Total agora: ${Math.round(getTodayWaterTotal(userId))} ml.`
+        : "Não há registro de água hoje para remover.";
     }
 
     // Registros e consultas frequentes vão direto, sem o modelo (economia e previsibilidade).
@@ -4414,6 +4459,9 @@ const summaryIntent = classifySummaryIntent(message);
     }
   }
 
+  // MUS-03: recordes antes de gravar, para avisar quando o treino supera a marca anterior.
+  const previousRecords = result.action === "workout" ? exerciseRecords(getExerciseHistory(userId)) : null;
+
   const saved =
     saveAction(
       userId,
@@ -4422,9 +4470,15 @@ const summaryIntent = classifySummaryIntent(message);
 
   // MUS-01 / CRP-01: confirmação explícita (antes caía em "Entendi. Como posso te ajudar?").
   if (result.action === "workout") {
-    return saved
-      ? buildWorkoutReply(saved)
-      : "Não consegui registrar o treino. Nada foi gravado.";
+    if (!saved) return "Não consegui registrar o treino. Nada foi gravado.";
+    const newRecords = (result.data.exercises || []).filter((exercise) => {
+      const previous = previousRecords.get(normalizeRequestText(exercise.name).trim());
+      return previous && Number(exercise.weight_kg) > previous.weight_kg;
+    });
+    return [
+      buildWorkoutReply(saved),
+      ...newRecords.map((exercise) => `🏆 Novo recorde em ${exercise.name}: ${formatKg(exercise.weight_kg)} kg!`)
+    ].join("\n");
   }
 
   if (result.action === "weight") {
@@ -4675,7 +4729,8 @@ const summaryIntent = classifySummaryIntent(message);
     return buildSummaryReply(
       updatedSummary,
       updatedUser,
-      getTodayWaterTotal(userId)
+      getTodayWaterTotal(userId),
+      getSleepOn(userId, updatedSummary.date)
     );
   }
 

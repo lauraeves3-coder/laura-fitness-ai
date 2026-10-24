@@ -1301,6 +1301,57 @@ export function saveWeight(
 }
 
 /* =========================================================
+   SONO (CRP-05), RECORDES (MUS-03) E CORREÇÃO DE ÁGUA (HID-02)
+========================================================= */
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS sleep_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    hours REAL NOT NULL,
+    quality TEXT,
+    logged_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+export function saveSleep(userId, hours, quality = null) {
+  ensureUser(userId);
+  const value = Number(hours);
+  if (!Number.isFinite(value) || value <= 0 || value > 16) return null;
+  const inserted = db.prepare(`INSERT INTO sleep_logs (user_id, hours, quality, logged_at) VALUES (?, ?, ?, ?)`)
+    .run(userId, value, quality, getBrazilDateTime());
+  return db.prepare(`SELECT * FROM sleep_logs WHERE id = ?`).get(inserted.lastInsertRowid);
+}
+
+// Último sono registrado no dia (data de São Paulo, AAAA-MM-DD).
+export function getSleepOn(userId, date) {
+  return db.prepare(`
+    SELECT * FROM sleep_logs WHERE user_id = ? AND substr(logged_at, 1, 10) = ?
+    ORDER BY id DESC LIMIT 1
+  `).get(userId, date) || null;
+}
+
+// Séries com carga de todos os treinos da usuária (para recordes).
+export function getExerciseHistory(userId) {
+  return db.prepare(`
+    SELECT exercises.name, exercises.reps, exercises.weight_kg, workouts.trained_at
+    FROM exercises JOIN workouts ON workouts.id = exercises.workout_id
+    WHERE workouts.user_id = ? AND exercises.weight_kg > 0
+    ORDER BY workouts.trained_at, exercises.id
+  `).all(userId);
+}
+
+// Remove o último registro de água de hoje e devolve o que foi removido.
+export function deleteLastWaterLog(userId, date = getBrazilDate()) {
+  const last = db.prepare(`
+    SELECT * FROM water_logs WHERE user_id = ? AND substr(logged_at, 1, 10) = ?
+    ORDER BY id DESC LIMIT 1
+  `).get(userId, date);
+  if (last) db.prepare(`DELETE FROM water_logs WHERE id = ?`).run(last.id);
+  return last || null;
+}
+
+/* =========================================================
    LEMBRETES (CONV-11 / ARQ-04)
 ========================================================= */
 

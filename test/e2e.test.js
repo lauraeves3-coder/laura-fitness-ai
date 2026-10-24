@@ -929,3 +929,33 @@ test("CONV-10: falha ou transcrição vazia pede texto e não registra", async (
   assert.match(await processVoiceMessage(userId, { base64: "AAAA" }, { apiClient: silent }), /Não entendi o áudio/);
   assert.equal(db.getTodayMeals(userId).length, 0);
 });
+
+// ---------- CRP-05 / MUS-03 / HID-02 ----------
+
+test("CRP-05: sono registrado sem o modelo e mostrado no resumo do dia", async () => {
+  const userId = newUser();
+  assert.match(await send(userId, "dormi 6 horas e 30 min, mal"), /Registrei 6 h 30 min de sono \(mal\)/);
+  assert.match(await send(userId, "resumo do dia"), /😴 Sono: 6 h 30 min \(mal\)/);
+  assert.match(await send(userId, "dormi 30 horas"), /Não registrei o sono/);
+});
+
+test("MUS-03: recorde por exercício e aviso de novo recorde", async () => {
+  const userId = newUser();
+  const workout = (kg) => fakeModel([toolCall("record_workout", {
+    workout_type: "musculação", duration_min: 50,
+    exercises: [{ name: "Supino reto", sets: 3, reps: 8, weight_kg: kg }]
+  }), finalText("ok")]);
+  assert.doesNotMatch(await send(userId, "treinei peito", workout(60)), /Novo recorde/);
+  assert.match(await send(userId, "treinei peito de novo", workout(65)), /🏆 Novo recorde em Supino reto: 65 kg!/);
+  assert.match(await send(userId, "qual meu recorde no supino?"), /🏆 Seu recorde em Supino reto: 65 kg × 8/);
+  assert.match(await send(userId, "qual meu recorde no agachamento?"), /Ainda não tenho cargas registradas de agachamento/);
+});
+
+test("HID-02: 'apaga a última água' remove só o último registro de hoje", async () => {
+  const userId = newUser();
+  await send(userId, "bebi 500 ml de água");
+  await send(userId, "bebi 300 ml de água");
+  assert.match(await send(userId, "apaga a última água"), /Removi o último registro de água de hoje \(300 ml\)\. Total agora: 500 ml/);
+  assert.equal(db.getTodayWaterTotal(userId), 500);
+  assert.match(await send(userId, "pare os lembretes de água"), /Lembretes de água desativados/);
+});
