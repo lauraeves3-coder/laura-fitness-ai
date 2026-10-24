@@ -1,7 +1,7 @@
 // MUS-01: validação e texto de confirmação de treinos (séries, repetições e carga).
 // Funções puras, sem banco e sem API.
 
-const LIMITS = { duration_min: 1440, sets: 100, reps: 1000, weight_kg: 1000 };
+const LIMITS = { duration_min: 1440, sets: 100, reps: 1000, weight_kg: 1000, distance_km: 500 };
 
 const isNonNegativeNumber = (value, max) =>
   value !== null && value !== undefined && value !== "" && typeof value !== "boolean"
@@ -15,6 +15,10 @@ export function validateWorkoutRecord(workout) {
   if (workout.duration_min !== undefined && workout.duration_min !== null
     && !isNonNegativeNumber(workout.duration_min, LIMITS.duration_min)) {
     errors.push(`duração deve ficar entre 0 e ${LIMITS.duration_min} minutos`);
+  }
+  if (workout.distance_km !== undefined && workout.distance_km !== null
+    && !isNonNegativeNumber(workout.distance_km, LIMITS.distance_km)) {
+    errors.push(`distância deve ficar entre 0 e ${LIMITS.distance_km} km`);
   }
   if (workout.exercises !== undefined && !Array.isArray(workout.exercises)) {
     errors.push("lista de exercícios inválida");

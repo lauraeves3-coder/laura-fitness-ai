@@ -140,31 +140,31 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
 | ESP-01 | Registrar treino realizado (tipo, duração, notas, exercícios) | P1 | IMPLEMENTADO E TESTADO | — | tabelas `workouts`/`exercises`; `saveWorkout`; ferramenta `record_workout`; `test/e2e.test.js` |
-| ESP-02 | Motor central com módulos por modalidade (força, corrida, ciclismo, natação, lutas, coletivos…) | P2 | NÃO IMPLEMENTADO | ARQ-01 | `workout_type` é texto livre |
-| ESP-03 | Perguntas adaptativas por modalidade | P2 | NÃO IMPLEMENTADO | ESP-02 | — |
-| ESP-04 | Objetivos de longo prazo, provas, prazos e calendário | P2 | NÃO IMPLEMENTADO | ESP-02 | — |
-| ESP-05 | Adaptar treino (sem tempo, cansaço, sono ruim, sem equipamento, sessão perdida, dor) | P2 | NÃO IMPLEMENTADO | ESP-04 | — |
-| ESP-06 | Planejado ≠ realizado; feedback pós-treino | P2 | NÃO IMPLEMENTADO | ESP-04 | — |
+| ESP-02 | Motor central com módulos por modalidade (força, corrida, ciclismo, natação, lutas, coletivos…) | P2 | PARCIAL | — | motor de treinos em `src/training/`: corrida (`running.js`), musculação (`strength.js`), ciclismo, natação, caminhada, funcional e HIIT (`endurance.js`), agenda combinada sem conflito (`plan.js`) (`test/training.test.js`). Faltam lutas e esportes coletivos |
+| ESP-03 | Perguntas adaptativas por modalidade | P2 | PARCIAL | — | a ferramenta `create_training_plan` devolve só as perguntas que faltam por modalidade (nível/volume, dias, tempo de referência; dias e local da musculação) e junta a resposta da mensagem seguinte com o pedido anterior (`pending_training_request`, 24 h) |
+| ESP-04 | Objetivos de longo prazo, provas, prazos e calendário | P2 | IMPLEMENTADO E TESTADO | — | objetivos com prova e data (`training_plans`, `planned_sessions`); plano datado semana a semana; "treino de hoje/amanhã", "treinos da semana" sem o modelo; plano criado de segunda a quinta começa na semana atual, sexta a domingo na segunda seguinte (`test/training.test.js`, `test/e2e.test.js`) |
+| ESP-05 | Adaptar treino (sem tempo, cansaço, sono ruim, sem equipamento, sessão perdida, dor) | P2 | PARCIAL | — | cansaço/sono ruim troca treino forte por rodagem leve e reduz o volume; dor troca por descanso com orientação; "pulei o treino" marca sem compensar; semana anterior abaixo de 60% mantém a carga em vez de subir. Faltam sem tempo/sem equipamento e remarcação |
+| ESP-06 | Planejado ≠ realizado; feedback pós-treino | P2 | IMPLEMENTADO E TESTADO | — | treino registrado é ligado à sessão do dia (ou de ontem pendente) e comparado: distância e, em sessões contínuas, pace no alvo; qualidade não compara pace médio (inclui aquecimento); semana mostra feito/pulado/ajustado |
 
 ## MUS — Musculação
 
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
 | MUS-01 | Séries, repetições e carga por exercício | P1 | IMPLEMENTADO E TESTADO | — | tabela `exercises`; `src/workouts.js` (validação: séries 0–100 inteiras, repetições 0–1000, carga 0–1000 kg, duração 0–1440 min; confirmação com volume); `saveWorkout` em transação; `getWorkoutsBetween`; `test/workouts.test.js`, `test/e2e.test.js`. Bug corrigido: treino registrado respondia "Entendi. Como posso te ajudar?" |
-| MUS-02 | Grupo muscular, RPE/RIR, descanso, técnica, equipamento, fadiga | P2 | NÃO IMPLEMENTADO | MUS-01 | — |
+| MUS-02 | Grupo muscular, RPE/RIR, descanso, técnica, equipamento, fadiga | P2 | PARCIAL | — | planos trazem grupo muscular, séries, faixa de repetições, descanso e RIR por exercício, com equipamento (academia/halteres/casa) e limitações (joelho, lombar, ombro, punho). Falta registrar RPE/RIR e fadiga do treino feito |
 | MUS-03 | Volume por músculo, progressão e PRs | P2 | PARCIAL | — | recorde de carga por exercício ("qual meu recorde no supino?") e aviso "🏆 Novo recorde" quando um treino supera a marca anterior (`exerciseRecords`, `test/e2e.test.js`). Falta volume por músculo e progressão |
-| MUS-04 | Criar/adaptar treinos por objetivo, nível, divisão, equipamento, limitações | P2 | NÃO IMPLEMENTADO | MUS-02 | — |
-| MUS-05 | Reagendar e comparar planejado x realizado | P2 | NÃO IMPLEMENTADO | ESP-06 | — |
+| MUS-04 | Criar/adaptar treinos por objetivo, nível, divisão, equipamento, limitações | P2 | IMPLEMENTADO E TESTADO | — | plano de musculação por objetivo (hipertrofia, força, emagrecimento, condicionamento, saúde, fortalecimento para corrida), nível, dias (divisões corpo inteiro/ABC/superior-inferior/PPL), equipamento e limitações, com progressão dupla; sem repetir exercício na sessão |
+| MUS-05 | Reagendar e comparar planejado x realizado | P2 | PARCIAL | — | planejado x realizado e status da semana valem também para musculação; falta reagendar uma sessão para outro dia |
 
 ## COR — Corrida
 
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
-| COR-01 | Objetivos (começar, 5/10/21/42 km, pace, limiar, retorno, prova) | P2 | NÃO IMPLEMENTADO | ESP-04 | — |
-| COR-02 | Métricas (distância, tempo, pace/parciais, volume, FC/zonas, elevação, RPE…) | P2 | NÃO IMPLEMENTADO | ESP-02 | — |
-| COR-03 | Tipos de treino (rodagem, longão, intervalado, fartlek, limiar, strides…) | P2 | NÃO IMPLEMENTADO | COR-02 | — |
-| COR-04 | Periodização e planos semanais; adaptar faltas sem progressão agressiva | P2 | NÃO IMPLEMENTADO | COR-03 | — |
-| COR-05 | Registro por texto, feedback, recordes; manual ≠ planejado ≠ importado | P2 | NÃO IMPLEMENTADO | COR-02, INT-01 | — |
+| COR-01 | Objetivos (começar, 5/10/21/42 km, pace, limiar, retorno, prova) | P2 | IMPLEMENTADO E TESTADO | — | objetivos começar a correr (corrida + caminhada até 30 min), 5/10/21/42 km e condicionamento, com data de prova (termina no dia da prova) e aviso de prazo curto |
+| COR-02 | Métricas (distância, tempo, pace/parciais, volume, FC/zonas, elevação, RPE…) | P2 | PARCIAL | — | distância e pace gravados em cada treino (`workouts.distance_km`, `pace_s_per_km`); ritmos de treino calculados de um tempo recente ou do pace confortável (Riegel + zonas). Faltam FC/zonas cardíacas, parciais e elevação |
+| COR-03 | Tipos de treino (rodagem, longão, intervalado, fartlek, limiar, strides…) | P2 | IMPLEMENTADO E TESTADO | — | rodagem, longão, regenerativo, fartlek, acelerações, intervalado (800 m / 1 km), limiar e blocos no ritmo de prova, por fase |
+| COR-04 | Periodização e planos semanais; adaptar faltas sem progressão agressiva | P2 | IMPLEMENTADO E TESTADO | — | periodização base → construção → específico → polimento; alvo semanal sobe até 10%, recuperação a cada 4 semanas, longão cresce em separado até o teto do objetivo; treinos fortes nunca em dias seguidos; faltas não são compensadas |
+| COR-05 | Registro por texto, feedback, recordes; manual ≠ planejado ≠ importado | P2 | PARCIAL | — | "corri 5 km em 30 min" registra com pace e compara com o plano; "progresso da corrida" mostra km por semana, maior corrida, melhor pace e adesão ao plano. Falta importar de relógio/apps (INT-01) |
 
 ## INT — Integrações fitness
 
@@ -284,3 +284,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 24/10/2026 | CAT-01: cobertura de alimentos comuns (+37 itens TBCA, termos genéricos novos, "pão" = pão francês, "colher de chá" não vira bebida). Totais: 39 testados, 1 não testado, 36 parciais, 42 não implementados, 2 bloqueados. 256 testes passando. |
 | 24/10/2026 | ACO-03 → PARCIAL (resumo de período com treinos, peso, água e sono). Totais: 39 testados, 1 não testado, 37 parciais, 41 não implementados, 2 bloqueados. 257 testes passando. |
 | 24/10/2026 | Fase 5: "minha neta de calorias…" era recusada; CONV-02 avança (erros de digitação em metas e alimentos). Totais: 39 testados, 1 não testado, 37 parciais, 41 não implementados, 2 bloqueados. 268 testes passando. |
+| 24/10/2026 | Treinos personalizados: motor `src/training/` (corrida, musculação e outras modalidades), plano datado com acompanhamento e ajustes, lembrete de treino. ESP-04, ESP-06, MUS-04, COR-01, COR-03, COR-04 → IMPLEMENTADO E TESTADO; ESP-02/03/05, MUS-02/05, COR-02/05 → PARCIAL. Totais: 45 testados, 1 não testado, 44 parciais, 28 não implementados, 2 bloqueados. 284 testes passando. |

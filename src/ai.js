@@ -35,6 +35,9 @@ import {
   getExerciseHistory,
   getActivityBetween,
   deleteLastWaterLog,
+  getPlannedSessions,
+  getPendingTrainingRequest,
+  getActiveTrainingPlan,
   getReminderUsers,
   wasReminderSent,
   markReminderSent,
@@ -110,6 +113,7 @@ import { validateWorkoutRecord, buildWorkoutReply } from "./workouts.js";
 import { runAgent, getClient } from "./agent/agent.js";
 import { describeMealPhoto, buildPhotoMealText, resolvePhotoItems } from "./vision.js";
 import { toFile } from "openai";
+import { handleTrainingMessage, createTrainingPlanFromRequest, afterWorkoutSaved } from "./training/service.js";
 import { createAgentToolRegistry } from "./agent/tools.js";
 
 /* =========================================================
@@ -372,6 +376,12 @@ function normalizeAIResult(result) {
         duration_min:
           normalizeNumber(
             data.duration_min
+          ),
+
+        // COR-02: distância (km) para corrida, pedal, nado e caminhada.
+        distance_km:
+          normalizeNumber(
+            data.distance_km
           ),
 
         notes:
@@ -2408,9 +2418,16 @@ export async function runReminders({ now = new Date(), send }) {
   const results = [];
   for (const reminder of dueReminders(users, now, wasReminderSent)) {
     const user = users.find(({ id }) => id === reminder.userId);
+    // Treino: só nos dias com sessão planejada (dia de descanso não gera mensagem).
+    if (reminder.kind === "training" && !getPlannedSessions(user.id, reminder.date, reminder.date).length) {
+      markReminderSent(user.id, reminder.key);
+      continue;
+    }
     const text = reminder.kind === "water"
       ? buildWaterReminder(user.waterMl, user.goalMl)
-      : buildSummaryReply(getDailySummary(user.id), user, user.waterMl, getSleepOn(user.id, getDailySummary(user.id).date));
+      : reminder.kind === "training"
+        ? handleTrainingMessage(user.id, "qual meu treino de hoje?", reminder.date)
+        : buildSummaryReply(getDailySummary(user.id), user, user.waterMl, getSleepOn(user.id, getDailySummary(user.id).date));
     try {
       await send(user.id, text);
       results.push({ ...reminder, sent: true });
@@ -2593,7 +2610,9 @@ const summaryIntent = classifySummaryIntent(message);
     if (reminderCommand) {
       setReminder(userId, reminderCommand.kind === "water"
         ? { water: reminderCommand.enabled }
-        : { summaryTime: reminderCommand.time });
+        : reminderCommand.kind === "training"
+          ? { trainingTime: reminderCommand.time }
+          : { summaryTime: reminderCommand.time });
       return buildReminderCommandReply(reminderCommand);
     }
 
@@ -2618,6 +2637,11 @@ const summaryIntent = classifySummaryIntent(message);
         ? `💧 Removi o último registro de água de hoje (${Math.round(removed.amount_ml)} ml). Total agora: ${Math.round(getTodayWaterTotal(userId))} ml.`
         : "Não há registro de água hoje para remover.";
     }
+
+    // ESP-04/05/06: "treino de hoje", "treinos da semana", "progresso da corrida", faltas e
+    // ajustes por cansaço/dor, sem o modelo.
+    const trainingReply = handleTrainingMessage(userId, message, dailySummary.date);
+    if (trainingReply) return trainingReply;
 
     // Registros e consultas frequentes vão direto, sem o modelo (economia e previsibilidade).
     const weightKg = detectWeightReport(message);
@@ -2806,6 +2830,20 @@ const summaryIntent = classifySummaryIntent(message);
       freeMealSettings
     );
 
+  // ESP-04: o agente não vê o histórico; o plano de treino em configuração e o ativo vão
+  // no contexto para a resposta às perguntas do plano voltar à ferramenta.
+  const pendingTraining = getPendingTrainingRequest(userId);
+  if (pendingTraining) {
+    context.pending_training_plan = {
+      known: pendingTraining,
+      instruction: "Há um plano de treino em configuração. Se a mensagem responder às perguntas feitas, chame create_training_plan com os novos dados; os já conhecidos são mantidos."
+    };
+  }
+  const activeTraining = getActiveTrainingPlan(userId);
+  if (activeTraining) {
+    context.training_plan = { goals: activeTraining.goals, start_date: activeTraining.start_date, weeks: activeTraining.weeks };
+  }
+
   if (
     !internal.interpretedAction &&
     isHistoryRequest(message)
@@ -2918,6 +2956,8 @@ const summaryIntent = classifySummaryIntent(message);
   if (!internal.interpretedAction) {
     const registry =
       createAgentToolRegistry({
+        // ESP-04: plano de treino personalizado (corrida, musculação e outras modalidades).
+        createTrainingPlan: (args) => createTrainingPlanFromRequest(userId, args, dailySummary.date),
         executeAction: (
           action,
           data,
@@ -4456,6 +4496,8 @@ const summaryIntent = classifySummaryIntent(message);
     });
     return [
       buildWorkoutReply(saved),
+      // COR-05 / ESP-06: pace e comparação com o plano de treino.
+      ...afterWorkoutSaved(userId, saved, dailySummary.date),
       ...newRecords.map((exercise) => `🏆 Novo recorde em ${exercise.name}: ${formatKg(exercise.weight_kg)} kg!`)
     ].join("\n");
   }

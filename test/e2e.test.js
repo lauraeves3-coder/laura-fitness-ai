@@ -1068,3 +1068,35 @@ test("CONV-02: relato de consumo não vira meta, mesmo se o modelo chamar a ferr
   assert.match(reply, /Não alterei suas metas de macros/);
   assert.equal(db.getUser(userId).daily_protein_target, before);
 });
+
+// ---------- Treinos: integração com a conversa ----------
+
+test("ESP-04: plano de treino pelo agente e consultas sem o modelo", async () => {
+  const userId = newUser();
+  const reply = await send(userId, "monta um treino pra eu correr 10 km, 4 dias por semana, faço 20 km por semana e corro 5 km em 28 min", fakeModel([
+    toolCall("create_training_plan", {
+      running_goal: "10k", running_level: "intermediario", running_days_per_week: 4, available_days: [], current_weekly_km: 20,
+      longest_run_km: 8, reference_distance_km: 5, reference_time: "28:00", easy_pace: null, event_date: null,
+      strength_goal: null, strength_level: null, strength_days_per_week: null, equipment: null, limitations: [],
+      other_modality: null, other_level: null, other_days_per_week: null
+    }),
+    finalText("ok")
+  ]));
+  assert.match(reply, /Plano de treino criado/);
+  assert.ok(db.getActiveTrainingPlan(userId));
+  assert.match(await send(userId, "como está minha corrida?"), /Sua corrida|Ainda não há corridas/);
+  assert.match(await send(userId, "treinos da semana"), /Semana|Não há treinos planejados/);
+  const run = await send(userId, "corri 5 km em 30 minutos");
+  assert.match(run, /5 km · pace 6:00\/km/);
+});
+
+test("ARQ-04: lembrete de treino só sai em dia com treino no plano", async () => {
+  const { runReminders } = await import("../src/ai.js");
+  const { brazilClock } = await import("../src/reminders.js");
+  const userId = newUser();
+  assert.match(await send(userId, "me lembre dos treinos às 6h"), /treino do dia às 06:00/);
+  const outbox = [];
+  const at = (hhmm) => new Date(`${brazilClock().date}T${hhmm}:00-03:00`);
+  await runReminders({ now: at("06:30"), send: async (to, text) => outbox.push([to, text]) });
+  assert.equal(outbox.filter(([to]) => to === userId).length, 0, "sem plano: nada a enviar");
+});

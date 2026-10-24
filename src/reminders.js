@@ -13,19 +13,32 @@ const WATER_END_HOUR = 21;
 export function parseReminderCommand(message) {
   const text = normalize(message);
   const off = /\b(?:par[ae]\w*|desativ\w*|cancel\w*|desligu\w*|tir[ae]\w*|nao quero (?:mais )?(?:os? )?)\b/.test(text);
+  // Treino do dia: padrão 7h, ou o horário citado.
+  // "me manda o treino de hoje" é consulta; "mande" só vira lembrete com horário ou "todo dia".
+  const asksDaily = /\b(?:mand\w*|envi\w*)\b/.test(text) && (parseTime(text) || /\btodo(?:s os)? dias?\b|\bdiariamente\b/.test(text));
+  if (/\btreinos?\b/.test(text) && (/\b(?:lembr\w*|avis\w*|notific\w*)/.test(text) || asksDaily)) {
+    if (off) return { kind: "training", time: null };
+    return { kind: "training", time: parseTime(text) || "07:00" };
+  }
   if (/\bagua\b/.test(text) && /\b(?:lembr\w*|avis\w*|notific\w*)/.test(text)) {
     return { kind: "water", enabled: !off };
   }
   if (/\bresumo\b/.test(text) && /\b(?:lembr\w*|mand\w*|envi\w*|avis\w*)/.test(text)) {
     if (off) return { kind: "summary", time: null };
-    const time = text.match(/\b(?:as|a)?\s*(\d{1,2})(?:\s*(?:h|:)\s*(\d{2})?|\s*horas?)\b/);
-    if (!time) return null;
-    const hour = Number(time[1]);
-    const minute = Number(time[2] || 0);
-    if (hour > 23 || minute > 59) return null;
-    return { kind: "summary", time: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}` };
+    const time = parseTime(text);
+    return time ? { kind: "summary", time } : null;
   }
   return null;
+}
+
+// "às 21h", "21:30", "7 horas" → "21:00", "21:30", "07:00"; null sem horário válido.
+function parseTime(text) {
+  const time = text.match(/\b(?:as|a)?\s*(\d{1,2})(?:\s*(?:h|:)\s*(\d{2})?|\s*horas?)\b/);
+  if (!time) return null;
+  const hour = Number(time[1]);
+  const minute = Number(time[2] || 0);
+  if (hour > 23 || minute > 59) return null;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
 export function buildReminderCommandReply(command) {
@@ -34,6 +47,11 @@ export function buildReminderCommandReply(command) {
     return command.enabled
       ? `💧 Lembretes de água ativados: aviso às 10h, 12h, 14h, 16h, 18h e 20h, só quando você estiver abaixo do ritmo da meta. ${window}`
       : "💧 Lembretes de água desativados.";
+  }
+  if (command.kind === "training") {
+    return command.time
+      ? `🏃 Vou mandar o treino do dia às ${command.time}, nos dias com treino no plano. ${window}`
+      : "🏃 Lembrete de treino desativado.";
   }
   return command.time
     ? `📊 Vou mandar o resumo do dia todos os dias às ${command.time}. ${window}`
@@ -59,6 +77,13 @@ export function dueReminders(users, now, sent) {
       const key = `water:${date}:${hour}`;
       const expected = user.goalMl * (hour - WATER_START_HOUR) / (WATER_END_HOUR - WATER_START_HOUR);
       if (!sent(user.id, key) && user.waterMl < expected) due.push({ userId: user.id, key, kind: "water" });
+    }
+    if (user.reminder_training_time) {
+      const [targetHour, targetMinute] = user.reminder_training_time.split(":").map(Number);
+      const key = `training:${date}`;
+      if (hour * 60 + minute >= targetHour * 60 + targetMinute && !sent(user.id, key)) {
+        due.push({ userId: user.id, key, kind: "training", date });
+      }
     }
     if (user.reminder_summary_time) {
       const [targetHour, targetMinute] = user.reminder_summary_time.split(":").map(Number);

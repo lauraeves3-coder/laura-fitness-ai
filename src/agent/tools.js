@@ -65,7 +65,8 @@ export function createAgentToolRegistry({
   executeAction,
   readMemory,
   updateAvailability,
-  explicitMealFacts = null
+  explicitMealFacts = null,
+  createTrainingPlan = null
 }) {
   const explicitFacts = explicitMealFacts || {};
 
@@ -408,9 +409,30 @@ export function createAgentToolRegistry({
     defineTool("set_water_goal", "Definir ou atualizar a meta diária de consumo de água.", {
       goal_ml: { type: "number", minimum: 100 }
     }),
+    defineTool("create_training_plan", "Criar ou refazer o plano de treino personalizado quando o usuário pedir para montar treinos (corrida, musculação, ciclismo, natação, caminhada, funcional, HIIT). Preencha só o que o usuário informou; o restante como null ou lista vazia. A ferramenta devolve as perguntas que faltam ou o plano criado.", {
+      running_goal: { type: ["string", "null"], enum: ["comecar", "5k", "10k", "21k", "42k", "manter", null] },
+      running_level: { type: ["string", "null"], enum: ["iniciante", "intermediario", "avancado", null] },
+      running_days_per_week: { type: ["integer", "null"], minimum: 2, maximum: 6 },
+      available_days: { type: "array", items: { type: "string", enum: ["seg", "ter", "qua", "qui", "sex", "sab", "dom"] } },
+      current_weekly_km: NUMBER_OR_NULL,
+      longest_run_km: NUMBER_OR_NULL,
+      reference_distance_km: NUMBER_OR_NULL,
+      reference_time: { type: ["string", "null"], description: "tempo da referência, ex.: \"28:30\" ou \"1:02:00\"" },
+      easy_pace: { type: ["string", "null"], description: "pace em que corre conversando, ex.: \"6:40\"" },
+      event_date: { type: ["string", "null"], description: "data da prova AAAA-MM-DD" },
+      strength_goal: { type: ["string", "null"], enum: ["hipertrofia", "forca", "emagrecimento", "condicionamento", "saude", "corrida", null] },
+      strength_level: { type: ["string", "null"], enum: ["iniciante", "intermediario", "avancado", null] },
+      strength_days_per_week: { type: ["integer", "null"], minimum: 1, maximum: 6 },
+      equipment: { type: ["string", "null"], enum: ["academia", "halteres", "casa", null] },
+      limitations: { type: "array", items: { type: "string", enum: ["joelho", "lombar", "ombro", "punho"] } },
+      other_modality: { type: ["string", "null"], enum: ["ciclismo", "natacao", "caminhada", "funcional", "hiit", null] },
+      other_level: { type: ["string", "null"], enum: ["iniciante", "intermediario", "avancado", null] },
+      other_days_per_week: { type: ["integer", "null"], minimum: 1, maximum: 6 }
+    }),
     defineTool("record_workout", "Registrar somente um treino que o usuário informou que realizou.", {
       workout_type: { type: "string" },
       duration_min: { type: "number", minimum: 0 },
+      distance_km: { type: ["number", "null"], minimum: 0, description: "distância em km (corrida, pedal, nado, caminhada)" },
       notes: { type: "string" },
       exercises: {
         type: "array",
@@ -501,6 +523,7 @@ export function createAgentToolRegistry({
     update_user_profile: (args) => executeAction("profile", nullableFields(args)),
     record_weight: (args) => executeAction("weight", args),
     record_workout: (args) => executeAction("workout", args),
+    create_training_plan: (args) => createTrainingPlan ? createTrainingPlan(args) : "Planos de treino indisponíveis no momento.",
     record_water: (args) => executeAction("water", args),
     get_water_status: () => executeAction("water_status", {}),
     set_water_goal: (args) => executeAction("water_goal", args)

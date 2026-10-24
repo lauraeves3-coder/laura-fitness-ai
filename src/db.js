@@ -261,6 +261,7 @@ ensureColumn("users", "water_goal_ml", "REAL");
 ensureColumn("meals", "meal_period", "TEXT");
 ensureColumn("users", "reminder_water", "INTEGER DEFAULT 0");
 ensureColumn("users", "reminder_summary_time", "TEXT");
+ensureColumn("users", "reminder_training_time", "TEXT");
 db.exec(`
   CREATE TABLE IF NOT EXISTS reminder_log (
     user_id TEXT NOT NULL,
@@ -1178,15 +1179,22 @@ export function saveWorkout(
           workout_type,
           duration_min,
           notes,
-          trained_at
+          trained_at,
+          distance_km,
+          pace_s_per_km
         )
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `).run(
         userId,
         workout.workout_type,
         workout.duration_min ?? 0,
         workout.notes ?? null,
-        getBrazilDateTime()
+        getBrazilDateTime(),
+        // COR-02: distância e pace (s/km) quando informados.
+        Number(workout.distance_km) > 0 ? Number(workout.distance_km) : null,
+        Number(workout.distance_km) > 0 && Number(workout.duration_min) > 0
+          ? Math.round(Number(workout.duration_min) * 60 / Number(workout.distance_km))
+          : null
       );
 
     const workoutId =
@@ -1355,20 +1363,144 @@ export function deleteLastWaterLog(userId, date = getBrazilDate()) {
 }
 
 /* =========================================================
+   PLANOS DE TREINO (ESP-02/04/06, COR-01..05, MUS-04/05)
+========================================================= */
+
+ensureColumn("workouts", "distance_km", "REAL");
+ensureColumn("workouts", "pace_s_per_km", "REAL");
+ensureColumn("workouts", "planned_session_id", "INTEGER");
+db.exec(`
+  CREATE TABLE IF NOT EXISTS training_plans (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    goals TEXT NOT NULL,
+    start_date TEXT NOT NULL,
+    weeks INTEGER NOT NULL,
+    paces TEXT,
+    warnings TEXT,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS planned_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    plan_id INTEGER NOT NULL,
+    user_id TEXT NOT NULL,
+    date TEXT NOT NULL,
+    week INTEGER,
+    phase TEXT,
+    modality TEXT NOT NULL,
+    session_type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    details TEXT,
+    distance_km REAL,
+    duration_min REAL,
+    target_pace TEXT,
+    intensity TEXT,
+    status TEXT NOT NULL DEFAULT 'planejado',
+    workout_id INTEGER,
+    note TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_planned_sessions_user_date ON planned_sessions (user_id, date);
+`);
+
+const parsePlannedSession = (row) => row && {
+  ...row,
+  target_pace: row.target_pace ? JSON.parse(row.target_pace) : null,
+  details: row.details ? JSON.parse(row.details) : null
+};
+
+// Novo plano: desativa o anterior, apaga as sessões futuras ainda não feitas e grava as novas.
+export function saveTrainingPlan(userId, { goals, startDate, weeks, paces = null, warnings = [], sessions }) {
+  ensureUser(userId);
+  return db.transaction(() => {
+    db.prepare(`UPDATE training_plans SET active = 0 WHERE user_id = ? AND active = 1`).run(userId);
+    db.prepare(`DELETE FROM planned_sessions WHERE user_id = ? AND status = 'planejado' AND date >= ?`).run(userId, startDate);
+    const planId = db.prepare(`
+      INSERT INTO training_plans (user_id, goals, start_date, weeks, paces, warnings) VALUES (?, ?, ?, ?, ?, ?)
+    `).run(userId, JSON.stringify(goals), startDate, weeks, paces ? JSON.stringify(paces) : null, JSON.stringify(warnings)).lastInsertRowid;
+    const insert = db.prepare(`
+      INSERT INTO planned_sessions (plan_id, user_id, date, week, phase, modality, session_type, title, description, details, distance_km, duration_min, target_pace, intensity)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const session of sessions) {
+      insert.run(planId, userId, session.date, session.week ?? null, session.phase ?? null, session.modality, session.session_type,
+        session.title, session.description ?? null, session.exercises ? JSON.stringify({ exercises: session.exercises }) : null,
+        session.distance_km ?? null, session.duration_min ?? null, session.target_pace ? JSON.stringify(session.target_pace) : null,
+        session.intensity ?? null);
+    }
+    return getActiveTrainingPlan(userId);
+  })();
+}
+
+// Pedido de plano incompleto (aguardando respostas), para juntar com a próxima mensagem.
+ensureColumn("users", "pending_training_request", "TEXT");
+
+export function getPendingTrainingRequest(userId, maxAgeMs = 24 * 3600000) {
+  const raw = db.prepare(`SELECT pending_training_request FROM users WHERE id = ?`).get(userId)?.pending_training_request;
+  if (!raw) return null;
+  const { request, saved_at: savedAt } = JSON.parse(raw);
+  return Date.now() - savedAt <= maxAgeMs ? request : null;
+}
+
+export function setPendingTrainingRequest(userId, request) {
+  ensureUser(userId);
+  db.prepare(`UPDATE users SET pending_training_request = ? WHERE id = ?`)
+    .run(request ? JSON.stringify({ request, saved_at: Date.now() }) : null, userId);
+}
+
+export function getActiveTrainingPlan(userId) {
+  const row = db.prepare(`SELECT * FROM training_plans WHERE user_id = ? AND active = 1 ORDER BY id DESC LIMIT 1`).get(userId);
+  return row ? { ...row, goals: JSON.parse(row.goals), paces: row.paces ? JSON.parse(row.paces) : null, warnings: JSON.parse(row.warnings || "[]") } : null;
+}
+
+export function getPlannedSessions(userId, startDate, endDate) {
+  return db.prepare(`
+    SELECT planned_sessions.* FROM planned_sessions
+    JOIN training_plans ON training_plans.id = planned_sessions.plan_id
+    WHERE planned_sessions.user_id = ? AND training_plans.active = 1 AND date BETWEEN ? AND ?
+    ORDER BY date, id
+  `).all(userId, startDate, endDate).map(parsePlannedSession);
+}
+
+export function updatePlannedSession(id, changes) {
+  const allowed = ["status", "workout_id", "note", "title", "description", "distance_km", "duration_min", "target_pace", "intensity", "session_type"];
+  const entries = Object.entries(changes).filter(([key]) => allowed.includes(key));
+  if (!entries.length) return null;
+  const values = entries.map(([key, value]) => key === "target_pace" && value ? JSON.stringify(value) : value);
+  db.prepare(`UPDATE planned_sessions SET ${entries.map(([key]) => `${key} = ?`).join(", ")} WHERE id = ?`).run(...values, id);
+  return parsePlannedSession(db.prepare(`SELECT * FROM planned_sessions WHERE id = ?`).get(id));
+}
+
+export function linkWorkoutToSession(workoutId, sessionId) {
+  db.prepare(`UPDATE workouts SET planned_session_id = ? WHERE id = ?`).run(sessionId, workoutId);
+}
+
+// Corridas registradas no período (para progresso e recordes).
+export function getRunsBetween(userId, startDate, endDate) {
+  return db.prepare(`
+    SELECT id, workout_type, duration_min, distance_km, pace_s_per_km, trained_at FROM workouts
+    WHERE user_id = ? AND date(trained_at) BETWEEN ? AND ? AND distance_km > 0
+    ORDER BY trained_at, id
+  `).all(userId, startDate, endDate);
+}
+
+/* =========================================================
    LEMBRETES (CONV-11 / ARQ-04)
 ========================================================= */
 
-export function setReminder(userId, { water, summaryTime }) {
+export function setReminder(userId, { water, summaryTime, trainingTime }) {
   ensureUser(userId);
   if (water !== undefined) db.prepare(`UPDATE users SET reminder_water = ? WHERE id = ?`).run(water ? 1 : 0, userId);
   if (summaryTime !== undefined) db.prepare(`UPDATE users SET reminder_summary_time = ? WHERE id = ?`).run(summaryTime, userId);
+  if (trainingTime !== undefined) db.prepare(`UPDATE users SET reminder_training_time = ? WHERE id = ?`).run(trainingTime, userId);
   return getUser(userId);
 }
 
 export function getReminderUsers() {
   return db.prepare(`
     SELECT * FROM users
-    WHERE reminder_water = 1 OR reminder_summary_time IS NOT NULL
+    WHERE reminder_water = 1 OR reminder_summary_time IS NOT NULL OR reminder_training_time IS NOT NULL
   `).all();
 }
 

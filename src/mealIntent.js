@@ -396,7 +396,8 @@ export function detectSimpleWorkout(message) {
   return {
     workout_type: type,
     duration_min: Math.round(minutes),
-    notes: distance ? `${distance[1].replace(".", ",")} km` : "",
+    distance_km: distance ? Number(distance[1].replace(",", ".")) : null,
+    notes: "",
     exercises: []
   };
 }
