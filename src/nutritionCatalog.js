@@ -10,6 +10,7 @@
   - Valores estimativos curados para itens sem referência específica no catálogo.
 */
 
+import { tbcaMeasureGrams } from "./householdMeasures.js";
 import { matchFoodTerms, normalizeFoodText, parseQuantity, QUANTITY_PATTERN } from "./foodMatching.js";
 
 const F = (
@@ -705,7 +706,10 @@ const HOUSEHOLD_MEASURES = [
   [/^colher(?:es)? (?:de )?sopa$|^c\.? ?(?:de )?sopa$|^cs$/, 15, "colher de sopa"],
   [/^colher(?:es)? (?:de )?sobremesa$/, 10, "colher de sobremesa"],
   [/^colher(?:es)? (?:de )?cha$/, 5, "colher de chá"],
-  [/^colher(?:es)?$/, 15, "colher"],
+  [/^colher(?:es)? (?:de )?cafe$/, 2, "colher de café"],
+  [/^colher(?:es)? (?:de )?servir$/, 45, "colher de servir"],
+  [/^escumadeiras?$/, 90, "escumadeira"],
+  [/^colher(?:es)?$/, 15, "colher de sopa"],
   [/^conchas?$/, 100, "concha"],
   [/^xicaras?$/, 150, "xícara"],
   [/^copos?$/, 200, "copo"],
@@ -716,21 +720,28 @@ const HOUSEHOLD_MEASURES = [
 const UNIT_PATTERN = [
   "kg", "quilos?", "gramas?", "gr", "g",
   "ml", "mililitros?", "litros?", "l",
-  "colher(?:es)?\\s+(?:de\\s+)?(?:sopa|cha|sobremesa)", "c\\.?\\s*(?:de\\s+)?sopa", "colher(?:es)?", "cs",
-  "conchas?", "xicaras?", "copos?", "latas?", "garrafas?",
+  "colher(?:es)?\\s+(?:de\\s+)?(?:sopa|cha|sobremesa|cafe|servir)", "c\\.?\\s*(?:de\\s+)?sopa", "colher(?:es)?", "cs",
+  "conchas?", "escumadeiras?", "xicaras?", "copos?", "latas?", "garrafas?",
   "fatias?", "unidades?", "unid\\.?", "ovos?", "pecas?", "porcoes", "porcao", "pedacos?", "bolas?", "bifes?"
 ].join("|");
 
-function unitToGrams(amount, unit, item) {
+// NUT-06: medida caseira do próprio alimento na TBCA vence a genérica e não é tratada
+// como aproximação; `fill` = "cheia"/"rasa" quando citado.
+function unitToGrams(amount, unit, item, fill = null) {
   const u = normalizeText(unit).replace(/\s+/g, " ");
   if (/^(?:g|gr|gramas?)$/.test(u)) return { grams: amount, measure: null };
   if (/^(?:kg|quilos?)$/.test(u)) return { grams: amount * 1000, measure: null };
   if (/^(?:ml|mililitros?)$/.test(u)) return { grams: amount, measure: null };
   if (/^(?:l|litros?)$/.test(u)) return { grams: amount * 1000, measure: null };
   for (const [pattern, grams, label] of HOUSEHOLD_MEASURES) {
-    if (pattern.test(u)) return { grams: amount * grams, measure: label };
+    if (!pattern.test(u)) continue;
+    const foodGrams = tbcaMeasureGrams(item.id, label, fill);
+    return foodGrams != null
+      ? { grams: amount * foodGrams, measure: null }
+      : { grams: amount * grams, measure: label };
   }
-  return { grams: amount * item.default_g, measure: null };
+  const countLabel = /^fatias?$/.test(u) ? "fatia" : "unidade";
+  return { grams: amount * (tbcaMeasureGrams(item.id, countLabel) ?? item.default_g), measure: null };
 }
 
 // Quantidade de uma menção de alimento: { grams, measure } ou null.
@@ -746,11 +757,12 @@ function extractQuantityDetails(text, item, fromIndex = 0, { endIndex = null } =
   const afterStart = endIndex ?? fromIndex + matchedAlias.length;
   const after = normalizedText.slice(afterStart, afterStart + 120);
 
-  const withUnitBefore = before.match(new RegExp(`(${QUANTITY_PATTERN})\\s*(${UNIT_PATTERN})(?![a-z])\\s*(?:de|do|da)?\\s*$`));
-  const withUnitAfter = after.match(new RegExp(`^\\s*(${QUANTITY_PATTERN})\\s*(${UNIT_PATTERN})(?![a-z])`));
+  const fillPattern = "(?:\\s+(cheias?|rasas?))?";
+  const withUnitBefore = before.match(new RegExp(`(${QUANTITY_PATTERN})\\s*(${UNIT_PATTERN})(?![a-z])${fillPattern}\\s*(?:de|do|da)?\\s*$`));
+  const withUnitAfter = after.match(new RegExp(`^\\s*(${QUANTITY_PATTERN})\\s*(${UNIT_PATTERN})(?![a-z])${fillPattern}`));
   for (const match of [withUnitBefore, withUnitAfter]) {
     const amount = match && parseQuantity(match[1]);
-    if (amount) return unitToGrams(amount, match[2], item);
+    if (amount) return unitToGrams(amount, match[2], item, match[3]?.replace(/s$/, "") || null);
   }
 
   // Contagem direta antes/depois do alimento: "2 bananas", "meia banana", "1/2 mamão".
@@ -758,7 +770,7 @@ function extractQuantityDetails(text, item, fromIndex = 0, { endIndex = null } =
   const directAfter = after.match(new RegExp(`^\\s*(${QUANTITY_PATTERN})(?![a-z0-9])`));
   for (const match of [directBefore, directAfter]) {
     const amount = match && parseQuantity(match[1]);
-    if (amount) return { grams: amount * item.default_g, measure: null };
+    if (amount) return { grams: amount * (tbcaMeasureGrams(item.id, "unidade") ?? item.default_g), measure: null };
   }
 
   return null;

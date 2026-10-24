@@ -127,12 +127,27 @@ test("NC-09: kg e litro", () => {
 });
 test("NC-06: 'uma colher de sopa de azeite' é quantidade explícita", () => {
   assert.deepEqual(getMissingMealQuantities("comi uma colher de sopa de azeite"), []);
-  assert.equal(grams("comi uma colher de sopa de azeite"), 15);
+  assert.equal(grams("comi uma colher de sopa de azeite"), 8); // TBCA: colher de sopa rasa
 });
 test("NC-06: colher de sopa, sobremesa, chá e 'c. sopa'", () => {
   assert.equal(grams("comi 2 colheres de sopa de aveia"), 30);
   assert.equal(grams("comi 2 c. sopa de aveia"), 30);
-  assert.equal(grams("comi 1 colher de chá de aveia"), 5);
+  assert.equal(grams("comi 1 colher de chá de aveia"), 4);
+});
+test("NUT-06: medida caseira do próprio alimento (TBCA) vence a genérica", () => {
+  assert.equal(grams("comi 3 colheres de sopa de arroz"), 60);
+  assert.equal(grams("comi 2 conchas de feijão"), 280);
+  assert.equal(grams("comi 1 concha rasa de feijão"), 80);
+  assert.equal(grams("comi 1 colher de sopa rasa de açúcar"), 15);
+  assert.equal(grams("comi 2 colheres de servir de arroz"), 110);
+  assert.equal(grams("comi 2 escumadeiras de macarrão"), 220);
+  assert.equal(grams("comi 2 fatias de muçarela"), 40);
+  assert.equal(grams("comi 3 biscoitos cream cracker"), 21);
+  assert.equal(grams("comi 1 lata de atum em óleo"), 185);
+  const estimate = estimateMealFromText("comi 3 colheres de sopa de arroz");
+  assert.equal(estimate.matched_items[0].approximate_quantity, undefined);
+  // Sem medida do alimento na TBCA, segue a genérica, marcada como aproximação.
+  assert.equal(estimateMealFromText("comi 1 colher de sopa de granola").matched_items[0].approximate_quantity, true);
 });
 test("NC-06: medida caseira genérica é marcada como aproximação", () => {
   const estimate = estimateMealFromText("tomei um copo de leite");
