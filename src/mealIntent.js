@@ -339,6 +339,37 @@ export function detectWaterIntake(message) {
   return amount > 0 && factor ? Math.round(amount * factor) : null;
 }
 
+// CRP-01: "pesei 72,5 kg", "meu peso hoje é 72 kg" sem o modelo. Metas ("quero pesar
+// 60 kg") não contam. Retorna kg ou null.
+export function detectWeightReport(message) {
+  const text = normalizeRequestText(message);
+  if (/\b(?:quero|queria|meta|objetivo|chegar a|ficar com)\b/.test(text)) return null;
+  const match = text.match(/\b(?:me pesei|pesei|estou pesando|to pesando|tô pesando|meu peso (?:hoje |agora |atual )?(?:e|eh|esta|ta|deu)|peso (?:hoje|atual|de hoje)\s*:?)\s*(?:de\s+)?(\d{2,3}(?:[.,]\d+)?)\s*(?:kg|quilos?)?\b/);
+  return match ? Number(match[1].replace(",", ".")) : null;
+}
+
+// MUS-01 / COR-05: treino simples relatado ("corri 5 km em 30 min", "fiz 40 min de
+// musculação"). Sem duração, devolve null e o modelo segue perguntando.
+const WORKOUT_VERBS = [[/\bcorri\b/, "Corrida"], [/\bcaminhei\b/, "Caminhada"], [/\bpedalei\b/, "Ciclismo"], [/\bnadei\b/, "Natação"]];
+const WORKOUT_TYPES = [[/muscula[cç]ao|academia|treino de (?:forca|força)/, "Musculação"], [/corrida/, "Corrida"], [/caminhada/, "Caminhada"], [/bike|bicicleta|ciclismo|spinning/, "Ciclismo"], [/natacao/, "Natação"], [/funcional|crossfit/, "Funcional"], [/yoga|pilates/, "Yoga/Pilates"]];
+export function detectSimpleWorkout(message) {
+  const text = normalizeRequestText(message);
+  if (/\b(?:nao|vou|quero|posso|devo|amanha|plano)\b/.test(text)) return null;
+  const duration = text.match(/(\d+(?:[.,]\d+)?)\s*(h|horas?|min|minutos?)\b/);
+  if (!duration) return null;
+  const minutes = Number(duration[1].replace(",", ".")) * (/^h/.test(duration[2]) ? 60 : 1);
+  const type = WORKOUT_VERBS.find(([pattern]) => pattern.test(text))?.[1]
+    || (/\b(?:fiz|treinei|pratiquei)\b/.test(text) ? WORKOUT_TYPES.find(([pattern]) => pattern.test(text))?.[1] : null);
+  if (!type || !(minutes > 0)) return null;
+  const distance = text.match(/(\d+(?:[.,]\d+)?)\s*(?:km|quilometros?)\b/);
+  return {
+    workout_type: type,
+    duration_min: Math.round(minutes),
+    notes: distance ? `${distance[1].replace(".", ",")} km` : "",
+    exercises: []
+  };
+}
+
 export function detectWaterStatusQuery(message) {
   const text = normalizeRequestText(message);
   return /\b(?:quant[ao]s?|qual)\b[^.?!]*\bagua\b(?!\s+de\s+coco)/.test(text)

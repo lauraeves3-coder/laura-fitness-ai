@@ -188,7 +188,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
 | ACO-01 | Check-in diário opcional | P2 | NÃO IMPLEMENTADO | CRP-05, HID-02 | — |
-| ACO-02 | Fechamento diário (macros, água, treino, passos, sono, metas) | P2 | PARCIAL | HID-02, CRP-05 | resumo nutricional do dia existe (`get_nutrition_state`) |
+| ACO-02 | Fechamento diário (macros, água, treino, passos, sono, metas) | P2 | PARCIAL | — | "resumo do dia" / "como estou hoje?" sai sem chamar o modelo, com calorias, macros, treinos, peso e água do dia (`test/e2e.test.js`). Faltam passos e sono (sem módulo ainda) |
 | ACO-03 | Resumo semanal e análise multimodal | P2 | NÃO IMPLEMENTADO | NUT-14 | — |
 | ACO-04 | Detectar metas desatualizadas e sugerir revisão (nunca em silêncio) | P2 | NÃO IMPLEMENTADO | ACO-03 | — |
 | ACO-05 | Gamificação (streaks, recordes, conquistas) sem culpa | P3 | NÃO IMPLEMENTADO | ACO-03 | — |
@@ -276,3 +276,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 23/10/2026 | NUT-20 → PARCIAL (refeições livres com composição no catálogo). Totais: 38 testados, 1 não testado, 27 parciais, 52 não implementados, 2 bloqueados. 234 testes passando. |
 | 24/10/2026 | NUT-03 avança (PF/marmita e lanches da TBCA); CAT-05 → PARCIAL (combos McDonald's). Totais: 38 testados, 1 não testado, 28 parciais, 51 não implementados, 2 bloqueados. 238 testes passando. |
 | 24/10/2026 | HID-01 → IMPLEMENTADO E TESTADO; HID-02 → PARCIAL (água sem o modelo, meta e saldo). Totais: 39 testados, 1 não testado, 29 parciais, 49 não implementados, 2 bloqueados. 241 testes passando. |
+| 24/10/2026 | Peso ("pesei 72,5 kg"), treino simples ("corri 5 km em 30 min", "fiz 40 min de musculação") e resumo do dia passam a sair sem o modelo (economia de API e previsibilidade); resumo inclui água (ACO-02). Totais: 39 testados, 1 não testado, 29 parciais, 49 não implementados, 2 bloqueados. 243 testes passando. |

@@ -80,6 +80,8 @@ import {
   resolveGenericFoodAnswer,
   detectWaterIntake,
   detectWaterStatusQuery,
+  detectWeightReport,
+  detectSimpleWorkout,
   isExplicitRepeatMeal,
   detectHistoryQuery,
   buildPeriodHistoryReply,
@@ -1562,7 +1564,8 @@ function buildSpecificNutritionSummary(summary, metrics) {
 
 function buildSummaryReply(
   summary,
-  user
+  user,
+  waterMl = null
 ) {
   const lines = [];
 
@@ -1597,6 +1600,12 @@ function buildSummaryReply(
   lines.push(
     `⏱️ Tempo treinado: ${Math.round(summary.total_duration_min)} min`
   );
+
+  // ACO-02: água do dia no fechamento.
+  if (waterMl !== null) {
+    const liters = (ml) => `${(ml / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} L`;
+    lines.push(`💧 Água: ${liters(waterMl)} de ${liters(waterGoalFor(user))}`);
+  }
 
   /* =======================================================
      MANUTENÇÃO E META
@@ -2419,7 +2428,8 @@ const summaryIntent = classifySummaryIntent(message);
   ) {
     return buildSummaryReply(
       dailySummary,
-      user
+      user,
+      getTodayWaterTotal(userId)
     );
   }
 
@@ -2475,6 +2485,23 @@ const summaryIntent = classifySummaryIntent(message);
 
     if (clarificationReply) {
       return clarificationReply;
+    }
+
+    // Registros e consultas frequentes vão direto, sem o modelo (economia e previsibilidade).
+    const weightKg = detectWeightReport(message);
+    const simpleWorkout = weightKg ? null : detectSimpleWorkout(message);
+    if (weightKg || simpleWorkout) {
+      return processMessage(userId, message, {
+        ...internal,
+        interpretedAction: weightKg
+          ? { action: "weight", data: { weight_kg: weightKg }, reply: "" }
+          : { action: "workout", data: simpleWorkout, reply: "" }
+      });
+    }
+    // Só o resumo de hoje: períodos ("últimos 7 dias", "ontem") ficam com o NUT-14.
+    const asksPeriod = /\b(?:semana|dias|mes|mês|ontem|anteontem)\b/i.test(message);
+    if (!asksPeriod && classifySummaryIntent(message)?.type === "full" || /\bcomo (?:estou|to|tô|esta|está) (?:hoje|meu dia)\b/i.test(message)) {
+      return processMessage(userId, message, { ...internal, interpretedAction: { action: "summary", data: {}, reply: "" } });
     }
 
     // HID-02: água relatada ou consultada vai direto, sem o modelo.
@@ -4538,7 +4565,8 @@ const summaryIntent = classifySummaryIntent(message);
 
     return buildSummaryReply(
       updatedSummary,
-      updatedUser
+      updatedUser,
+      getTodayWaterTotal(userId)
     );
   }
 

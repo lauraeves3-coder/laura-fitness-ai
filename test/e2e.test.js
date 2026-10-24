@@ -700,7 +700,7 @@ test("MUS-01: treino sem exercícios (cardio) também confirma", async () => {
     toolCall("record_workout", { workout_type: "corrida", duration_min: 30, exercises: [] }),
     finalText("ok")
   ]));
-  assert.match(reply, /Registrei o treino: corrida — 30 min/);
+  assert.match(reply, /Registrei o treino: corrida — 30 min/i);
   assert.doesNotMatch(reply, /Volume total/);
 });
 
@@ -782,4 +782,25 @@ test("HID-01: sem meta definida, a meta de água é estimada pelo peso (35 ml/kg
   const userId = newUser();
   await send(userId, "pesei 70 kg", fakeModel([toolCall("record_weight", { weight_kg: 70 }), finalText("ok")]));
   assert.match(await send(userId, "bebi 500 ml de água"), /500 ml de 2,5 L/);
+});
+
+// ---------- Registros frequentes sem o modelo ----------
+
+test("CRP-01 / MUS-01: peso e treino simples registram sem chamar o modelo", async () => {
+  const userId = newUser();
+  assert.match(await send(userId, "pesei 72,5 kg"), /Registrei seu peso: 72,5 kg/);
+  assert.match(await send(userId, "meu peso hoje é 72 kg"), /Registrei seu peso: 72 kg/);
+  assert.match(await send(userId, "corri 5 km em 30 minutos"), /Registrei o treino: Corrida — 30 min/);
+  assert.match(await send(userId, "fiz 1h de musculação"), /Registrei o treino: Musculação — 60 min/);
+  assert.equal(db.getUser(userId).weight_kg, 72);
+});
+
+test("ACO-02: resumo do dia sem o modelo, com água", async () => {
+  const userId = newUser();
+  await send(userId, "comi 2 ovos");
+  await send(userId, "bebi 500 ml de água");
+  const reply = await send(userId, "resumo do dia");
+  assert.match(reply, /Resumo de hoje/);
+  assert.match(reply, /💧 Água: 0,5 L de 2 L/);
+  assert.match(await send(userId, "como estou hoje?"), /Resumo de hoje/);
 });
