@@ -1,10 +1,10 @@
-// Gera docs/fontes-tbca.md a partir dos itens do catálogo que têm `reference`.
+// Gera docs/fontes-tbca.md a partir dos itens do catálogo com fonte TBCA (`tbca_verified`).
 // Uso: node scripts/gerar-fontes-tbca.mjs
 import { writeFileSync, mkdirSync } from "node:fs";
 import { FOOD_CATALOG } from "../src/nutritionCatalog.js";
 
 const rows = FOOD_CATALOG
-  .filter((item) => item.reference)
+  .filter((item) => item.reference && item.source === "tbca_verified")
   .map((item) => {
     const code = item.reference.match(/BRC\d{4}[A-Z]/)?.[0] || "";
     const note = item.reference.replace(/^TBCA BRC\d{4}[A-Z],?\s*/, "").replace(/\s*\(consulta [^)]*\)/, "");

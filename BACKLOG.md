@@ -91,11 +91,11 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
-| SUP-01 | Catálogo de todas as marcas relevantes no Brasil (lista no backlog original) | P2 | BLOQUEADO | DEC-05 | pesquisa adiada por decisão da usuária; hoje há 1 whey genérico |
+| SUP-01 | Catálogo de todas as marcas relevantes no Brasil (lista no backlog original) | P2 | PARCIAL | — | whey das marcas mais vendidas (`src/supplements.js`): Dux (concentrado 14 sabores e isolado 11 sabores, tabela por sabor), Growth concentrado, Integralmédica 100% Pure, Max Titanium Top Whey 3W, Probiótica 100% Pure Whey e Optimum Nutrition Gold Standard (rótulo europeu). Faltam outras marcas (Black Skull, Darkness, Essential, Atlhetica…) e outros tipos de suplemento |
 | SUP-02 | Categorias (whey tipos, caseína, albumina, creatina, pré/pós, aminoácidos, eletrólitos, géis, barras, bebidas, vitaminas…) | P2 | NÃO IMPLEMENTADO | SUP-01 | — |
-| SUP-03 | Cada SKU separado com rótulo completo, GTIN, fonte/URL, data, status, confiança | P2 | NÃO IMPLEMENTADO | SUP-01, CAT-08 | — |
+| SUP-03 | Cada SKU separado com rótulo completo, GTIN, fonte/URL, data, status, confiança | P2 | PARCIAL | SUP-01 | cada produto e sabor é um item com a fonte e a data no campo `reference` (site oficial, 24/10/2026); sabor sem tabela própria no site usa a do sabor de referência e diz isso. Faltam GTIN e status por SKU |
 | SUP-04 | Dados por porção e por 100 g/ml; BR vs importado; rótulo antigo/novo | P2 | NÃO IMPLEMENTADO | SUP-03 | — |
-| SUP-05 | Entender "tomei whey", marca/sabor, scoop/gramas; perguntar quando preciso | P2 | PARCIAL | SUP-03 | "whey" genérico 30 g; detecção de disponibilidade em `mealIntent.js` |
+| SUP-05 | Entender "tomei whey", marca/sabor, scoop/gramas; perguntar quando preciso | P2 | IMPLEMENTADO E TESTADO | — | "tomei 2 scoops de whey da dux sabor cookies" reconhece marca, tipo (concentrado/isolado) e sabor sem confundir sabor com fruta; scoop/dose/medida = 1 porção do rótulo, dosador = meia porção; sem marca segue o whey genérico (`test/catalog.test.js`) |
 | SUP-06 | Cadastro por foto de rótulo e despensa de suplementos do usuário | P3 | NÃO IMPLEMENTADO | VIS-03, DSP-01 | — |
 
 ## VIS — Fotos, visão e OCR
@@ -290,3 +290,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 24/10/2026 | Fase 5: "minha neta de calorias…" era recusada; CONV-02 avança (erros de digitação em metas e alimentos). Totais: 39 testados, 1 não testado, 37 parciais, 41 não implementados, 2 bloqueados. 268 testes passando. |
 | 24/10/2026 | Treinos personalizados: motor `src/training/` (corrida, musculação e outras modalidades), plano datado com acompanhamento e ajustes, lembrete de treino. ESP-04, ESP-06, MUS-04, COR-01, COR-03, COR-04 → IMPLEMENTADO E TESTADO; ESP-02/03/05, MUS-02/05, COR-02/05 → PARCIAL. Totais: 45 testados, 1 não testado, 44 parciais, 28 não implementados, 2 bloqueados. 284 testes passando. |
 | 24/10/2026 | Análise do prompt mestre (FitPulse_AI_Prompt_Mestre.txt): itens sem ID entram como NUT-27, ESP-07, COR-06 e CONV-12. Escopo do catálogo mantido (grande maioria do que se come, não todas as comidas). Totais: 45 testados, 1 não testado, 44 parciais, 32 não implementados, 2 bloqueados. |
+| 24/10/2026 | Whey por marca e sabor com rótulos oficiais (SUP-05 → IMPLEMENTADO E TESTADO; SUP-01/03 → PARCIAL). Totais: 46 testados, 1 não testado, 45 parciais, 31 não implementados, 1 bloqueados. 287 testes passando. |

@@ -13,6 +13,7 @@
 import { fileURLToPath } from "node:url";
 import { loadExtraFoods } from "./catalogExtra.js";
 import { tbcaMeasureGrams } from "./householdMeasures.js";
+import { wheyCatalogItems, findWheyMentions } from "./supplements.js";
 import { matchFoodTerms, normalizeFoodText, parseQuantity, QUANTITY_PATTERN } from "./foodMatching.js";
 
 const F = (
@@ -549,6 +550,9 @@ const BRANDED_FAST_FOOD_CATALOG = [
 
 FOOD_CATALOG.push(...BRANDED_FAST_FOOD_CATALOG);
 
+// SUP-01/05: whey por marca e sabor (rótulos oficiais), reconhecido por findWheyMentions.
+FOOD_CATALOG.push(...wheyCatalogItems());
+
 // CAT-08: alimentos extras em JSON, sem editar código. Entradas inválidas ficam em
 // CATALOG_EXTRA_ISSUES.
 const extraCatalog = loadExtraFoods(
@@ -854,7 +858,11 @@ function findFoodOccurrences(text, extraFoods = []) {
     });
     fuzzy = fuzzy.filter((item) => !exact.some((other) => item.index < other.end && item.end > other.index));
   }
-  return [...exact, ...fuzzy.map(({ fuzzy: correction, ...occurrence }) => ({ ...occurrence, corrections: [correction] }))]
+  // SUP-05: "whey da dux sabor morango" é um item só; o trecho reconhecido substitui o que
+  // houver dentro dele (o whey genérico, a fruta "morango", "coco", "chocolate"…).
+  const whey = findWheyMentions(text).map(({ id, index: start, end }) => ({ key: id, index: start, end }));
+  const outsideWhey = (occurrence) => !whey.some((item) => occurrence.index < item.end && occurrence.end > item.index);
+  return [...exact.filter(outsideWhey), ...fuzzy.filter(outsideWhey).map(({ fuzzy: correction, ...occurrence }) => ({ ...occurrence, corrections: [correction] })), ...whey]
     .sort((left, right) => left.index - right.index)
     // "colher de chá/café" é medida, não a bebida.
     .filter((occurrence) => !/\bcolher(?:es)?\s+(?:de\s+)?$/.test(text.slice(0, occurrence.index)))
@@ -915,7 +923,7 @@ const UNIT_PATTERN = [
   "kg", "quilos?", "gramas?", "gr", "g",
   "ml", "mililitros?", "litros?", "l",
   "colher(?:es)?\\s+(?:de\\s+)?(?:sopa|cha|sobremesa|cafe|servir)", "c\\.?\\s*(?:de\\s+)?sopa", "colher(?:es)?", "cs",
-  "conchas?", "escumadeiras?", "xicaras?", "copos?", "latas?", "garrafas?",
+  "conchas?", "escumadeiras?", "xicaras?", "scoops?", "doses?", "dosador(?:es)?", "medidas?", "copos?", "latas?", "garrafas?",
   "fatias?", "unidades?", "unid\\.?", "ovos?", "pecas?", "porcoes", "porcao", "pedacos?", "bolas?", "bifes?"
 ].join("|");
 
@@ -927,6 +935,10 @@ function unitToGrams(amount, unit, item, fill = null) {
   if (/^(?:kg|quilos?)$/.test(u)) return { grams: amount * 1000, measure: null };
   if (/^(?:ml|mililitros?)$/.test(u)) return { grams: amount, measure: null };
   if (/^(?:l|litros?)$/.test(u)) return { grams: amount * 1000, measure: null };
+  // SUP-05: scoop/dose/medida = 1 porção do rótulo; dosador = meia porção (os rótulos de
+  // whey trazem "porção: 30 g (2 dosadores)").
+  if (/^(?:scoops?|doses?|medidas?)$/.test(u)) return { grams: amount * item.default_g, measure: null };
+  if (/^dosador(?:es)?$/.test(u)) return { grams: amount * item.default_g / 2, measure: null };
   for (const [pattern, grams, label] of HOUSEHOLD_MEASURES) {
     if (!pattern.test(u)) continue;
     const foodGrams = tbcaMeasureGrams(item.id, label, fill);

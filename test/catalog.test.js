@@ -208,7 +208,7 @@ const item = (id) => FOOD_CATALOG.find((food) => food.id === id);
 const firstId = (message) => ids(estimateMealFromText(message))[0];
 
 test("CAT-06: itens com referência apontam para um código TBCA e data de consulta", () => {
-  const referenced = FOOD_CATALOG.filter((food) => food.reference);
+  const referenced = FOOD_CATALOG.filter((food) => food.reference && food.source === "tbca_verified");
   assert.ok(referenced.length >= 60, String(referenced.length));
   for (const food of referenced) {
     assert.match(food.reference, /^TBCA BRC\d{4}[A-Z]\b.*\(consulta \d{2}\/10\/2026\)$/, food.id);
@@ -332,7 +332,7 @@ test("itens comuns: açúcar e mel com valores da TBCA", () => {
 test("CAT-06: docs/fontes-tbca.md está em sincronia com o catálogo", async () => {
   const { readFileSync } = await import("node:fs");
   const doc = readFileSync(new URL("../docs/fontes-tbca.md", import.meta.url), "utf8");
-  for (const food of FOOD_CATALOG.filter((entry) => entry.reference)) {
+  for (const food of FOOD_CATALOG.filter((entry) => entry.reference && entry.source === "tbca_verified")) {
     assert.match(doc, new RegExp(`\| ${food.id} \| [^|]+\| ${food.reference.match(/BRC\d{4}[A-Z]/)[0]} \| ${food.kcal} \|`), food.id);
   }
 });
@@ -474,4 +474,37 @@ test("CONV-02: palavras comuns e textos sem comida não viram alimento", () => {
   assert.deepEqual(ids(estimateMealFromText("comi um pouco de arroz")), ["arroz-branco-cozido"]);
   assert.equal(estimateMealFromText("hoje comi bem"), null);
   assert.equal(estimateMealFromText("treinei bastante depois do trabalho"), null);
+});
+
+// ---------- SUP-01/05: whey por marca e sabor ----------
+
+test("SUP-05: whey com marca, tipo e sabor usa o rótulo oficial", () => {
+  const first = (message) => estimateMealFromText(message).matched_items[0];
+  const cookies = first("tomei whey da dux sabor cookies");
+  assert.equal(cookies.id, "whey-dux-concentrado-cookies");
+  assert.equal(Math.round(cookies.calories), 126);
+  assert.equal(Math.round(cookies.protein_g), 20);
+  assert.equal(first("tomei um whey isolado dux morango").id, "whey-dux-isolado-morango");
+  assert.equal(first("tomei top whey 3w baunilha").grams, 40);
+  assert.equal(Math.round(first("tomei top whey 3w baunilha").protein_g), 32);
+  assert.equal(first("tomei whey integralmedica baunilha").id, "whey-integralmedica-100-pure-baunilha");
+  // "morango" e "coco" dentro da menção de whey não viram fruta.
+  assert.deepEqual(ids(estimateMealFromText("tomei whey dux coco")), ["whey-dux-concentrado-coco"]);
+  // Sem marca segue o whey genérico; banana fora da menção continua sendo banana.
+  assert.deepEqual(ids(estimateMealFromText("tomei whey com banana")), ["whey", "banana-prata"]);
+});
+
+test("SUP-05: scoop, dose e dosador do whey", () => {
+  const grams = (message) => estimateMealFromText(message).matched_items[0].grams;
+  assert.equal(grams("tomei 2 scoops de whey da dux sabor cookies"), 60);
+  assert.equal(grams("tomei 1 dosador de whey growth"), 15);
+  assert.equal(grams("tomei 2 doses de whey"), 60);
+  assert.deepEqual(getQuantityQuestions("tomei whey dux baunilha"), []);
+});
+
+test("SUP-03: sabor sem tabela própria informa que usa a do sabor de referência", () => {
+  const item = FOOD_CATALOG.find((food) => food.id === "whey-growth-concentrado-chocolate");
+  assert.equal(item.source, "official_nutrition_table");
+  assert.match(item.reference, /sabor chocolate sem tabela própria: usa a do sabor natural/);
+  assert.match(FOOD_CATALOG.find((food) => food.id === "whey-dux-concentrado-neutro").reference, /rótulo oficial por sabor/);
 });
