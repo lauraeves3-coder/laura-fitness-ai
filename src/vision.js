@@ -12,10 +12,14 @@ items vazio ou confidence "low" e explique em notes.
 Responda APENAS com JSON: {"items":[{"name":"...","grams":0}],"confidence":"low|medium|high","notes":"..."}
 `.trim();
 
-export async function describeMealPhoto({ apiClient, imageBase64, mimeType = "image/jpeg", caption = "", model }) {
+// catalogNames: nomes do catálogo; o modelo usa um deles quando o alimento corresponder,
+// o que evita itens "fora do catálogo" só por diferença de nome.
+export async function describeMealPhoto({ apiClient, imageBase64, mimeType = "image/jpeg", caption = "", model, catalogNames = [] }) {
   const response = await apiClient.responses.create({
     model,
-    instructions: VISION_INSTRUCTIONS,
+    instructions: catalogNames.length
+      ? `${VISION_INSTRUCTIONS}\nQuando o alimento corresponder, use exatamente um destes nomes (com o preparo que aparece na foto): ${catalogNames.join("; ")}.`
+      : VISION_INSTRUCTIONS,
     input: [{
       role: "user",
       content: [
@@ -44,6 +48,37 @@ export function parseVisionResult(text) {
     notes: String(data.notes || "").trim()
   };
 }
+
+// Confere cada item da foto no catálogo. Termo genérico ("bife grelhado", "batata frita",
+// "peixe") vira a opção cujo preparo aparece no nome, ou a primeira opção; a escolha é
+// informada. estimate = estimateMealFromText. Retorna { items, assumptions, unknown }.
+const PREPARATION_STEMS = ["grelhad", "frit", "assad", "cozid", "cru", "refogad", "empanad"];
+export function resolvePhotoItems(items, estimate) {
+  const resolved = [];
+  const assumptions = [];
+  const unknown = [];
+  for (const item of items) {
+    const result = estimate(`comi 100 g de ${item.name.toLocaleLowerCase("pt-BR")}`);
+    if (result?.matched_items?.length && !(result.needs_clarification || []).length) {
+      resolved.push(item);
+      continue;
+    }
+    const clarification = result?.needs_clarification?.[0];
+    if (clarification?.options?.length) {
+      const name = normalizeText(item.name);
+      const stem = PREPARATION_STEMS.find((candidate) => name.includes(candidate));
+      const choice = (stem && clarification.options.find((option) => normalizeText(option.name).includes(stem)))
+        || clarification.options[0];
+      resolved.push({ ...item, name: choice.name });
+      assumptions.push(`${item.name} → ${choice.name}`);
+      continue;
+    }
+    unknown.push(item.name);
+  }
+  return { items: resolved, assumptions, unknown };
+}
+
+const normalizeText = (text) => String(text || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLocaleLowerCase("pt-BR");
 
 // "comi 150 g de arroz branco, 100 g de feijão carioca e 120 g de peito de frango grelhado"
 export function buildPhotoMealText(items) {

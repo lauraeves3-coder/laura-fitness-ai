@@ -239,6 +239,19 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | refrigerante-zero | Refrigerante zero | BRC0047N | 0 | 0 | 0.11 | 0 | c/ adoçante, média de sabores |
 | agua-de-coco | Água de coco | BRC0174C | 21 | 0 | 5.29 | 0 | industrializada |
 | milk-shake-chocolate | Milk-shake de chocolate | BRC0144H | 113 | 2.84 | 21.8 | 5.86 | baunilha c/ calda de chocolate; os macros publicados somam ~151 kcal, mantido o valor de energia publicado |
+| carne-bovina-grelhada | Carne bovina grelhada | BRC0727F | 208 | 33.4 | 0 | 8.32 | carne de primeira (alcatra, contrafilé, coxão mole, filé, lagarto, patinho) grelhada/assada, pedaço médio de 110 g |
+| legumes-refogados | Legumes refogados | BRC0719B | 94 | 1.98 | 5.53 | 7.51 | c/ sal |
+| legumes-cozidos | Legumes cozidos | BRC0095B | 46 | 3.11 | 9.33 | 0.28 | equivalente: seleta de legumes drenada |
+| maionese | Maionese | BRC0031D | 308 | 0.58 | 7.9 | 30.5 | industrializada |
+| ketchup | Ketchup | BRC0030L | 123 | 1.12 | 29.6 | 0.11 | dado importado pela TBCA |
+| pimentao | Pimentão | BRC0031B | 24 | 1.1 | 5.25 | 0.27 | cru, média de tipos |
+| peixe-frito | Peixe frito | BRC0053E | 218 | 27.4 | 0.62 | 11.8 | pescada branca frita, filé de 100 g |
+| peixe-empanado | Peixe empanado | BRC0193E | 263 | 21.8 | 14.1 | 13.5 | merluza à milanesa frita, filé de 100 g |
+| molho-de-tomate | Molho de tomate | BRC1238B | 72 | 1.92 | 10.5 | 3.45 | industrializado |
+| bolo-simples | Bolo simples | BRC0064A | 329 | 6.7 | 48.9 | 11.9 | baunilha, preparado de mistura; fubá e laranja usam este valor; fatia de 50 g |
+| bolo-chocolate | Bolo de chocolate | BRC0065A | 326 | 6.2 | 47.9 | 12.2 | preparado de mistura, fatia de 50 g |
+| bolo-cenoura | Bolo de cenoura com cobertura | BRC1071A | 354 | 6.25 | 59.9 | 10.8 | caseiro, c/ cobertura de chocolate, fatia de 50 g |
+| bolo-coco | Bolo de coco | BRC0066A | 371 | 7.5 | 54.3 | 13.8 | preparado de mistura, fatia de 50 g |
 | margarina | Margarina | BRC0008D | 640 | 0 | 0 | 71.1 | média c/ e s/ sal |
 | pera | Pera | BRC0030C | 54 | 0.4 | 14 | 0.23 | c/ casca, unidade média de 110 g |
 | omelete | Omelete com queijo | BRC0031J | 215 | 13.4 | 2.19 | 17 | c/ muçarela, unidade média de 100 g |
@@ -277,4 +290,4 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | pacoca | Paçoca | BRC0081K | 494 | 16 | 52.4 | 26.1 | amendoim, unidade de 30 g |
 | gelatina | Gelatina | BRC0060K | 57 | 1.24 | 12.8 | 0.08 | preparada c/ água; taça de 120 g é estimativa |
 
-Total: 267 itens.
+Total: 280 itens.

@@ -372,6 +372,19 @@ export const FOOD_CATALOG = [
   F("agua-de-coco", "Água de coco", ["água de coco", "agua de coco"], 21, 0, 5.29, 0, 300, "300 ml", "tbca_verified", "TBCA BRC0174C, industrializada (consulta 23/10/2026)"),
   F("milk-shake-chocolate", "Milk-shake de chocolate", ["milk shake", "milk-shake", "milkshake"], 113, 2.84, 21.8, 5.86, 400, "400 ml", "tbca_verified", "TBCA BRC0144H, baunilha c/ calda de chocolate; os macros publicados somam ~151 kcal, mantido o valor de energia publicado (consulta 23/10/2026)"),
   // CAT-01: alimentos comuns que faltavam (consulta 24/10/2026).
+  F("carne-bovina-grelhada", "Carne bovina grelhada", ["carne","carne bovina","carne de boi","carne vermelha","carne grelhada","carne bovina grelhada","carne assada","carne bovina assada","bife grelhado","bife de carne","bifes grelhados"], 208, 33.4, 0, 8.32, 110, "1 bife", "tbca_verified", "TBCA BRC0727F, carne de primeira (alcatra, contrafilé, coxão mole, filé, lagarto, patinho) grelhada/assada, pedaço médio de 110 g (consulta 24/10/2026)"),
+  F("legumes-refogados", "Legumes refogados", ["legumes","legumes refogados","legumes salteados"], 94, 1.98, 5.53, 7.51, 120, "1 porção (2 colheres de servir)", "tbca_verified", "TBCA BRC0719B, c/ sal (consulta 24/10/2026)"),
+  F("legumes-cozidos", "Legumes cozidos", ["legumes cozidos","legumes no vapor","seleta de legumes"], 46, 3.11, 9.33, 0.28, 110, "1 porção (2 colheres de servir)", "tbca_verified", "TBCA BRC0095B, equivalente: seleta de legumes drenada (consulta 24/10/2026)"),
+  F("maionese", "Maionese", ["maionese"], 308, 0.58, 7.9, 30.5, 12, "1 colher de sobremesa", "tbca_verified", "TBCA BRC0031D, industrializada (consulta 24/10/2026)"),
+  F("ketchup", "Ketchup", ["ketchup","catchup","catchupe"], 123, 1.12, 29.6, 0.11, 15, "1 colher de sobremesa", "tbca_verified", "TBCA BRC0030L, dado importado pela TBCA (consulta 24/10/2026)"),
+  F("pimentao", "Pimentão", ["pimentão","pimentao","pimentões"], 24, 1.1, 5.25, 0.27, 20, "1 colher de sopa", "tbca_verified", "TBCA BRC0031B, cru, média de tipos (consulta 24/10/2026)"),
+  F("peixe-frito", "Peixe frito", ["peixe frito","filé de peixe frito","pescada frita","tilápia frita","tilapia frita"], 218, 27.4, 0.62, 11.8, 100, "1 filé", "tbca_verified", "TBCA BRC0053E, pescada branca frita, filé de 100 g (consulta 24/10/2026)"),
+  F("peixe-empanado", "Peixe empanado", ["peixe empanado","peixe à milanesa","peixe a milanesa","filé de peixe empanado"], 263, 21.8, 14.1, 13.5, 100, "1 filé", "tbca_verified", "TBCA BRC0193E, merluza à milanesa frita, filé de 100 g (consulta 24/10/2026)"),
+  F("molho-de-tomate", "Molho de tomate", ["molho de tomate","molho sugo","molho ao sugo"], 72, 1.92, 10.5, 3.45, 40, "1 porção (2 colheres de sopa)", "tbca_verified", "TBCA BRC1238B, industrializado (consulta 24/10/2026)"),
+  F("bolo-simples", "Bolo simples", ["bolo simples","bolo de baunilha","bolo caseiro","bolo de fubá","bolo de laranja"], 329, 6.7, 48.9, 11.9, 50, "1 fatia", "tbca_verified", "TBCA BRC0064A, baunilha, preparado de mistura; fubá e laranja usam este valor; fatia de 50 g (consulta 24/10/2026)"),
+  F("bolo-chocolate", "Bolo de chocolate", ["bolo de chocolate","bolo chocolate"], 326, 6.2, 47.9, 12.2, 50, "1 fatia", "tbca_verified", "TBCA BRC0065A, preparado de mistura, fatia de 50 g (consulta 24/10/2026)"),
+  F("bolo-cenoura", "Bolo de cenoura com cobertura", ["bolo de cenoura","bolo de cenoura com chocolate"], 354, 6.25, 59.9, 10.8, 50, "1 fatia", "tbca_verified", "TBCA BRC1071A, caseiro, c/ cobertura de chocolate, fatia de 50 g (consulta 24/10/2026)"),
+  F("bolo-coco", "Bolo de coco", ["bolo de coco"], 371, 7.5, 54.3, 13.8, 50, "1 fatia", "tbca_verified", "TBCA BRC0066A, preparado de mistura, fatia de 50 g (consulta 24/10/2026)"),
   F("margarina", "Margarina", ["margarina"], 640, 0, 0, 71.1, 8, "1 colher de chá", "tbca_verified", "TBCA BRC0008D, média c/ e s/ sal (consulta 24/10/2026)"),
   F("pera", "Pera", ["pera","peras","pêra"], 54, 0.4, 14, 0.23, 110, "1 unidade", "tbca_verified", "TBCA BRC0030C, c/ casca, unidade média de 110 g (consulta 24/10/2026)"),
   F("omelete", "Omelete com queijo", ["omelete","omeletes","omelete de queijo","omelete com queijo","omelete de ovo"], 215, 13.4, 2.19, 17, 100, "1 unidade", "tbca_verified", "TBCA BRC0031J, c/ muçarela, unidade média de 100 g (consulta 24/10/2026)"),
@@ -696,7 +709,7 @@ const GENERIC_FOOD_TERMS = [
   { term: "batata", options: ["batata-cozida", "batata-assada", "batata-frita", "batata-rustica"] },
   { term: "bife", options: ["patinho-grelhado", "alcatra-grelhada", "bife-acebolado"] },
   { term: "queijo", options: ["muçarela", "queijo-minas-frescal", "queijo-prato"] },
-  { term: "peixe", options: ["tilapia-grelhada", "salmao-grelhado", "merluza-grelhada", "sardinha-assada"] },
+  { term: "peixe", options: ["tilapia-grelhada", "peixe-frito", "salmao-grelhado", "peixe-empanado"] },
   { term: "atum", options: ["atum-enlatado-agua", "atum-enlatado-oleo", "atum-fresco-grelhado"] },
   { term: "strogonoff", options: ["strogonoff-frango", "strogonoff-carne"] },
   { term: "estrogonofe", options: ["strogonoff-frango", "strogonoff-carne"] },
@@ -705,7 +718,9 @@ const GENERIC_FOOD_TERMS = [
   { term: "linguiça", options: ["linguica-toscana-assada", "calabresa-grelhada"] },
   { term: "linguica", options: ["linguica-toscana-assada", "calabresa-grelhada"] },
   { term: "sushi", options: ["uramaki-salmao-pepino", "hot-roll-philadelphia", "nigiri-salmao", "hossomaki-salmao"] },
-  { term: "crepe", options: ["crepe-presunto-queijo", "crepe-banana-chocolate"] }
+  { term: "crepe", options: ["crepe-presunto-queijo", "crepe-banana-chocolate"] },
+  { term: "bolo", options: ["bolo-simples", "bolo-chocolate", "bolo-cenoura", "bolo-coco"] },
+  { term: "suco", options: ["suco-de-laranja", "suco-de-uva"] }
 ];
 
 // NUT-03 / CAT-05: pratos e combos que se desdobram em itens do catálogo. Componentes já
@@ -1332,3 +1347,11 @@ export const JAPANESE_BRAZIL_OPTIONS = [
   "salada de kani",
   "combinado japonês"
 ];
+
+// VIS-01: nomes do catálogo (sem os itens de marca) para a leitura de foto escolher o
+// nome exato. Inclui os alimentos cadastrados pela usuária.
+export function catalogFoodNames(extraFoods = []) {
+  const names = [...FOOD_CATALOG.filter((food) => !/^official/.test(food.source)), ...extraFoods]
+    .map((food) => food.name.toLocaleLowerCase("pt-BR"));
+  return [...new Set(names)];
+}

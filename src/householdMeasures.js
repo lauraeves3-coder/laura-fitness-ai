@@ -89,6 +89,12 @@ export const TBCA_HOUSEHOLD_MEASURES = {
   "couve-refogada": { "colher de servir rasa": 30, "colher de sopa rasa": 10 },
   "repolho-cru": { "colher de sopa cheia": 10, "colher de sopa rasa": 5 },
   "gelatina": { "colher de sopa cheia": 25 },
+  "maionese": { "colher de chá cheia": 6, "colher de chá rasa": 3, "colher de sobremesa cheia": 17, "colher de sobremesa rasa": 12, "colher de sopa cheia": 27, "colher de sopa rasa": 17, "colher de servir cheia": 50 },
+  "ketchup": { "colher de sobremesa cheia": 15, "colher de sobremesa rasa": 9, "colher de sopa cheia": 20, "colher de sopa rasa": 11 },
+  "pimentao": { "colher de sopa cheia": 20, "colher de sopa rasa": 13 },
+  "legumes-refogados": { "colher de servir cheia": 60, "colher de servir rasa": 40 },
+  "legumes-cozidos": { "colher de servir cheia": 55, "colher de sopa cheia": 30 },
+  "molho-de-tomate": { "colher de sopa cheia": 20 },
   "mel": { "colher de café rasa": 2, "colher de chá rasa": 3, "colher de sobremesa rasa": 9, "colher de sopa rasa": 15 }
 };
 

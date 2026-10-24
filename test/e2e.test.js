@@ -853,9 +853,10 @@ test("VIS-01: foto vira estimativa pelo catálogo e só registra após 'sim'", a
     confidence: "medium", notes: ""
   }))]);
   const reply = await processMealPhoto(userId, { imageBase64: "AAAA", mimeType: "image/jpeg" }, { apiClient: model });
-  assert.match(reply, /Pela foto, estimei/);
-  assert.match(reply, /ficaram de fora/);
-  assert.match(reply, /Responda "sim" para registrar/);
+  assert.match(reply, /Refeição pela foto/);
+  assert.match(reply, /Não encontrei no catálogo: prato de cerâmica/);
+  assert.match(reply, /Responda \*sim\* para registrar/);
+  assert.match(model.requests[0].instructions, /arroz branco cozido/);
   assert.equal(model.requests[0].input[0].content[1].type, "input_image");
   assert.equal(db.getTodayMeals(userId).length, 0);
 
@@ -986,4 +987,17 @@ test("Fase 5: meta de um macro só altera esse macro, mesmo se o modelo enviar o
   assert.equal(after.daily_protein_target, 140);
   assert.equal(after.daily_carbs_target, before.daily_carbs_target);
   assert.equal(after.daily_fat_target, before.daily_fat_target);
+});
+
+test("VIS-01: termo genérico da foto usa o preparo visto e informa a escolha", async () => {
+  const { processMealPhoto } = await import("../src/ai.js");
+  const userId = newUser();
+  const model = fakeModel([finalText(JSON.stringify({
+    items: [{ name: "peixe grelhado", grams: 120 }, { name: "batata", grams: 100 }, { name: "carne assada", grams: 110 }],
+    confidence: "medium"
+  }))]);
+  const reply = await processMealPhoto(userId, { imageBase64: "AAAA" }, { apiClient: model });
+  assert.match(reply, /Considerei: peixe grelhado → Tilápia grelhada; batata → Batata inglesa cozida/);
+  assert.match(reply, /Carne bovina grelhada — ~110 g/);
+  assert.doesNotMatch(reply, /Não encontrei no catálogo/);
 });

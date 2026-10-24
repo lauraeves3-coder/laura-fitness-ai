@@ -103,12 +103,12 @@ import {
   pastMealTimestamp
 } from "./mealIntent.js";
 import { parsePastMealDate, formatDay } from "./dates.js";
-import { getQuantityQuestions, applyQuantityAnswer } from "./nutritionCatalog.js";
+import { getQuantityQuestions, applyQuantityAnswer, catalogFoodNames } from "./nutritionCatalog.js";
 import { parseFoodRegistration, buildFoodRegistrationReply } from "./userFoods.js";
 import { parseReminderCommand, buildReminderCommandReply, dueReminders, buildWaterReminder } from "./reminders.js";
 import { validateWorkoutRecord, buildWorkoutReply } from "./workouts.js";
 import { runAgent, getClient } from "./agent/agent.js";
-import { describeMealPhoto, buildPhotoMealText } from "./vision.js";
+import { describeMealPhoto, buildPhotoMealText, resolvePhotoItems } from "./vision.js";
 import { toFile } from "openai";
 import { createAgentToolRegistry } from "./agent/tools.js";
 
@@ -2503,29 +2503,38 @@ export async function processMealPhoto(userId, { imageBase64, mimeType, caption 
       imageBase64,
       mimeType,
       caption,
-      model: process.env.OPENAI_MODEL || "gpt-5.6"
+      model: process.env.OPENAI_MODEL || "gpt-5.6",
+      catalogNames: catalogFoodNames(getUserFoods(userId))
     });
   } catch (error) {
     console.error("Falha ao analisar a foto:", error.message);
     return "Não consegui analisar a foto agora. Pode me dizer em texto o que comeu?";
   }
 
-  const text = buildPhotoMealText(reading.items);
-  const estimate = text ? estimateMealFromText(text, { extraFoods: getUserFoods(userId) }) : null;
+  const extraFoods = getUserFoods(userId);
+  const photo = resolvePhotoItems(reading.items, (text) => estimateMealFromText(text, { extraFoods }));
+  const text = buildPhotoMealText(photo.items);
+  const estimate = text ? estimateMealFromText(text, { extraFoods }) : null;
   if (!estimate?.matched_items?.length) {
     return `📷 Não consegui identificar a refeição na foto${reading.notes ? ` (${reading.notes})` : ""}. Me diga em texto o que comeu e as quantidades.`;
   }
 
-  const recognized = new Set(estimate.matched_items.map(({ name }) => name));
   setPendingMealClarification(userId, { type: "photo_meal", original_message: text, created_at: Date.now() });
+  const fmt = (value) => Math.round(value).toLocaleString("pt-BR");
   return [
-    "📷 Pela foto, estimei:",
-    ...estimate.matched_items.map((item) => `• ${item.name}: ~${Math.round(item.grams)} g (${Math.round(item.calories)} kcal)`),
-    `Total aproximado: ${Math.round(estimate.calories)} kcal · P ${Math.round(estimate.protein_g)} g · C ${Math.round(estimate.carbs_g)} g · G ${Math.round(estimate.fat_g)} g`,
-    reading.items.length > recognized.size ? "Alguns itens da foto não estão no meu catálogo e ficaram de fora." : null,
-    reading.confidence === "low" ? `⚠️ Leitura com pouca confiança${reading.notes ? `: ${reading.notes}` : ""}.` : null,
-    "As porções são estimativas visuais. Responda \"sim\" para registrar, ou envie a refeição em texto com as quantidades certas."
-  ].filter(Boolean).join("\n");
+    "📷 *Refeição pela foto*",
+    "",
+    ...estimate.matched_items.map((item) => `• ${item.name} — ~${fmt(item.grams)} g · ${fmt(item.calories)} kcal`),
+    "",
+    `🔥 *Total:* ${fmt(estimate.calories)} kcal`,
+    `🥩 P ${fmt(estimate.protein_g)} g · 🍚 C ${fmt(estimate.carbs_g)} g · 🥑 G ${fmt(estimate.fat_g)} g`,
+    photo.assumptions.length ? `\n🔎 Considerei: ${photo.assumptions.join("; ")}.` : null,
+    photo.unknown.length ? `\n❔ Não encontrei no catálogo: ${photo.unknown.join(", ")}. Se quiser, me diga em texto ou cadastre ("cadastrar alimento: …").` : null,
+    reading.confidence === "low" ? `\n⚠️ Leitura com pouca confiança${reading.notes ? `: ${reading.notes}` : ""}.` : null,
+    "",
+    "_As porções são estimativas visuais._",
+    "Responda *sim* para registrar, ou mande a refeição em texto com as quantidades certas."
+  ].filter((line) => line !== null).join("\n");
 }
 
 export async function processMessage(
