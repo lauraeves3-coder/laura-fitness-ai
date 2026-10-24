@@ -11,22 +11,24 @@ const WEIGHTS = {"café da manhã":0.2,almoço:0.3,"lanche da tarde":0.15,jantar
 const ORDER = Object.keys(WEIGHTS);
 const TEMPLATES = EXPANDED_TEMPLATES;
 
-// Uma fatia de sashimi derivada do item do catálogo, para que registro de consumo e
-// sugestão usem os mesmos valores (NC-02).
-function sashimiTemplate() {
-  const item = FOOD_CATALOG.find((food) => food.id === "sashimi-salmao");
-  const perSlice = (value) => Math.round(value * item.default_g / 100 * 10) / 10;
+// Porção de sugestão derivada do item do catálogo, para que registro de consumo e
+// sugestão usem os mesmos valores (NC-02, CAT-02). `grams` padrão = default_g do item;
+// `withServingGrams` expõe serving_g para converter pedidos em gramas.
+function catalogPortion(id, { key, name, portion, serving, availability, grams, withServingGrams = false }) {
+  const item = FOOD_CATALOG.find((food) => food.id === id);
+  const portionGrams = grams ?? item.default_g;
+  const scaled = (value) => Math.round(value * portionGrams / 100 * 10) / 10;
   return {
-    name: "Sashimi de salmão",
-    foods: ["sashimi de salmão (1 fatia)"],
-    calories: perSlice(item.kcal),
-    protein_g: perSlice(item.protein),
-    carbs_g: perSlice(item.carbs),
-    fat_g: perSlice(item.fat),
-    serving: "fatia",
-    availability_foods: ["sashimi"],
-    key: "japonesa-sashimi",
-    serving_g: item.default_g
+    name: name ?? item.name,
+    foods: [`${(name ?? item.name).toLocaleLowerCase("pt-BR")} (${portion})`],
+    calories: scaled(item.kcal),
+    protein_g: scaled(item.protein),
+    carbs_g: scaled(item.carbs),
+    fat_g: scaled(item.fat),
+    serving,
+    availability_foods: availability,
+    key,
+    ...(withServingGrams ? { serving_g: portionGrams } : {})
   };
 }
 
@@ -131,26 +133,24 @@ const DESIRED_FOODS = {
     { name: "Batata rústica", foods: ["batata rústica (150 g)"], calories: 220, protein_g: 4, carbs_g: 35, fat_g: 7, serving: "porção de 150 g", availability_foods: ["batata frita"], key: "batata-rustica", serving_g: 150 }
   ],
   japonesa: [
-    // Temaki: referência TBCA de 1 unidade média de 90 g.
-    { name: "Temaki de salmão com cream cheese", foods: ["temaki de salmão com cream cheese (1 unidade)"], calories: 144, protein_g: 7.8, carbs_g: 19.8, fat_g: 4.5, serving: "unidade", availability_foods: ["temaki"], key: "japonesa-temaki-salmao", serving_g: 90 },
-    // Uramaki TBCA: unidade média de 60 g.
-    { name: "Uramaki de salmão com pepino e cream cheese", foods: ["uramaki de salmão com pepino e cream cheese (1 unidade)"], calories: 86, protein_g: 4.0, carbs_g: 12.1, fat_g: 2.8, serving: "peça de 60 g", availability_foods: ["uramaki"], key: "japonesa-uramaki-salmao", serving_g: 60 },
-    // Hot Philadelphia TBCA: 30 g por peça.
-    { name: "Hot Philadelphia (Hot Roll)", foods: ["hot philadelphia (1 peça)"], calories: 84, protein_g: 2.7, carbs_g: 9.1, fat_g: 4.4, serving: "peça", availability_foods: ["hot roll"], key: "japonesa-hot-roll", serving_g: 30 },
-    { name: "Nigiri de salmão", foods: ["nigiri de salmão (1 peça)"], calories: 57.8, protein_g: 3.0, carbs_g: 7.7, fat_g: 1.4, serving: "peça", availability_foods: ["nigiri"], key: "japonesa-nigiri" },
-    // Sashimi: mesma fonte do catálogo (sashimi-salmao), por fatia de default_g.
-    sashimiTemplate(),
-    { name: "Yakisoba brasileiro", foods: ["yakisoba (300 g)"], calories: 366, protein_g: 22.4, carbs_g: 54.6, fat_g: 7.8, serving: "300 g", availability_foods: ["yakisoba"], key: "japonesa-yakisoba", serving_g: 300 },
-    { name: "Guioza", foods: ["guioza (1 unidade)"], calories: 134, protein_g: 6.4, carbs_g: 18.6, fat_g: 4.0, serving: "unidade", availability_foods: ["guioza"], key: "japonesa-guioza" },
-    { name: "Hossomaki de salmão", foods: ["hossomaki de salmão (1 peça)"], calories: 41, protein_g: 1.8, carbs_g: 6.3, fat_g: 0.8, serving: "peça", availability_foods: ["hossomaki"], key: "japonesa-hossomaki-salmao" },
-    { name: "Uramaki Califórnia", foods: ["uramaki califórnia (1 peça)"], calories: 48, protein_g: 1.5, carbs_g: 7.8, fat_g: 1.4, serving: "peça", availability_foods: ["uramaki"], key: "japonesa-uramaki-california" },
-    { name: "Uramaki skin", foods: ["uramaki skin (1 peça)"], calories: 63, protein_g: 2.1, carbs_g: 6.9, fat_g: 3.0, serving: "peça", availability_foods: ["uramaki"], key: "japonesa-uramaki-skin" },
-    { name: "Uramaki de atum", foods: ["uramaki de atum (1 peça)"], calories: 44, protein_g: 2.3, carbs_g: 6.9, fat_g: 0.9, serving: "peça", availability_foods: ["uramaki"], key: "japonesa-uramaki-atum" },
-    { name: "Temaki de atum", foods: ["temaki de atum (1 unidade)"], calories: 140, protein_g: 9.0, carbs_g: 19.8, fat_g: 2.7, serving: "unidade", availability_foods: ["temaki"], key: "japonesa-temaki-atum" },
-    { name: "Temaki de camarão", foods: ["temaki de camarão (1 unidade)"], calories: 144, protein_g: 8.1, carbs_g: 21.6, fat_g: 2.7, serving: "unidade", availability_foods: ["temaki"], key: "japonesa-temaki-camarao" },
-    { name: "Temaki de kani", foods: ["temaki de kani (1 unidade)"], calories: 140, protein_g: 6.3, carbs_g: 22.5, fat_g: 2.3, serving: "unidade", availability_foods: ["temaki"], key: "japonesa-temaki-kani" },
-    { name: "Temaki de shimeji com cream cheese", foods: ["temaki de shimeji com cream cheese (1 unidade)"], calories: 158, protein_g: 5.4, carbs_g: 21.6, fat_g: 5.4, serving: "unidade", availability_foods: ["temaki"], key: "japonesa-temaki-shimeji" },
-    { name: "Tempurá de camarão", foods: ["tempurá de camarão (100 g)"], calories: 220, protein_g: 12.0, carbs_g: 17.0, fat_g: 11.0, serving: "100 g", availability_foods: ["tempurá"], key: "japonesa-tempura-camarao", serving_g: 100 }
+    // Valores e pesos por peça vêm do catálogo (TBCA: temaki 90 g, uramaki de salmão 60 g,
+    // hot roll, hossomaki e Califórnia 30 g).
+    catalogPortion("temaki-philadelphia", { key: "japonesa-temaki-salmao", name: "Temaki de salmão com cream cheese", portion: "1 unidade", serving: "unidade", availability: ["temaki"], withServingGrams: true }),
+    catalogPortion("uramaki-salmao-pepino", { key: "japonesa-uramaki-salmao", portion: "1 unidade", serving: "peça de 60 g", availability: ["uramaki"], withServingGrams: true }),
+    catalogPortion("hot-roll-philadelphia", { key: "japonesa-hot-roll", name: "Hot Philadelphia (Hot Roll)", portion: "1 peça", serving: "peça", availability: ["hot roll"], withServingGrams: true }),
+    catalogPortion("nigiri-salmao", { key: "japonesa-nigiri", portion: "1 peça", serving: "peça", availability: ["nigiri"] }),
+    catalogPortion("sashimi-salmao", { key: "japonesa-sashimi", portion: "1 fatia", serving: "fatia", availability: ["sashimi"], withServingGrams: true }),
+    catalogPortion("yakisoba-brasileiro", { key: "japonesa-yakisoba", name: "Yakisoba brasileiro", portion: "300 g", serving: "300 g", availability: ["yakisoba"], grams: 300, withServingGrams: true }),
+    catalogPortion("guioza-caseiro", { key: "japonesa-guioza", portion: "1 unidade", serving: "unidade", availability: ["guioza"] }),
+    catalogPortion("hossomaki-salmao", { key: "japonesa-hossomaki-salmao", portion: "1 peça", serving: "peça", availability: ["hossomaki"], withServingGrams: true }),
+    catalogPortion("uramaki-california", { key: "japonesa-uramaki-california", portion: "1 peça", serving: "peça", availability: ["uramaki"], withServingGrams: true }),
+    catalogPortion("uramaki-skin", { key: "japonesa-uramaki-skin", portion: "1 peça", serving: "peça", availability: ["uramaki"] }),
+    catalogPortion("uramaki-atum", { key: "japonesa-uramaki-atum", portion: "1 peça", serving: "peça", availability: ["uramaki"] }),
+    catalogPortion("temaki-atum", { key: "japonesa-temaki-atum", portion: "1 unidade", serving: "unidade", availability: ["temaki"] }),
+    catalogPortion("temaki-camarao", { key: "japonesa-temaki-camarao", portion: "1 unidade", serving: "unidade", availability: ["temaki"] }),
+    catalogPortion("temaki-kani", { key: "japonesa-temaki-kani", portion: "1 unidade", serving: "unidade", availability: ["temaki"] }),
+    catalogPortion("temaki-shimeji", { key: "japonesa-temaki-shimeji", portion: "1 unidade", serving: "unidade", availability: ["temaki"] }),
+    catalogPortion("tempura-camarao", { key: "japonesa-tempura-camarao", portion: "100 g", serving: "100 g", availability: ["tempurá"], grams: 100, withServingGrams: true })
   ]
 };
 

@@ -309,13 +309,13 @@ export const FOOD_CATALOG = [
   F("temaki-philadelphia", "Temaki de salmão com cream cheese", ["temakis de salmão com cream cheese", "temaki de salmão com cream cheese", "temakis de salmão", "temaki de salmão", "temaki salmão", "temaki philadelphia", "temakis", "temaki"], 162, 8.69, 22, 4.99, 90, "1 unidade", "tbca_verified", "TBCA BRC1206A, temaki c/ shoyu e wasabi (consulta 23/10/2026)"),
   F("temaki-philadelphia-sem-shoyu", "Temaki de salmão com cream cheese sem shoyu", ["temaki sem shoyu"], 165, 8.73, 21.5, 5.42, 90, "1 unidade", "tbca_verified", "TBCA BRC1173A, temaki s/ shoyu e s/ wasabi (consulta 23/10/2026)"),
   F("hot-roll-philadelphia", "Hot Philadelphia (Hot Roll)", ["hot philadelphia", "hot roll", "hotroll", "hot filadélfia"], 282, 9.06, 30.4, 14.5, 30, "1 peça de 30 g", "tbca_verified", "TBCA BRC0304E, s/ shoyu e s/ tare (consulta 23/10/2026)"),
-  F("uramaki-salmao-pepino", "Uramaki de salmão com pepino e cream cheese", ["uramaki de salmão com pepino", "uramaki salmão", "uramaki salmao", "uramaki philadelphia", "uramakis", "uramaki"], 144, 6.72, 20.2, 4.67, 60, "1 unidade de 60 g", "tbca_verified", "TBCA BRC0985A (consulta 23/10/2026)"),
+  F("uramaki-salmao-pepino", "Uramaki de salmão com pepino e cream cheese", ["uramaki de salmão com pepino", "uramaki salmão", "uramaki salmao", "uramaki philadelphia", "uramakis", "uramaki"], 144, 6.72, 20.2, 4.67, 60, "1 unidade de 60 g", "tbca_verified", "TBCA BRC0985A, peça média de 60 g (consulta 23/10/2026)"),
   // Sashimi: valores por 100 g do salmão cru s/ pele da TBCA (BRC0065E); antes usava o
   // USDA 175167 (208 kcal). Fatia de 25 g segue estimativa sem fonte oficial (TBCA sem
   // registro de sashimi em 10/2026). Também usado pelo gerador em nutrition.js.
   F("sashimi-salmao", "Sashimi de salmão", ["sashimi salmão", "sashimi salmao", "sashimi"], 165, 19.4, 0, 9.7, 25, "1 fatia", "tbca_verified", "TBCA BRC0065E, salmão cru s/ pele; fatia de 25 g é estimativa (consulta 23/10/2026)"),
   F("nigiri-salmao", "Nigiri de salmão", ["niguiris de salmão", "nigiris de salmão", "nigiri de salmão", "niguiri de salmão", "nigiri salmão", "niguiri salmao", "niguiris", "nigiris", "nigiri", "niguiri"], 165, 8.5, 22.0, 4.0, 35, "1 peça", "curated_estimate"),
-  F("hossomaki-salmao", "Hossomaki de salmão", ["hossomaki de salmão", "hossomaki salmão", "hossomaki salmao", "hosomaki"], 167, 9.06, 21.8, 5.43, 25, "1 peça", "tbca_verified", "TBCA BRC0305E, salmão grelhado e cream cheese (consulta 23/10/2026)"),
+  F("hossomaki-salmao", "Hossomaki de salmão", ["hossomaki de salmão", "hossomaki salmão", "hossomaki salmao", "hosomaki"], 167, 9.06, 21.8, 5.43, 30, "1 peça", "tbca_verified", "TBCA BRC0305E, salmão grelhado e cream cheese, peça média de 30 g (consulta 23/10/2026)"),
   F("uramaki-california", "Uramaki Califórnia", ["california", "uramaki california"], 140, 7.57, 23.8, 2.77, 30, "1 peça", "tbca_verified", "TBCA BRC0306E, sushi California (consulta 23/10/2026)"),
   F("uramaki-skin", "Uramaki skin", ["skin", "uramaki skin"], 210, 7.0, 23.0, 10.0, 30, "1 peça", "curated_estimate"),
   F("uramaki-atum", "Uramaki de atum", ["uramaki atum", "uramaki de atum"], 145, 7.5, 23.0, 3.0, 30, "1 peça", "curated_estimate"),
@@ -327,8 +327,16 @@ export const FOOD_CATALOG = [
   F("yakisoba-brasileiro", "Yakisoba brasileiro", ["yakisoba", "yakissoba"], 124, 7.52, 18.3, 2.61, 120, "120 g", "tbca_verified", "TBCA BRC0204A, s/ sal (consulta 23/10/2026)"),
   F("sunomono", "Sunomono", ["sunomono"], 35, 0.8, 7.0, 0.2, 100, "100 g", "curated_estimate"),
   F("missoshiru", "Missoshiru", ["missoshiru", "miso soup", "sopa missô"], 40, 3.0, 5.0, 1.0, 250, "250 ml", "curated_estimate"),
-  F("tempura-camarao", "Tempurá de camarão", ["tempura", "tempurá de camarão", "tempura camarao"], 189, 13.2, 7.68, 11.7, 100, "100 g", "tbca_verified", "TBCA BRC0340E (consulta 23/10/2026)"),
+  F("tempura-camarao", "Tempurá de camarão", ["tempura", "tempurá de camarão", "tempura camarao"], 189, 13.2, 7.68, 11.7, 70, "1 unidade", "tbca_verified", "TBCA BRC0340E, unidade média de 70 g (consulta 23/10/2026)"),
   F("salada-kani", "Salada de kani", ["salada de kani", "kani salad"], 125, 5.5, 8.0, 8.0, 150, "150 g", "curated_estimate"),
+  F("harumaki", "Harumaki (rolinho primavera)", ["harumaki", "harumakis", "rolinho primavera", "rolinhos primavera", "rolinho de primavera"], 297, 11.0, 21.6, 18.6, 60, "1 unidade", "tbca_verified", "TBCA BRC0627A, rolinho primavera frito, unidade média de 60 g (consulta 23/10/2026)"),
+  F("harumaki-camarao", "Harumaki de camarão", ["harumaki de camarão", "harumaki camarão", "harumaki camarao", "rolinho primavera de camarão"], 302, 11.1, 16.4, 21.5, 60, "1 unidade", "tbca_verified", "TBCA BRC0738A, frito, unidade média de 60 g (consulta 23/10/2026)"),
+  F("hossomaki-pepino", "Hossomaki de pepino (kappa maki)", ["hossomaki de pepino", "hossomaki pepino", "kappa maki", "kappamaki", "sushi de pepino"], 122, 5.28, 25.0, 1.19, 30, "1 peça", "tbca_verified", "TBCA BRC0867A, sushi c/ pepino, peça média de 30 g (consulta 23/10/2026)"),
+  // Joe/jow não existe na TBCA. Estimativa pela composição de 1 peça de 35 g: 15 g de shari
+  // (BRC0711A), 15 g de salmão cru (BRC0065E) e 5 g de cream cheese (BRC0009G).
+  F("joe-salmao", "Joe de salmão", ["joe de salmão", "joe de salmao", "jow de salmão", "jow de salmao", "joe", "joes", "jow", "jows", "gunkan de salmão"], 161, 10.1, 13.2, 7.5, 35, "1 peça", "curated_estimate"),
+  F("shoyu", "Molho shoyu", ["shoyu", "molho shoyu", "molho de soja", "shoyu light"], 59, 3.47, 11.7, 0.24, 15, "1 colher de sopa", "tbca_verified", "TBCA BRC0189T, média de tipos, colher de sopa de 15 ml (consulta 23/10/2026)"),
+  F("molho-teriyaki", "Molho teriyaki", ["molho teriyaki", "teriyaki"], 92, 0.79, 21.4, 0.4, 15, "1 colher de sopa", "tbca_verified", "TBCA BRC0016L, colher de sopa de 15 g (consulta 23/10/2026)"),
 
   // =========================================================
   // FRITURAS / ACOMPANHAMENTOS

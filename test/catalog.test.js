@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   FOOD_CATALOG, EXPANDED_TEMPLATES, estimateMealFromText,
-  findFoodCandidates, getMissingMealQuantities
+  findFoodCandidates, getMissingMealQuantities, getQuantityQuestions
 } from "../src/nutritionCatalog.js";
 
 const ids = (estimate) => (estimate?.matched_items || []).map((item) => item.id);
@@ -226,6 +226,27 @@ test("CAT-01: 'queijo' sem tipo pede esclarecimento; nomes específicos vencem",
   assert.deepEqual(ids(estimateMealFromText("comi pão de queijo")), ["pao-de-queijo"]);
   assert.deepEqual(ids(estimateMealFromText("comi uma fatia de pizza quatro queijos")), ["pizza-quatro-queijos-direta"]);
   assert.deepEqual(ids(estimateMealFromText("comi um espeto de queijo coalho")), ["queijo-coalho"]);
+});
+
+test("CAT-02: harumaki, kappa maki, joe e molhos da comida japonesa", () => {
+  assert.deepEqual(ids(estimateMealFromText("comi 2 harumakis")), ["harumaki"]);
+  assert.deepEqual(ids(estimateMealFromText("comi 2 harumaki de camarão")), ["harumaki-camarao"]);
+  assert.deepEqual(ids(estimateMealFromText("comi 6 kappa maki")), ["hossomaki-pepino"]);
+  assert.deepEqual(ids(estimateMealFromText("comi 4 joes e 4 hot rolls")), ["joe-salmao", "hot-roll-philadelphia"]);
+  assert.deepEqual(ids(estimateMealFromText("comi 8 hot rolls com shoyu")), ["hot-roll-philadelphia", "shoyu"]);
+  assert.deepEqual(ids(estimateMealFromText("comi 8 hot rolls sem shoyu")), ["hot-roll-philadelphia"]);
+  assert.equal(getQuantityQuestions("comi 8 hot rolls com shoyu").length, 0);
+});
+
+test("CAT-02: peso por peça segue a medida caseira da TBCA", () => {
+  const grams = (id) => FOOD_CATALOG.find((food) => food.id === id).default_g;
+  assert.equal(grams("uramaki-salmao-pepino"), 60);
+  assert.equal(grams("hossomaki-salmao"), 30);
+  assert.equal(grams("uramaki-california"), 30);
+  assert.equal(grams("hot-roll-philadelphia"), 30);
+  assert.equal(grams("temaki-philadelphia"), 90);
+  assert.equal(grams("tempura-camarao"), 70);
+  assert.equal(grams("harumaki"), 60);
 });
 
 test("NUT-08: o preparo citado escolhe o item certo", () => {

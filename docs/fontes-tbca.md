@@ -209,13 +209,18 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | temaki-philadelphia | Temaki de salmão com cream cheese | BRC1206A | 162 | 8.69 | 22 | 4.99 | temaki c/ shoyu e wasabi |
 | temaki-philadelphia-sem-shoyu | Temaki de salmão com cream cheese sem shoyu | BRC1173A | 165 | 8.73 | 21.5 | 5.42 | temaki s/ shoyu e s/ wasabi |
 | hot-roll-philadelphia | Hot Philadelphia (Hot Roll) | BRC0304E | 282 | 9.06 | 30.4 | 14.5 | s/ shoyu e s/ tare |
-| uramaki-salmao-pepino | Uramaki de salmão com pepino e cream cheese | BRC0985A | 144 | 6.72 | 20.2 | 4.67 | — |
+| uramaki-salmao-pepino | Uramaki de salmão com pepino e cream cheese | BRC0985A | 144 | 6.72 | 20.2 | 4.67 | peça média de 60 g |
 | sashimi-salmao | Sashimi de salmão | BRC0065E | 165 | 19.4 | 0 | 9.7 | salmão cru s/ pele; fatia de 25 g é estimativa |
-| hossomaki-salmao | Hossomaki de salmão | BRC0305E | 167 | 9.06 | 21.8 | 5.43 | salmão grelhado e cream cheese |
+| hossomaki-salmao | Hossomaki de salmão | BRC0305E | 167 | 9.06 | 21.8 | 5.43 | salmão grelhado e cream cheese, peça média de 30 g |
 | uramaki-california | Uramaki Califórnia | BRC0306E | 140 | 7.57 | 23.8 | 2.77 | sushi California |
 | guioza-caseiro | Guioza | BRC0876A | 224 | 10.7 | 31 | 6.7 | caseiro |
 | yakisoba-brasileiro | Yakisoba brasileiro | BRC0204A | 124 | 7.52 | 18.3 | 2.61 | s/ sal |
-| tempura-camarao | Tempurá de camarão | BRC0340E | 189 | 13.2 | 7.68 | 11.7 | — |
+| tempura-camarao | Tempurá de camarão | BRC0340E | 189 | 13.2 | 7.68 | 11.7 | unidade média de 70 g |
+| harumaki | Harumaki (rolinho primavera) | BRC0627A | 297 | 11 | 21.6 | 18.6 | rolinho primavera frito, unidade média de 60 g |
+| harumaki-camarao | Harumaki de camarão | BRC0738A | 302 | 11.1 | 16.4 | 21.5 | frito, unidade média de 60 g |
+| hossomaki-pepino | Hossomaki de pepino (kappa maki) | BRC0867A | 122 | 5.28 | 25 | 1.19 | sushi c/ pepino, peça média de 30 g |
+| shoyu | Molho shoyu | BRC0189T | 59 | 3.47 | 11.7 | 0.24 | média de tipos, colher de sopa de 15 ml |
+| molho-teriyaki | Molho teriyaki | BRC0016L | 92 | 0.79 | 21.4 | 0.4 | colher de sopa de 15 g |
 | pure-de-batata | Purê de batata | BRC1037B | 100 | 3.7 | 10.4 | 5.12 | — |
 | mandioca-frita | Mandioca frita | BRC0091B | 304 | 1.38 | 50.3 | 11.2 | — |
 | acucar-refinado | Açúcar refinado | BRC0007K | 397 | 0.16 | 99 | 0 | — |
@@ -229,4 +234,4 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | agua-de-coco | Água de coco | BRC0174C | 21 | 0 | 5.29 | 0 | industrializada |
 | milk-shake-chocolate | Milk-shake de chocolate | BRC0144H | 113 | 2.84 | 21.8 | 5.86 | baunilha c/ calda de chocolate; os macros publicados somam ~151 kcal, mantido o valor de energia publicado |
 
-Total: 219 itens.
+Total: 224 itens.

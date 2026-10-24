@@ -71,12 +71,12 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
-| CAT-01 | Expandir catálogo para alimentação real (caseiros, regionais, padaria, doces, bebidas, industrializados) | P1 | PARCIAL | CAT-08 | 346 itens em `nutritionCatalog.js` (219 com código TBCA). "queijo" sozinho virou termo genérico: pergunta o tipo (muçarela, minas frescal ou prato) em vez de ignorar o queijo; queijo coalho adicionado (TBCA) |
-| CAT-02 | Comida japonesa padrão Brasil (inclui jow/joe, harumaki, combinados, rodízios, molhos) | P1 | PARCIAL | DEC-02 | subtipos e recheios testados; faltam jow, harumaki, combinados, molhos |
+| CAT-01 | Expandir catálogo para alimentação real (caseiros, regionais, padaria, doces, bebidas, industrializados) | P1 | PARCIAL | CAT-08 | 352 itens em `nutritionCatalog.js` (224 com código TBCA). "queijo" sozinho virou termo genérico: pergunta o tipo (muçarela, minas frescal ou prato) em vez de ignorar o queijo; queijo coalho adicionado (TBCA) |
+| CAT-02 | Comida japonesa padrão Brasil (inclui jow/joe, harumaki, combinados, rodízios, molhos) | P1 | PARCIAL | — | subtipos e recheios testados; harumaki (comum e de camarão), kappa maki, shoyu e teriyaki com código TBCA; joe/jow por estimativa de composição (não existe na TBCA); peso por peça segue a medida caseira da TBCA (hossomaki 25→30 g, tempurá 100→70 g por unidade); sugestões de japonesa (`DESIRED_FOODS.japonesa`) agora derivam do catálogo (testado). Faltam combinados, rodízio e tarê |
 | CAT-03 | Cortes bovinos e métodos de preparo | P1 | IMPLEMENTADO E TESTADO | — | 16 cortes da TBCA (patinho, alcatra, contrafilé, coxão duro/mole, cupim, filé-mignon, fraldinha, lagarto, maminha, músculo, acém, picanha c/ e s/ gordura, costela, fígado, carne moída, carne-seca) em cru/cozido/grelhado-assado/frito quando a TBCA tem; `test/catalog.test.js`; `docs/fontes-tbca.md` |
 | CAT-04 | Fast food por marca e cardápio brasileiro | P1 | PARCIAL | DEC-04 | `BRANDED_FAST_FOOD_CATALOG` (68 itens de marca, maioria "official_menu_item_estimate") |
 | CAT-05 | Interpretar marca+produto+tamanho+combo; decompor combos sem duplicar | P1 | NÃO IMPLEMENTADO | CAT-04 | — |
-| CAT-06 | Guardar fonte, data, confiança e status de cada dado | P1 | PARCIAL | — | campo `source` em todos; campo `reference` (código TBCA + data de consulta) em 219 itens (todo item `tbca_verified` tem código, testado), listados em `docs/fontes-tbca.md` (gerado por `scripts/gerar-fontes-tbca.mjs`, sincronia testada); demais itens sem data nem status |
+| CAT-06 | Guardar fonte, data, confiança e status de cada dado | P1 | PARCIAL | — | campo `source` em todos; campo `reference` (código TBCA + data de consulta) em 224 itens (todo item `tbca_verified` tem código, testado), listados em `docs/fontes-tbca.md` (gerado por `scripts/gerar-fontes-tbca.mjs`, sincronia testada); demais itens sem data nem status |
 | CAT-07 | Sem aliases falsos, duplicatas ou valores incoerentes | P0 | IMPLEMENTADO E TESTADO | — | `test/catalog.test.js` (IDs únicos, alias único, energia × macros) |
 | CAT-08 | Catálogo atualizável sem editar código | P1 | NÃO IMPLEMENTADO | ARQ-01 | catálogo está em código JS |
 | CAT-09 | Alimento desconhecido: perguntar dados, calcular e cadastrar | P1 | NÃO IMPLEMENTADO | CAT-08 | — |
@@ -232,7 +232,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | ID | Decisão | Afeta |
 |---|---|---|
 | DEC-01 | Quais fontes aceitar para pesos por unidade e densidades (TBCA, rótulo, IBGE/POF?) e o que fazer quando não houver fonte oficial (ex.: fatia de sashimi 25 g) | NUT-06, NUT-25, CAT-10 |
-| DEC-02 | Gramagem do uramaki de salmão (60 g/peça hoje) — confirmar na TBCA | CAT-02 |
+| DEC-02 | **Confirmado na TBCA em 23/10/2026:** uramaki de salmão c/ pepino (BRC0985A) tem peça média de 60 g. As páginas de detalhe da TBCA trazem medidas caseiras (peça, fatia, colher), fonte possível para DEC-01 | CAT-02 |
 | DEC-03 | Serviço de transcrição de áudio e visão (custo, privacidade) | CONV-10, VIS-01 |
 | DEC-04 | Fonte e frequência de atualização dos cardápios de fast food | CAT-04 |
 | DEC-05 | Quando iniciar a pesquisa de marcas/sabores de suplementos e quais fontes oficiais usar | SUP-01 |
@@ -264,3 +264,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 23/10/2026 | CAT-10 avança: +33 pratos, salgados, doces e bebidas com preparações da TBCA; 183 itens com código TBCA, 92 estimativas restantes. Teste NC-04 ajustado (farinha de mandioca agora é verificada). Totais inalterados; 215 testes passando. |
 | 23/10/2026 | CAT-10 avança: +35 itens (suínos e aves assados, soja, comida japonesa, 12 pizzas) com código TBCA; patinho refogado recebe o código que faltava. 218 itens com código TBCA, 57 estimativas restantes sem equivalente na TBCA. Totais inalterados; 217 testes passando. |
 | 23/10/2026 | CAT-01: lacuna do "queijo" genérico corrigida ("tapioca com queijo" pergunta o tipo e a resposta curta completa o registro); novo item queijo coalho (TBCA BRC0139G). Totais inalterados; 219 testes passando. |
+| 23/10/2026 | CAT-02 avança: harumaki, kappa maki, joe, shoyu e teriyaki; peso por peça conferido nas medidas caseiras da TBCA (DEC-02 confirmado: uramaki 60 g); sugestões de comida japonesa passam a usar os valores do catálogo (hossomaki 41→50 kcal/peça, Califórnia 48→42, tempurá 220→189). Totais inalterados; 222 testes passando. |

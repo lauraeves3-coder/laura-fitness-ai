@@ -95,11 +95,21 @@ test("AI-03: 'meia porção' e '1 e meia fatia'", () => {
   assert.equal(ai.detectRequestedServings("quero meia porção de batata frita", "batata frita"), 0.5);
   assert.equal(ai.detectRequestedServings("quero 1 e meia fatia de bolo", "bolo"), 1.5);
 });
+const yakisobaKcal = (grams) => Math.round(FOOD_CATALOG.find((food) => food.id === "yakisoba-brasileiro").kcal * grams / 100);
 test("AI-03: '300 g de yakisoba' = 1 porção de 300 g", () => {
-  assert.deepEqual(optionsFor("quero 300 g de yakisoba", "japonesa"), ["Yakisoba brasileiro — 300 g 366"]);
+  assert.deepEqual(optionsFor("quero 300 g de yakisoba", "japonesa"), [`Yakisoba brasileiro — 300 g ${yakisobaKcal(300)}`]);
 });
 test("AI-03: '150 g de yakisoba' oferece meia porção", () => {
-  assert.ok(optionsFor("quero 150g de yakisoba", "japonesa").includes("Yakisoba brasileiro — 150 g 183"));
+  assert.ok(optionsFor("quero 150g de yakisoba", "japonesa").includes(`Yakisoba brasileiro — 150 g ${yakisobaKcal(150)}`));
+});
+
+test("CAT-02: sugestões de comida japonesa usam os valores do catálogo por peça", () => {
+  const perPiece = (id) => { const food = FOOD_CATALOG.find((entry) => entry.id === id); return Math.round(food.kcal * food.default_g / 100 * 10) / 10; };
+  const options = generateDesiredFoodOptions({ desiredFood: "japonesa", calorieBudget: 5000, limit: 50, requestedServings: 1 });
+  const kcalOf = (name) => options.find((option) => option.name.startsWith(name))?.calories;
+  assert.equal(kcalOf("Hossomaki de salmão"), Math.round(perPiece("hossomaki-salmao")));
+  assert.equal(kcalOf("Uramaki Califórnia"), Math.round(perPiece("uramaki-california")));
+  assert.equal(kcalOf("Uramaki de salmão"), Math.round(perPiece("uramaki-salmao-pepino")));
 });
 test("AI-03: gramas sem peso de referência não são convertidos", () => {
   assert.ok(!optionsFor("quero 200 g de pizza", "pizza").some((option) => /200 g/.test(option)));
