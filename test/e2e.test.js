@@ -748,3 +748,14 @@ test("CAT-09: cadastro incompleto pede o que falta e não grava", async () => {
   assert.match(reply, /faltou: proteína, carboidrato, gordura/);
   assert.equal(db.getUserFoods(userId).length, 0);
 });
+
+test("NUT-03: 'comi um pf' pergunta a proteína e 'frango' completa o prato", async () => {
+  const userId = newUser();
+  assert.match(await send(userId, "comi um pf"), /pf: peito de frango grelhado, patinho grelhado, ovo frito ou tilápia grelhada/);
+  assert.equal(db.getTodayMeals(userId).length, 0);
+  assert.match(await send(userId, "frango"), /quanto foi de:\n• peito de frango grelhado/);
+  await send(userId, "padrão");
+  const meals = db.getTodayMeals(userId);
+  assert.equal(meals.length, 1);
+  assert.equal(meals[0].calories, estimateMealFromText("comi um pf com peito de frango grelhado").calories);
+});

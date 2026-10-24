@@ -198,6 +198,12 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | pastel-carne | Pastel de carne | BRC0166A | 383 | 17.1 | 22.6 | 25.1 | frito, artesanal, unidade média de 100 g |
 | esfiha-carne | Esfiha de carne | BRC0422A | 276 | 16 | 39.7 | 6.25 | esfirra de carne caseira, assada, unidade média de 70 g |
 | empada-frango | Empada de frango | BRC0443A | 354 | 6.94 | 47.5 | 15.6 | assada, unidade média de 50 g |
+| x-burguer | X-burguer | BRC0248A | 272 | 13.3 | 30.5 | 11.1 | cheeseburguer c/ queijo prato, unidade média de 170 g |
+| x-salada | X-salada | BRC0253A | 218 | 10.8 | 24.7 | 8.79 | c/ queijo prato, tomate e alface, unidade média de 215 g |
+| x-frango | X-frango | BRC0371A | 249 | 20.7 | 24.7 | 7.8 | peito de frango grelhado c/ queijo prato no pão de hambúrguer, unidade média de 160 g |
+| misto-quente | Misto quente | BRC0262A | 281 | 13.7 | 22.5 | 15.4 | pão de forma, presunto, muçarela e manteiga, unidade média de 120 g |
+| misto-frio | Misto frio | BRC0413A | 257 | 15.1 | 29.2 | 9.1 | pão francês, presunto e muçarela, unidade média de 90 g |
+| sanduiche-americano | Sanduíche americano | BRC0256A | 212 | 11.8 | 14.3 | 12.2 | pão de forma, ovo frito, presunto, muçarela, tomate e maionese, unidade média de 210 g |
 | cachorro-quente | Cachorro-quente | BRC0240A | 225 | 6.87 | 13.3 | 16.4 | pão de leite, salsicha, ketchup, mostarda e maionese, porção média de 170 g |
 | lasanha-carne | Lasanha à bolonhesa | BRC0395A | 178 | 11.3 | 15.2 | 8.23 | bolonhesa, artesanal, assada |
 | strogonoff-frango | Strogonoff de frango | BRC0225F | 152 | 17.6 | 2.59 | 7.96 | — |
@@ -234,4 +240,4 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | agua-de-coco | Água de coco | BRC0174C | 21 | 0 | 5.29 | 0 | industrializada |
 | milk-shake-chocolate | Milk-shake de chocolate | BRC0144H | 113 | 2.84 | 21.8 | 5.86 | baunilha c/ calda de chocolate; os macros publicados somam ~151 kcal, mantido o valor de energia publicado |
 
-Total: 224 itens.
+Total: 230 itens.

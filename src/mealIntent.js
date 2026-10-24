@@ -20,13 +20,15 @@ export function resolveGenericFoodAnswer(pending, reply) {
   if (!pending?.original_message || !Array.isArray(pending.clarifications)) return null;
   let rewritten = String(pending.original_message).normalize("NFC");
   let resolved = 0;
-  for (const { term, options } of pending.clarifications) {
+  for (const { term, options, keep } of pending.clarifications) {
     const choice = chooseClarificationOption(term, options || [], reply);
     if (!choice) continue;
     const [occurrence] = findTermOccurrences(normalizeFoodText(rewritten), term);
     if (!occurrence) continue;
+    // keep: prato sem proteína ("pf") — a opção completa o prato em vez de substituí-lo.
+    const chosen = choice.name.toLocaleLowerCase("pt-BR");
     rewritten = rewritten.slice(0, occurrence.index)
-      + choice.name.toLocaleLowerCase("pt-BR")
+      + (keep ? `${rewritten.slice(occurrence.index, occurrence.end)} com ${chosen}` : chosen)
       + rewritten.slice(occurrence.end);
     resolved++;
   }

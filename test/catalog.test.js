@@ -209,7 +209,7 @@ test("CAT-06: itens com referência apontam para um código TBCA e data de consu
   const referenced = FOOD_CATALOG.filter((food) => food.reference);
   assert.ok(referenced.length >= 60, String(referenced.length));
   for (const food of referenced) {
-    assert.match(food.reference, /^TBCA BRC\d{4}[A-Z]\b.*consulta 23\/10\/2026/, food.id);
+    assert.match(food.reference, /^TBCA BRC\d{4}[A-Z]\b.*\(consulta \d{2}\/10\/2026\)$/, food.id);
     assert.equal(food.source, "tbca_verified", food.id);
   }
 });
@@ -404,5 +404,30 @@ test("CAT-10: sem equivalente na TBCA, segue estimativa sem referência", () => 
     const food = FOOD_CATALOG.find((entry) => entry.id === id);
     assert.equal(food.reference, undefined, id);
     assert.notEqual(food.source, "tbca_verified", id);
+  }
+});
+
+// ---------- NUT-03 / CAT-05: pratos e combos ----------
+
+test("NUT-03: prato feito / marmita desdobra arroz, feijão e salada; conteúdo citado vale sozinho", () => {
+  assert.deepEqual(ids(estimateMealFromText("almocei um prato feito de frango")),
+    ["arroz-branco-cozido", "feijao-carioca-cozido", "folhas-salada", "peito-de-frango-grelhado"]);
+  assert.deepEqual(ids(estimateMealFromText("comi uma marmita de arroz feijão e frango")),
+    ["arroz-branco-cozido", "feijao-carioca-cozido", "peito-de-frango-grelhado"]);
+  const two = estimateMealFromText("comi 2 marmitas com bife de patinho").matched_items;
+  assert.equal(two.find((item) => item.id === "arroz-branco-cozido").grams, 300);
+  assert.equal(two.find((item) => item.id === "arroz-branco-cozido").approximate_quantity, true);
+  assert.deepEqual(estimateMealFromText("comi um pf").needs_clarification.map(({ term }) => term), ["pf"]);
+  assert.deepEqual(ids(estimateMealFromText("não comi marmita, comi um x-burguer")), ["x-burguer"]);
+});
+
+test("CAT-05: combo de marca desdobra lanche, batata e refrigerante", () => {
+  assert.deepEqual(estimateMealFromText("comi um combo big mac").matched_items.map(({ id, grams }) => [id, grams]),
+    [["mcd-big-mac", 220], ["mcd-fritas-m", 110], ["refrigerante-cola", 500]]);
+});
+
+test("NUT-03: lanches de lanchonete com valores da TBCA", () => {
+  for (const [message, id] of [["comi um x-salada", "x-salada"], ["comi 2 mistos quentes", "misto-quente"], ["comi um x burguer", "x-burguer"], ["comi um misto frio", "misto-frio"]]) {
+    assert.deepEqual(ids(estimateMealFromText(message)), [id], message);
   }
 });

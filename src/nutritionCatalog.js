@@ -297,6 +297,12 @@ export const FOOD_CATALOG = [
   F("esfiha-carne", "Esfiha de carne", ["esfiha", "esfiha de carne"], 276, 16, 39.7, 6.25, 70, "1 unidade", "tbca_verified", "TBCA BRC0422A, esfirra de carne caseira, assada, unidade média de 70 g (consulta 23/10/2026)"),
   F("empada-frango", "Empada de frango", ["empada", "empada de frango"], 354, 6.94, 47.5, 15.6, 50, "1 unidade", "tbca_verified", "TBCA BRC0443A, assada, unidade média de 50 g (consulta 23/10/2026)"),
   F("hamburguer-artesanal", "Hambúrguer artesanal", ["hambúrguer artesanal", "hamburguer artesanal", "hamburguer"], 280, 20.0, 4.0, 20.0, 120, "120 g de carne", "curated_estimate"),
+  F("x-burguer", "X-burguer", ["x-burguer", "x burguer", "xburguer", "x-burger", "x burger", "cheeseburguer", "cheese burguer"], 272, 13.3, 30.5, 11.1, 170, "1 unidade", "tbca_verified", "TBCA BRC0248A, cheeseburguer c/ queijo prato, unidade média de 170 g (consulta 24/10/2026)"),
+  F("x-salada", "X-salada", ["x-salada", "x salada", "xsalada", "cheese salada", "cheese salad"], 218, 10.8, 24.7, 8.79, 215, "1 unidade", "tbca_verified", "TBCA BRC0253A, c/ queijo prato, tomate e alface, unidade média de 215 g (consulta 24/10/2026)"),
+  F("x-frango", "X-frango", ["x-frango", "x frango", "xfrango", "sanduíche de frango com queijo", "sanduiche de frango com queijo"], 249, 20.7, 24.7, 7.8, 160, "1 unidade", "tbca_verified", "TBCA BRC0371A, peito de frango grelhado c/ queijo prato no pão de hambúrguer, unidade média de 160 g (consulta 24/10/2026)"),
+  F("misto-quente", "Misto quente", ["misto quente", "mistos quentes", "misto-quente"], 281, 13.7, 22.5, 15.4, 120, "1 unidade", "tbca_verified", "TBCA BRC0262A, pão de forma, presunto, muçarela e manteiga, unidade média de 120 g (consulta 24/10/2026)"),
+  F("misto-frio", "Misto frio", ["misto frio", "mistos frios", "sanduíche de presunto e queijo", "sanduiche de presunto e queijo"], 257, 15.1, 29.2, 9.1, 90, "1 unidade", "tbca_verified", "TBCA BRC0413A, pão francês, presunto e muçarela, unidade média de 90 g (consulta 24/10/2026)"),
+  F("sanduiche-americano", "Sanduíche americano", ["sanduíche americano", "sanduiche americano", "misto americano"], 212, 11.8, 14.3, 12.2, 210, "1 unidade", "tbca_verified", "TBCA BRC0256A, pão de forma, ovo frito, presunto, muçarela, tomate e maionese, unidade média de 210 g (consulta 24/10/2026)"),
   F("cachorro-quente", "Cachorro-quente", ["cachorro-quente", "cachorro quente", "hot dog"], 225, 6.87, 13.3, 16.4, 170, "1 unidade", "tbca_verified", "TBCA BRC0240A, pão de leite, salsicha, ketchup, mostarda e maionese, porção média de 170 g (consulta 23/10/2026)"),
   F("lasanha-carne", "Lasanha à bolonhesa", ["lasanha", "lasanha de carne", "lasanha bolonhesa"], 178, 11.3, 15.2, 8.23, 300, "300 g", "tbca_verified", "TBCA BRC0395A, bolonhesa, artesanal, assada (consulta 23/10/2026)"),
   F("strogonoff-frango", "Strogonoff de frango", ["strogonoff de frango", "strogonoff frango"], 152, 17.6, 2.59, 7.96, 250, "250 g", "tbca_verified", "TBCA BRC0225F (consulta 23/10/2026)"),
@@ -654,6 +660,22 @@ const GENERIC_FOOD_TERMS = [
   { term: "queijo", options: ["muçarela", "queijo-minas-frescal", "queijo-prato"] }
 ];
 
+// NUT-03 / CAT-05: pratos e combos que se desdobram em itens do catálogo. Componentes já
+// citados na mensagem não são somados de novo; `protein` = opções perguntadas quando o
+// prato vem sem a proteína; `approximate` = porções sem fonte (estimativa de prato feito).
+const DISH_EXPANSIONS = [
+  {
+    key: "prato-feito",
+    terms: ["prato feito", "pratos feitos", "pf", "prato comercial", "marmita", "marmitas", "marmitex", "quentinha", "quentinhas"],
+    components: () => [["arroz-branco-cozido", 150], ["feijao-carioca-cozido", 140], ["folhas-salada", 50]],
+    protein: ["peito-de-frango-grelhado", "patinho-grelhado", "ovo-frito", "tilapia-grelhada"],
+    approximate: true
+  },
+  { key: "combo-big-mac", terms: ["combo big mac", "combo do big mac", "big mac combo"], components: () => FREE_MEAL_COMPOSITIONS["mcd-big-mac-combo"] },
+  { key: "combo-quarterao", terms: ["combo quarterão", "combo quarterao", "combo do quarterão", "combo do quarterao"], components: () => FREE_MEAL_COMPOSITIONS["mcd-quarterao-combo"] },
+  { key: "combo-mcchicken", terms: ["combo mcchicken", "combo mc chicken", "combo do mcchicken"], components: () => FREE_MEAL_COMPOSITIONS["mcd-mcchicken-combo"] }
+];
+
 let catalogEntries = null;
 let catalogById = null;
 
@@ -665,7 +687,8 @@ function findFoodOccurrences(text, extraFoods = []) {
   if (!catalogEntries) {
     catalogEntries = [
       ...FOOD_CATALOG.map((item) => ({ key: item.id, terms: [item.name, ...(item.aliases || [])] })),
-      ...GENERIC_FOOD_TERMS.map(({ term }) => ({ key: `generic:${term}`, terms: [term] }))
+      ...GENERIC_FOOD_TERMS.map(({ term }) => ({ key: `generic:${term}`, terms: [term] })),
+      ...DISH_EXPANSIONS.map(({ key, terms }) => ({ key: `dish:${key}`, terms }))
     ];
     catalogById = new Map(FOOD_CATALOG.map((item) => [item.id, item]));
   }
@@ -676,7 +699,9 @@ function findFoodOccurrences(text, extraFoods = []) {
   return matchFoodTerms(text, entries, { normalized: true })
     .map((occurrence) => occurrence.key.startsWith("generic:")
       ? { ...occurrence, generic: GENERIC_FOOD_TERMS.find(({ term }) => `generic:${term}` === occurrence.key) }
-      : { ...occurrence, item: byId.get(occurrence.key) });
+      : occurrence.key.startsWith("dish:")
+        ? { ...occurrence, dish: DISH_EXPANSIONS.find(({ key }) => `dish:${key}` === occurrence.key) }
+        : { ...occurrence, item: byId.get(occurrence.key) });
 }
 
 // Trechos negados: "não comi X", "nem bebi Y" até o fim da frase ou a próxima afirmação
@@ -803,9 +828,17 @@ function groupOccurrencesByFood(text, extraFoods = []) {
   const negated = [];
   const clarifications = [];
   const negatedRanges = findNegatedRanges(text);
-  for (const occurrence of findFoodOccurrences(text, extraFoods)) {
+  const dishes = [];
+  const occurrences = findFoodOccurrences(text, extraFoods);
+  for (const occurrence of occurrences) {
     if (isNegated(occurrence, negatedRanges)) {
-      negated.push(occurrence.item?.name || occurrence.generic.term);
+      negated.push(occurrence.item?.name || occurrence.generic?.term || text.slice(occurrence.index, occurrence.end));
+      continue;
+    }
+    if (occurrence.dish) {
+      // "2 marmitas" = 2 pratos: a contagem vem como gramas de um item de 1 g.
+      const count = extractQuantityDetails(text, { id: "dish", name: "", aliases: [], default_g: 1 }, occurrence.index, { endIndex: occurrence.end });
+      dishes.push({ ...occurrence, count: count?.grams > 0 ? count.grams : 1 });
       continue;
     }
     if (occurrence.generic) {
@@ -830,7 +863,31 @@ function groupOccurrencesByFood(text, extraFoods = []) {
     });
     groups.set(occurrence.item.id, group);
   }
-  return { groups: [...groups.values()], negated: [...new Set(negated)], clarifications };
+
+  for (const dish of dishes) {
+    const components = dish.dish.components() || [];
+    const componentIds = new Set(components.map(([id]) => id));
+    // Conteúdo descrito ("marmita de arroz, feijão e frango"): vale só o que foi citado.
+    if (occurrences.some((occurrence) => componentIds.has(occurrence.item?.id))) continue;
+    const others = occurrences.filter((occurrence) => !occurrence.dish);
+    if (dish.dish.protein && !others.length) {
+      clarifications.push({
+        term: text.slice(dish.index, dish.end),
+        options: dish.dish.protein.map((id) => catalogById.get(id)).filter(Boolean).map(({ id, name }) => ({ id, name })),
+        keep: true
+      });
+    }
+    for (const [id, grams] of components) {
+      const item = catalogById.get(id);
+      if (!item || groups.has(id)) continue;
+      groups.set(id, {
+        item,
+        position: dish.index,
+        mentions: [{ index: dish.index, end: dish.end, item, explicitGrams: grams * dish.count, measure: dish.dish.approximate ? "prato feito" : null, whole: false }]
+      });
+    }
+  }
+  return { groups: [...groups.values()].sort((a, b) => a.position - b.position), negated: [...new Set(negated)], clarifications };
 }
 
 export function getMissingMealQuantities(message, extraFoods = []) {
