@@ -25,6 +25,8 @@ import {
   getLatestMealPlanEvent,
   saveWorkout,
   saveWeight,
+  saveUserFood,
+  getUserFoods,
   saveWaterLog,
   getTodayWaterTotal,
   setWaterGoal,
@@ -84,6 +86,7 @@ import {
 } from "./mealIntent.js";
 import { parsePastMealDate, formatDay } from "./dates.js";
 import { getQuantityQuestions, applyQuantityAnswer } from "./nutritionCatalog.js";
+import { parseFoodRegistration, buildFoodRegistrationReply } from "./userFoods.js";
 import { validateWorkoutRecord, buildWorkoutReply } from "./workouts.js";
 import { runAgent } from "./agent/agent.js";
 import { createAgentToolRegistry } from "./agent/tools.js";
@@ -1234,7 +1237,7 @@ async function handlePendingMealClarification(userId, message, internal) {
   }
 
   if (pending.type === "missing_quantity") {
-    const answer = applyQuantityAnswer(pending.original_message, pending.items || [], message);
+    const answer = applyQuantityAnswer(pending.original_message, pending.items || [], message, getUserFoods(userId));
     if (answer) {
       clearPendingMealClarification(userId);
       return processMessage(userId, answer.message, {
@@ -2460,6 +2463,13 @@ const summaryIntent = classifySummaryIntent(message);
       return clarificationReply;
     }
 
+    // CAT-09: "cadastrar alimento: ..." grava o alimento só para esta usuária.
+    const foodRegistration = parseFoodRegistration(message);
+    if (foodRegistration) {
+      if (foodRegistration.food) saveUserFood(userId, foodRegistration.food);
+      return buildFoodRegistrationReply(foodRegistration);
+    }
+
     // NUT-14: "o que comi ontem?", "resumo da semana".
     const historyRange =
       detectHistoryQuery(
@@ -2512,7 +2522,7 @@ const summaryIntent = classifySummaryIntent(message);
       !isExplicitSelectionConfirmation(message) &&
       !hasExplicitMealCorrectionIntent(message)
     ) {
-      const estimatedMeal = estimateMealFromText(message);
+      const estimatedMeal = estimateMealFromText(message, { extraFoods: getUserFoods(userId) });
 
       if (estimatedMeal?.needs_clarification) {
         return askMealClarification(userId, message, estimatedMeal);
@@ -2520,7 +2530,7 @@ const summaryIntent = classifySummaryIntent(message);
 
       const quantityQuestions =
         estimatedMeal && !internal.acceptDefaultQuantities
-          ? getQuantityQuestions(message)
+          ? getQuantityQuestions(message, getUserFoods(userId))
           : [];
 
       if (quantityQuestions.length) {
@@ -2905,7 +2915,7 @@ const summaryIntent = classifySummaryIntent(message);
               data
             )
           ) {
-            const estimatedMeal = estimateMealFromText(message);
+            const estimatedMeal = estimateMealFromText(message, { extraFoods: getUserFoods(userId) });
 
             if (!estimatedMeal) {
               return "Para registrar essa refeição diretamente, preciso de uma descrição que eu consiga estimar com segurança ou dos valores informados de calorias, proteínas, carboidratos e gorduras. Não registrei a refeição.";
@@ -2918,7 +2928,7 @@ const summaryIntent = classifySummaryIntent(message);
             const quantityQuestions =
               internal.acceptDefaultQuantities
                 ? []
-                : getQuantityQuestions(message);
+                : getQuantityQuestions(message, getUserFoods(userId));
 
             if (quantityQuestions.length) {
               return askMealQuantities(userId, message, quantityQuestions);

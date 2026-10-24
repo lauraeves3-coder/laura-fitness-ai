@@ -724,3 +724,27 @@ test("CRP-02: mudança de 2 kg ou mais sugere revisar as metas, sem recalcular",
   assert.equal(db.getUser(userId).weight_kg, 76.5);
   assert.equal(db.getUser(userId).daily_calorie_target, targetBefore);
 });
+
+// ---------- CAT-09 ----------
+
+test("CAT-09: 'cadastrar alimento' grava para a usuária e o registro passa a reconhecê-lo", async () => {
+  const userId = newUser();
+  const reply = await send(userId, "cadastrar alimento: bolo de fubá da vó, 100 g tem 330 kcal, 5 g de proteína, 50 g de carboidrato e 12 g de gordura");
+  assert.match(reply, /Cadastrei Bolo de fubá da vó: por 100 g, 330 kcal/);
+  assert.equal(db.getUserFoods(userId).length, 1);
+
+  await send(userId, "comi 150 g de bolo de fubá da vó");
+  const meals = db.getTodayMeals(userId);
+  assert.equal(meals.length, 1);
+  assert.equal(Math.round(meals[0].calories), 495);
+
+  const other = newUser();
+  assert.equal(db.getUserFoods(other).length, 0);
+});
+
+test("CAT-09: cadastro incompleto pede o que falta e não grava", async () => {
+  const userId = newUser();
+  const reply = await send(userId, "cadastrar alimento pão da padaria, 120 kcal");
+  assert.match(reply, /faltou: proteína, carboidrato, gordura/);
+  assert.equal(db.getUserFoods(userId).length, 0);
+});

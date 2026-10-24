@@ -659,8 +659,9 @@ let catalogById = null;
 
 // Ocorrências de alimentos do catálogo em um texto já normalizado, por palavra inteira,
 // sem sobreposição (o nome mais longo vence) e em ordem de posição. Ocorrências de
-// termos genéricos vêm com `generic` em vez de `item`.
-function findFoodOccurrences(text) {
+// termos genéricos vêm com `generic` em vez de `item`. `extraFoods` = alimentos
+// cadastrados pela usuária (CAT-09), somados só nesta busca.
+function findFoodOccurrences(text, extraFoods = []) {
   if (!catalogEntries) {
     catalogEntries = [
       ...FOOD_CATALOG.map((item) => ({ key: item.id, terms: [item.name, ...(item.aliases || [])] })),
@@ -668,10 +669,14 @@ function findFoodOccurrences(text) {
     ];
     catalogById = new Map(FOOD_CATALOG.map((item) => [item.id, item]));
   }
-  return matchFoodTerms(text, catalogEntries, { normalized: true })
+  const entries = extraFoods.length
+    ? [...catalogEntries, ...extraFoods.map((item) => ({ key: item.id, terms: [item.name, ...(item.aliases || [])] }))]
+    : catalogEntries;
+  const byId = extraFoods.length ? new Map([...catalogById, ...extraFoods.map((item) => [item.id, item])]) : catalogById;
+  return matchFoodTerms(text, entries, { normalized: true })
     .map((occurrence) => occurrence.key.startsWith("generic:")
       ? { ...occurrence, generic: GENERIC_FOOD_TERMS.find(({ term }) => `generic:${term}` === occurrence.key) }
-      : { ...occurrence, item: catalogById.get(occurrence.key) });
+      : { ...occurrence, item: byId.get(occurrence.key) });
 }
 
 // Trechos negados: "não comi X", "nem bebi Y" até o fim da frase ou a próxima afirmação
@@ -793,12 +798,12 @@ function extractQuantity(text, item, fromIndex = 0, { allowDefault = true, endIn
 // ("uma banana e depois mais duas bananas" = 3; "comi arroz, o arroz estava frio" = 1).
 // Também separa alimentos negados ("não comi arroz") e termos genéricos que precisam de
 // esclarecimento ("batata", "bife"); nenhum dos dois entra na contagem.
-function groupOccurrencesByFood(text) {
+function groupOccurrencesByFood(text, extraFoods = []) {
   const groups = new Map();
   const negated = [];
   const clarifications = [];
   const negatedRanges = findNegatedRanges(text);
-  for (const occurrence of findFoodOccurrences(text)) {
+  for (const occurrence of findFoodOccurrences(text, extraFoods)) {
     if (isNegated(occurrence, negatedRanges)) {
       negated.push(occurrence.item?.name || occurrence.generic.term);
       continue;
@@ -828,9 +833,9 @@ function groupOccurrencesByFood(text) {
   return { groups: [...groups.values()], negated: [...new Set(negated)], clarifications };
 }
 
-export function getMissingMealQuantities(message) {
+export function getMissingMealQuantities(message, extraFoods = []) {
   const text = normalizeText(message);
-  return groupOccurrencesByFood(text).groups
+  return groupOccurrencesByFood(text, extraFoods).groups
     .filter(({ mentions }) => !mentions.some((mention) => mention.explicitGrams))
     .map(({ item, position, mentions }) => ({
       id: item.id,
@@ -848,8 +853,8 @@ export function getMissingMealQuantities(message) {
 // de referência própria (1 scoop de 30 g) e também não pergunta (DEC-12).
 const DEFAULT_PORTION_ACCEPTED = new Set(["whey"]);
 
-export function getQuantityQuestions(message) {
-  return getMissingMealQuantities(message).filter((item) =>
+export function getQuantityQuestions(message, extraFoods = []) {
+  return getMissingMealQuantities(message, extraFoods).filter((item) =>
     (item.whole || /^\d+(?:[.,]\d+)?\s*(?:g|ml)$/i.test(String(item.unit || "").trim()))
     && !DEFAULT_PORTION_ACCEPTED.has(item.id));
 }
@@ -859,7 +864,7 @@ export function getQuantityQuestions(message) {
 //   -> "comi 150 g de arroz e 1 concha de feijão".
 // Com um único item, a resposta pode ser só a quantidade ("150 g", "2 conchas", "200").
 // "padrão" aceita as porções padrão. Retorna { message, acceptDefaults } ou null.
-export function applyQuantityAnswer(originalMessage, items, reply) {
+export function applyQuantityAnswer(originalMessage, items, reply, extraFoods = []) {
   const replyText = normalizeText(reply);
   if (/^(?:padrao|porcao padrao|o padrao|normal|nao sei|tanto faz|(?:pode )?(?:usar|usa|use)(?: a| o)? (?:porcao )?padrao)\b/.test(replyText)) {
     return { message: originalMessage, acceptDefaults: true };
@@ -877,8 +882,8 @@ export function applyQuantityAnswer(originalMessage, items, reply) {
   };
   const unit = `(?:\\s*(${UNIT_PATTERN})(?![a-z]))?`;
   const original = String(originalMessage || "").normalize("NFC");
-  const originalOccurrences = findFoodOccurrences(normalizeFoodText(original));
-  const replyOccurrences = findFoodOccurrences(replyText);
+  const originalOccurrences = findFoodOccurrences(normalizeFoodText(original), extraFoods);
+  const replyOccurrences = findFoodOccurrences(replyText, extraFoods);
   const inserts = [];
 
   for (const item of items) {
@@ -902,11 +907,11 @@ export function applyQuantityAnswer(originalMessage, items, reply) {
 
 export function estimateMealFromText(message, options = {}) {
   const text = normalizeText(message);
-  const { groups, negated, clarifications } = groupOccurrencesByFood(text);
+  const { groups, negated, clarifications } = groupOccurrencesByFood(text, options.extraFoods || []);
   if (!groups.length && !clarifications.length) return null;
 
   if (options.requireExplicitQuantities) {
-    const missing = getMissingMealQuantities(message);
+    const missing = getMissingMealQuantities(message, options.extraFoods || []);
     if (missing.length) return null;
   }
 

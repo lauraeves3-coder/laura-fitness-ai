@@ -126,6 +126,21 @@ db.exec(`
     measured_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 
+  CREATE TABLE IF NOT EXISTS user_foods (
+    user_id TEXT NOT NULL,
+    id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    aliases TEXT NOT NULL DEFAULT '[]',
+    kcal REAL NOT NULL,
+    protein REAL NOT NULL,
+    carbs REAL NOT NULL,
+    fat REAL NOT NULL,
+    default_g REAL NOT NULL,
+    unit TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, id)
+  );
+
   CREATE TABLE IF NOT EXISTS whatsapp_messages (
     message_id TEXT PRIMARY KEY,
     status TEXT NOT NULL,
@@ -1273,6 +1288,30 @@ export function saveWeight(
     FROM weights
     WHERE id = ?
   `).get(inserted.lastInsertRowid);
+}
+
+/* =========================================================
+   ALIMENTOS CADASTRADOS PELA USUÁRIA (CAT-09)
+========================================================= */
+
+// Valores por 100 g. Recadastrar o mesmo id substitui os valores.
+export function saveUserFood(userId, food) {
+  ensureUser(userId);
+  db.prepare(`
+    INSERT INTO user_foods (user_id, id, name, aliases, kcal, protein, carbs, fat, default_g, unit)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT (user_id, id) DO UPDATE SET
+      name = excluded.name, aliases = excluded.aliases, kcal = excluded.kcal,
+      protein = excluded.protein, carbs = excluded.carbs, fat = excluded.fat,
+      default_g = excluded.default_g, unit = excluded.unit
+  `).run(userId, food.id, food.name, JSON.stringify(food.aliases || []),
+    food.kcal, food.protein, food.carbs, food.fat, food.default_g, food.unit);
+  return getUserFoods(userId).find(({ id }) => id === food.id) || null;
+}
+
+export function getUserFoods(userId) {
+  return db.prepare(`SELECT * FROM user_foods WHERE user_id = ? ORDER BY created_at, id`).all(userId)
+    .map(({ user_id, created_at, aliases, ...food }) => ({ ...food, aliases: JSON.parse(aliases || "[]"), source: "user_label" }));
 }
 
 /* =========================================================
