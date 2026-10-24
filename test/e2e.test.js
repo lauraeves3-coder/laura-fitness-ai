@@ -842,3 +842,65 @@ test("ARQ-04: lembretes devidos saem uma vez por horário e só abaixo do ritmo 
   assert.equal(mine().length, 2);
   assert.match(mine()[1][1], /Resumo de hoje/);
 });
+
+// ---------- VIS-01 / VIS-02: foto de refeição ----------
+
+test("VIS-01: foto vira estimativa pelo catálogo e só registra após 'sim'", async () => {
+  const { processMealPhoto } = await import("../src/ai.js");
+  const userId = newUser();
+  const model = fakeModel([finalText(JSON.stringify({
+    items: [{ name: "arroz branco", grams: 150 }, { name: "feijão carioca", grams: 100 }, { name: "prato de cerâmica", grams: 300 }],
+    confidence: "medium", notes: ""
+  }))]);
+  const reply = await processMealPhoto(userId, { imageBase64: "AAAA", mimeType: "image/jpeg" }, { apiClient: model });
+  assert.match(reply, /Pela foto, estimei/);
+  assert.match(reply, /ficaram de fora/);
+  assert.match(reply, /Responda "sim" para registrar/);
+  assert.equal(model.requests[0].input[0].content[1].type, "input_image");
+  assert.equal(db.getTodayMeals(userId).length, 0);
+
+  await send(userId, "sim");
+  const meals = db.getTodayMeals(userId);
+  assert.equal(meals.length, 1);
+  assert.equal(meals[0].calories, estimateMealFromText("comi 150 g de arroz branco e 100 g de feijão carioca").calories);
+});
+
+test("VIS-02: foto sem comida ou leitura inválida não registra e pede texto", async () => {
+  const { processMealPhoto } = await import("../src/ai.js");
+  const userId = newUser();
+  const empty = fakeModel([finalText('{"items":[],"confidence":"low","notes":"imagem escura"}')]);
+  assert.match(await processMealPhoto(userId, { imageBase64: "AAAA" }, { apiClient: empty }), /Não consegui identificar a refeição na foto \(imagem escura\)/);
+  const broken = fakeModel([finalText("não sei")]);
+  assert.match(await processMealPhoto(userId, { imageBase64: "AAAA" }, { apiClient: broken }), /Não consegui identificar/);
+  assert.equal(db.getPendingMealClarification(userId), null);
+});
+
+test("VIS-01: outra mensagem descarta a leitura da foto", async () => {
+  const { processMealPhoto } = await import("../src/ai.js");
+  const userId = newUser();
+  await processMealPhoto(userId, { imageBase64: "AAAA" }, { apiClient: fakeModel([finalText('{"items":[{"name":"arroz branco","grams":150}],"confidence":"high"}')]) });
+  await send(userId, "comi 2 ovos");
+  const meals = db.getTodayMeals(userId);
+  assert.equal(meals.length, 1);
+  assert.match(meals[0].description, /ovos/);
+});
+
+test("VIS-01: download da mídia do WhatsApp em duas etapas", async () => {
+  const { downloadWhatsAppMedia } = await import("../src/app.js");
+  const previous = process.env.WHATSAPP_ACCESS_TOKEN;
+  process.env.WHATSAPP_ACCESS_TOKEN = "token-de-teste";
+  const calls = [];
+  const fetchFake = async (url, options) => {
+    calls.push([url, options.headers.Authorization]);
+    return url.includes("graph.facebook.com")
+      ? { ok: true, json: async () => ({ url: "https://cdn.exemplo/foto", mime_type: "image/png" }) }
+      : { ok: true, arrayBuffer: async () => new TextEncoder().encode("abc").buffer };
+  };
+  try {
+    assert.deepEqual(await downloadWhatsAppMedia("123", fetchFake), { imageBase64: "YWJj", mimeType: "image/png" });
+    assert.equal(calls.length, 2);
+    assert.equal(calls[1][1], "Bearer token-de-teste");
+  } finally {
+    if (previous === undefined) delete process.env.WHATSAPP_ACCESS_TOKEN; else process.env.WHATSAPP_ACCESS_TOKEN = previous;
+  }
+});

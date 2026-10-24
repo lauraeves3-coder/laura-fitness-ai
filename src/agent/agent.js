@@ -3,7 +3,7 @@
 // Criado só no primeiro uso: testes injetam um cliente simulado (apiClient) e nunca
 // instanciam o cliente real.
 let client = null;
-function getClient() {
+export function getClient() {
   client ??= new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   return client;
 }

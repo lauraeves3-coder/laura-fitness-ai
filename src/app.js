@@ -15,7 +15,7 @@ import {
   releaseWhatsAppMessage
 } from "./db.js";
 
-import { processMessage } from "./ai.js";
+import { processMessage, processMealPhoto } from "./ai.js";
 
 const app = express();
 
@@ -256,6 +256,28 @@ app.get("/webhook/whatsapp", (req, res) => {
    WHATSAPP - ENVIO DE MENSAGEM
 ========================================================= */
 
+// VIS-01: baixa a mídia do WhatsApp (Graph API: id → URL temporária → bytes).
+export async function downloadWhatsAppMedia(mediaId, fetchImpl = fetch) {
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  if (!accessToken) {
+    throw new Error("WHATSAPP_ACCESS_TOKEN não configurado.");
+  }
+  const headers = { Authorization: `Bearer ${accessToken}` };
+  const meta = await fetchImpl(`https://graph.facebook.com/v26.0/${encodeURIComponent(mediaId)}`, { headers });
+  if (!meta.ok) {
+    throw new Error(`Falha ao consultar a mídia (${meta.status}).`);
+  }
+  const { url, mime_type: mimeType } = await meta.json();
+  const file = await fetchImpl(url, { headers });
+  if (!file.ok) {
+    throw new Error(`Falha ao baixar a mídia (${file.status}).`);
+  }
+  return {
+    imageBase64: Buffer.from(await file.arrayBuffer()).toString("base64"),
+    mimeType: mimeType || "image/jpeg"
+  };
+}
+
 export async function sendWhatsAppMessage(to, message) {
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
@@ -347,16 +369,17 @@ app.post("/webhook/whatsapp", async (req, res) => {
       return res.sendStatus(200);
     }
 
-    // Por enquanto processamos mensagens de texto.
-    if (message.type !== "text") {
+    // Texto e foto de refeição (VIS-01); outros tipos são ignorados por enquanto.
+    if (message.type !== "text" && !(message.type === "image" && message.image?.id)) {
       return res.sendStatus(200);
     }
 
     const from = message.from;
-    const text = message.text?.body?.trim();
+    const text = message.type === "text" ? message.text?.body?.trim() : null;
+    const imageId = message.type === "image" ? message.image?.id : null;
     messageId = message.id;
 
-    if (!from || !text || !messageId) {
+    if (!from || !(text || imageId) || !messageId) {
       return res.status(400).json({
         ok: false,
         error: "Mensagem inválida."
@@ -379,7 +402,12 @@ app.post("/webhook/whatsapp", async (req, res) => {
       return res.sendStatus(200);
     }
 
-    const reply = await processMessage(from, text);
+    const reply = imageId
+      ? await processMealPhoto(from, {
+        ...(await downloadWhatsAppMedia(imageId)),
+        caption: message.image?.caption || ""
+      })
+      : await processMessage(from, text);
 
     if (typeof reply !== "string" || !reply.trim()) {
       throw new Error("A resposta do processamento está vazia.");

@@ -100,8 +100,8 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
-| VIS-01 | Foto de refeição: componentes, porções com incerteza, kcal/macros, confirmar antes de registrar | P2 | NÃO IMPLEMENTADO | CONV-10, DEC-03 | `app.js` ignora imagens |
-| VIS-02 | Não fingir peso exato; perguntar se imagem ruim/sem escala | P2 | NÃO IMPLEMENTADO | VIS-01 | — |
+| VIS-01 | Foto de refeição: componentes, porções com incerteza, kcal/macros, confirmar antes de registrar | P2 | PARCIAL | ARQ-05 | foto pelo WhatsApp: o webhook baixa a mídia (Graph API), o modelo lista alimentos e gramas estimadas em JSON (`src/vision.js`), o cálculo usa o catálogo e só registra após "sim"; outra mensagem descarta a leitura; itens fora do catálogo são avisados (`test/e2e.test.js`, modelo e download simulados). Não validado com a OpenAI real (Fase 5) |
+| VIS-02 | Não fingir peso exato; perguntar se imagem ruim/sem escala | P2 | PARCIAL | ARQ-05 | instruções pedem estimativa sem falsa precisão e `confidence`; foto sem comida/ruim ou resposta inválida não registra e pede texto; confiança baixa é avisada (`test/e2e.test.js`). Não validado com imagens reais |
 | VIS-03 | OCR de rótulo, ingredientes, receita escrita, balança | P2 | NÃO IMPLEMENTADO | VIS-01 | — |
 | VIS-04 | Fotos de evolução corporal privadas por data | P3 | NÃO IMPLEMENTADO | CRP-03 | — |
 
@@ -278,3 +278,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 24/10/2026 | HID-01 → IMPLEMENTADO E TESTADO; HID-02 → PARCIAL (água sem o modelo, meta e saldo). Totais: 39 testados, 1 não testado, 29 parciais, 49 não implementados, 2 bloqueados. 241 testes passando. |
 | 24/10/2026 | Peso ("pesei 72,5 kg"), treino simples ("corri 5 km em 30 min", "fiz 40 min de musculação") e resumo do dia passam a sair sem o modelo (economia de API e previsibilidade); resumo inclui água (ACO-02). Totais: 39 testados, 1 não testado, 29 parciais, 49 não implementados, 2 bloqueados. 243 testes passando. |
 | 24/10/2026 | Lembretes de água e resumo diário pelo WhatsApp (CONV-11, ARQ-04 → PARCIAL). Totais: 39 testados, 1 não testado, 31 parciais, 47 não implementados, 2 bloqueados. 245 testes passando. |
+| 24/10/2026 | Foto de refeição pelo WhatsApp (VIS-01, VIS-02 → PARCIAL; validação real depende da Fase 5). Totais: 39 testados, 1 não testado, 33 parciais, 45 não implementados, 2 bloqueados. 249 testes passando. |
