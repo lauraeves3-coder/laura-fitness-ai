@@ -305,8 +305,24 @@ test("CAT-10: pratos, doces e bebidas com preparações da TBCA", () => {
   assert.deepEqual(values("suco-de-laranja"), [36, "BRC0042C"]);
 });
 
+test("CAT-10: suínos, aves assadas, soja, japonesa e pizzas com valores da TBCA", () => {
+  const values = (id) => { const food = FOOD_CATALOG.find((entry) => entry.id === id); return [food.kcal, food.reference.match(/BRC\d{4}[A-Z]/)[0]]; };
+  assert.deepEqual(values("lombo-suino-assado"), [200, "BRC0163F"]);
+  assert.deepEqual(values("coxa-de-frango-assada"), [207, "BRC0108F"]);
+  assert.deepEqual(values("tofu"), [69, "BRC0056T"]);
+  assert.deepEqual(values("uramaki-california"), [140, "BRC0306E"]);
+  assert.deepEqual(values("arroz-japones-cozido"), [131, "BRC0711A"]);
+  assert.deepEqual(values("pizza-mucarela-direta"), [286, "BRC0225A"]);
+  assert.deepEqual(values("pizza-calabresa-direta"), [297, "BRC0425A"]);
+});
+
+test("CAT-06: todo item 'tbca_verified' tem código TBCA", () => {
+  const missing = FOOD_CATALOG.filter((food) => food.source === "tbca_verified" && !/BRC\d{4}[A-Z]/.test(food.reference || ""));
+  assert.deepEqual(missing.map((food) => food.id), []);
+});
+
 test("CAT-10: sem equivalente na TBCA, segue estimativa sem referência", () => {
-  for (const id of ["pao-de-queijo", "doce-de-leite", "cafe-sem-acucar", "farofa-pronta", "polenta-frita", "cuscuz-de-milho-cozido", "sorvete-chocolate"]) {
+  for (const id of ["pao-de-queijo", "doce-de-leite", "cafe-sem-acucar", "farofa-pronta", "polenta-frita", "cuscuz-de-milho-cozido", "sorvete-chocolate", "homus", "nigiri-salmao", "missoshiru", "pizza-generica", "pizza-bacon-direta"]) {
     const food = FOOD_CATALOG.find((entry) => entry.id === id);
     assert.equal(food.reference, undefined, id);
     assert.notEqual(food.source, "tbca_verified", id);

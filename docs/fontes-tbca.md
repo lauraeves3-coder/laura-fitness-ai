@@ -11,6 +11,7 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 |---|---|---|---|---|---|---|---|
 | arroz-branco-cozido | Arroz branco cozido | BRC0208A | 138 | 2.41 | 29.2 | 1.6 | polido, cozido c/ óleo, cebola e alho |
 | arroz-integral-cozido | Arroz integral cozido | BRC0016A | 108 | 2.44 | 23.5 | 0.87 | cozido s/ óleo |
+| arroz-japones-cozido | Arroz japonês para sushi | BRC0711A | 131 | 2.34 | 30.2 | 0.4 | shari: arroz para sushi c/ vinagre, açúcar e sal |
 | feijao-carioca-cozido | Feijão carioca cozido | BRC0090T | 81 | 4.68 | 15.3 | 1.72 | 50% grão e 50% caldo, c/ óleo, cebola e alho |
 | feijao-preto-cozido | Feijão preto cozido | BRC0107T | 73 | 4.41 | 14.1 | 1.72 | 50% grão e 50% caldo, c/ óleo, cebola e alho |
 | lentilha-cozida | Lentilha cozida | BRC0018T | 99 | 7.3 | 19.6 | 0.46 | cozida e drenada |
@@ -34,6 +35,7 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | patinho-grelhado | Patinho grelhado | BRC0045F | 211 | 36 | 0 | 7.5 | — |
 | patinho-cru | Patinho cru | BRC0075F | 114 | 21.1 | 0 | 3.33 | — |
 | patinho-frito | Patinho frito | BRC0633F | 265 | 33 | 0 | 14.7 | — |
+| patinho-refogado | Patinho refogado | BRC0637F | 165 | 27.9 | 0.75 | 5.61 | s/ gordura, refogado c/ óleo, cebola e alho |
 | musculo-cozido | Músculo bovino cozido | BRC0043F | 183 | 30.8 | 0 | 6.6 | — |
 | musculo-cru | Músculo bovino cru | BRC0072F | 137 | 20.7 | 0 | 6.06 | — |
 | acem-cozido | Acém bovino cozido | BRC0026F | 208 | 27.5 | 0 | 10.9 | — |
@@ -82,7 +84,14 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | peito-de-frango-frito | Peito de frango frito | BRC0236F | 214 | 28.5 | 0 | 11.1 | — |
 | peito-de-frango-cru | Peito de frango cru | BRC0133F | 105 | 21.1 | 0 | 2.29 | — |
 | coxa-de-frango-cozida | Coxa de frango cozida | BRC0109F | 160 | 26.8 | 0 | 5.85 | — |
+| frango-desfiado | Frango desfiado | BRC0194F | 154 | 31.3 | 0 | 3.16 | equivalente: peito de frango s/ pele cozido |
+| coxa-de-frango-assada | Coxa de frango assada | BRC0108F | 207 | 28.5 | 0.06 | 10.4 | c/ pele, assada s/ óleo |
 | sobrecoxa-de-frango-assada | Sobrecoxa de frango assada | BRC0116F | 232 | 29.2 | 1.7 | 12 | — |
+| asa-de-frango-assada | Asa de frango assada | BRC0741F | 267 | 23.2 | 0 | 19.3 | c/ pele, assada s/ óleo |
+| peru-assado | Peito de peru assado | BRC0197F | 158 | 26.2 | 0.57 | 5.68 | peru congelado assado s/ óleo |
+| lombo-suino-assado | Lombo suíno assado | BRC0163F | 200 | 35.7 | 0 | 6.4 | assado s/ óleo |
+| pernil-suino-assado | Pernil suíno assado | BRC0167F | 257 | 33.1 | 0 | 13.9 | assado s/ óleo |
+| bisteca-suina-grelhada | Bisteca suína grelhada | BRC0160F | 275 | 28.9 | 0.64 | 17.4 | grelhada s/ óleo |
 | bacon-frito | Bacon frito | BRC0941F | 655 | 26 | 1.06 | 61.2 | toucinho defumado frito c/ alho e alecrim (único bacon frito na TBCA) |
 | calabresa-grelhada | Linguiça calabresa grelhada | BRC0899F | 280 | 14.9 | 3.33 | 21.9 | assada no forno s/ óleo |
 | presunto-cozido | Presunto cozido | BRC0199F | 121 | 15.1 | 2.32 | 5.7 | média de amostras |
@@ -105,6 +114,7 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | ovo-inteiro | Ovo cozido | BRC0010J | 125 | 10.4 | 1.38 | 8.7 | — |
 | ovo-frito | Ovo frito | BRC0015J | 235 | 15.6 | 1.19 | 18.6 | — |
 | ovo-mexido | Ovo mexido | BRC0065J | 146 | 12.2 | 2.3 | 9.77 | — |
+| clara-de-ovo | Clara de ovo | BRC0004J | 57 | 13.4 | 0.57 | 0.09 | cozida |
 | queijo-minas-frescal | Queijo minas frescal | BRC0052G | 243 | 15.9 | 3.02 | 18.6 | — |
 | muçarela | Queijo muçarela | BRC0059G | 320 | 23.8 | 1.97 | 24.1 | — |
 | parmesao | Queijo parmesão | BRC0061G | 468 | 32.1 | 4.83 | 36.7 | ralado |
@@ -135,6 +145,10 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | cebola | Cebola | BRC0018B | 41 | 1.76 | 9.21 | 0.13 | — |
 | palmito | Palmito | BRC0078B | 25 | 2.44 | 4.69 | 0.34 | em conserva, drenado |
 | cogumelo | Cogumelo | BRC0698B | 27 | 1.88 | 4.81 | 0.4 | champignon cru |
+| tofu | Tofu | BRC0056T | 69 | 6.55 | 2.13 | 3.95 | — |
+| edamame | Edamame cozido | BRC0994B | 120 | 11.9 | 8.91 | 5.2 | cozido |
+| bebida-de-soja | Bebida de soja | BRC0043T | 42 | 2.73 | 4.25 | 1.61 | extrato de soja, natural |
+| iogurte-de-soja | Iogurte de soja | BRC0182T | 49 | 2.82 | 8.23 | 0.59 | extrato de soja tipo iogurte, c/ açúcar |
 | banana-prata | Banana prata | BRC0011C | 107 | 1.11 | 25.9 | 0.28 | — |
 | maca | Maçã | BRC0063C | 65 | 0.23 | 16.6 | 0.25 | argentina, c/ casca |
 | mamao | Mamão | BRC0045C | 47 | 0.82 | 11.6 | 0.12 | formosa |
@@ -166,6 +180,18 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | goiabada | Goiabada | BRC0097C | 309 | 0.42 | 78.7 | 0.1 | cascão |
 | chocolate-ao-leite | Chocolate ao leite | BRC0046K | 535 | 7.22 | 59.6 | 30.3 | média de marcas |
 | chocolate-meio-amargo | Chocolate meio amargo | BRC0054K | 548 | 4.86 | 62.4 | 29.9 | — |
+| pizza-mucarela-direta | Pizza de muçarela | BRC0225A | 286 | 14.1 | 28.9 | 13.1 | artesanal, assada |
+| pizza-calabresa-direta | Pizza de calabresa | BRC0425A | 297 | 12.2 | 33 | 13.2 | caseira |
+| pizza-frango-catupiry-direta | Pizza de frango com Catupiry | BRC0678A | 289 | 13 | 38.6 | 9.52 | frango com requeijão, caseira |
+| pizza-portuguesa-direta | Pizza portuguesa | BRC0427A | 249 | 9.82 | 29.5 | 10.7 | assada |
+| pizza-quatro-queijos-direta | Pizza quatro queijos | BRC0682A | 307 | 11.9 | 37.6 | 12.5 | caseira |
+| pizza-marguerita-direta | Pizza marguerita | BRC0685A | 251 | 10.5 | 31.4 | 9.65 | artesanal |
+| pizza-napolitana-direta | Pizza napolitana | BRC0688A | 301 | 11.8 | 38.7 | 11.3 | caseira |
+| pizza-atum-direta | Pizza de atum | BRC0677A | 255 | 14.3 | 28.1 | 9.75 | artesanal, c/ muçarela |
+| pizza-palmito-direta | Pizza de palmito | BRC0875A | 234 | 8.55 | 33.4 | 7.8 | palmito e requeijão |
+| pizza-pepperoni-direta | Pizza de pepperoni | BRC0686A | 334 | 12.2 | 38.6 | 14.9 | caseira |
+| pizza-presunto-queijo-direta | Pizza de presunto e queijo | BRC0426A | 250 | 12.2 | 32.6 | 8.17 | presunto, caseira |
+| pizza-vegetariana-direta | Pizza vegetariana | BRC0687A | 234 | 6.34 | 39.7 | 5.97 | caseira |
 | sorvete-creme | Sorvete de creme | BRC0141K | 210 | 3.5 | 26.6 | 10.1 | industrializado, sabor não especificado; dado importado pela TBCA |
 | coxinha-frango | Coxinha de frango | BRC0100F | 273 | 9.61 | 34.5 | 11.8 | industrializada, frita |
 | pastel-carne | Pastel de carne | BRC0166A | 383 | 17.1 | 22.6 | 25.1 | frito, artesanal |
@@ -179,7 +205,16 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | escondidinho-carne | Escondidinho de carne | BRC0765B | 177 | 7.99 | 16.3 | 9.14 | carne bovina |
 | parmegiana-frango | Frango à parmegiana | BRC0494F | 292 | 20.6 | 12.5 | 12.9 | filé de frango à parmegiana |
 | parmegiana-carne | Bife à parmegiana | BRC0312F | 342 | 17.2 | 10 | 20.3 | bife à parmegiana |
+| temaki-philadelphia | Temaki de salmão com cream cheese | BRC1206A | 162 | 8.69 | 22 | 4.99 | temaki c/ shoyu e wasabi |
+| temaki-philadelphia-sem-shoyu | Temaki de salmão com cream cheese sem shoyu | BRC1173A | 165 | 8.73 | 21.5 | 5.42 | temaki s/ shoyu e s/ wasabi |
+| hot-roll-philadelphia | Hot Philadelphia (Hot Roll) | BRC0304E | 282 | 9.06 | 30.4 | 14.5 | s/ shoyu e s/ tare |
+| uramaki-salmao-pepino | Uramaki de salmão com pepino e cream cheese | BRC0985A | 144 | 6.72 | 20.2 | 4.67 | — |
 | sashimi-salmao | Sashimi de salmão | BRC0065E | 165 | 19.4 | 0 | 9.7 | salmão cru s/ pele; fatia de 25 g é estimativa |
+| hossomaki-salmao | Hossomaki de salmão | BRC0305E | 167 | 9.06 | 21.8 | 5.43 | salmão grelhado e cream cheese |
+| uramaki-california | Uramaki Califórnia | BRC0306E | 140 | 7.57 | 23.8 | 2.77 | sushi California |
+| guioza-caseiro | Guioza | BRC0876A | 224 | 10.7 | 31 | 6.7 | caseiro |
+| yakisoba-brasileiro | Yakisoba brasileiro | BRC0204A | 124 | 7.52 | 18.3 | 2.61 | s/ sal |
+| tempura-camarao | Tempurá de camarão | BRC0340E | 189 | 13.2 | 7.68 | 11.7 | — |
 | pure-de-batata | Purê de batata | BRC1037B | 100 | 3.7 | 10.4 | 5.12 | — |
 | mandioca-frita | Mandioca frita | BRC0091B | 304 | 1.38 | 50.3 | 11.2 | — |
 | acucar-refinado | Açúcar refinado | BRC0007K | 397 | 0.16 | 99 | 0 | — |
@@ -193,4 +228,4 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | agua-de-coco | Água de coco | BRC0174C | 21 | 0 | 5.29 | 0 | industrializada |
 | milk-shake-chocolate | Milk-shake de chocolate | BRC0144H | 113 | 2.84 | 21.8 | 5.86 | baunilha c/ calda de chocolate; os macros publicados somam ~151 kcal, mantido o valor de energia publicado |
 
-Total: 183 itens.
+Total: 218 itens.
