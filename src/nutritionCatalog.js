@@ -190,6 +190,7 @@ export const FOOD_CATALOG = [
   F("mandioquinha-cozida", "Mandioquinha cozida", ["mandioquinha", "batata-baroa"], 77, 0.85, 18.9, 0.17, 150, "150 g", "tbca_verified", "TBCA BRC0054B, batata-baroa (consulta 23/10/2026)"),
   F("inhame-cozido", "Inhame cozido", ["inhame"], 89, 2.3, 20.5, 0.14, 150, "150 g", "tbca_verified", "TBCA BRC0342B (consulta 23/10/2026)"),
   F("cenoura-cozida", "Cenoura cozida", ["cenoura"], 17, 0.54, 4.31, 0.2, 100, "100 g", "tbca_verified", "TBCA BRC0047B (consulta 23/10/2026)"),
+  F("cenoura-crua", "Cenoura crua", ["cenoura crua", "cenoura ralada", "salada de cenoura"], 31, 1.12, 7.55, 0.21, 50, "50 g", "tbca_verified", "TBCA BRC0020B, s/ casca (consulta 24/10/2026)"),
   F("brocolis-cozido", "Brócolis cozido", ["brócolis", "brocolis"], 27, 2.71, 4.44, 0.54, 100, "100 g", "tbca_verified", "TBCA BRC0045B (consulta 23/10/2026)"),
   F("couve-flor-cozida", "Couve-flor cozida", ["couve-flor", "couve flor"], 17, 1.28, 3.41, 0.2, 100, "100 g", "tbca_verified", "TBCA BRC0052B (consulta 23/10/2026)"),
   F("abobrinha-cozida", "Abobrinha cozida", ["abobrinha"], 14, 0.99, 2.82, 0.23, 100, "100 g", "tbca_verified", "TBCA BRC0040B, italiana (consulta 23/10/2026)"),

@@ -1009,3 +1009,25 @@ test("CONV-09: comando conhecido encerra a pergunta pendente e é atendido", asy
   assert.match(await send(userId, "resumo do dia"), /Resumo de hoje/);
   assert.equal(db.getPendingMealClarification(userId), null);
 });
+
+test("NUT-17 / Fase 5: meta calórica inválida já salva é ignorada e explicada", async () => {
+  const userId = userWithTargets();
+  const before = db.getUser(userId).daily_calorie_target;
+  db.updateUserProfile(userId, { daily_calorie_target: 100000 });
+  assert.equal(db.getUser(userId).daily_calorie_target, before, "o perfil recusa a meta absurda");
+
+  // Valor legado gravado antes da validação, direto no banco temporário do teste.
+  const { default: Database } = await import("better-sqlite3");
+  const raw = new Database(process.env.FITPULSE_DB_PATH);
+  raw.prepare("UPDATE users SET daily_calorie_target = 100000 WHERE id = ?").run(userId);
+  raw.close();
+  const summary = db.getDailySummary(userId);
+  assert.equal(summary.calorie_target, null);
+  assert.equal(summary.calorie_target_invalid, 100000);
+  const reply = await send(userId, "Me de opções de cardápio para o almoço", fakeModel([toolCall("suggest_meals", {
+    meal_period: "almoço", desired_food: null, requested_servings: null, available_foods: [], required_foods: [],
+    explicit_excluded_foods: [], explicit_excluded_compositions: []
+  }), finalText("ok")]));
+  assert.match(reply, /meta calórica salva \(100\.000 kcal\) não é válida/);
+  assert.match(await send(userId, "resumo do dia"), /não é válida/);
+});

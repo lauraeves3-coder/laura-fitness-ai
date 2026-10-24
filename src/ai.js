@@ -1660,6 +1660,9 @@ function buildSummaryReply(
     lines.push(`⚖️ *Peso:* ${formatKg(user.weight_kg)} kg`);
   }
 
+  if (summary.calorie_target_invalid) {
+    lines.push("", invalidCalorieTargetNotice(summary.calorie_target_invalid));
+  }
   if (summary.calorie_target) {
     const details = [
       summary.calorie_target_mode === "custom" ? "meta personalizada" : "meta calculada",
@@ -1669,6 +1672,14 @@ function buildSummaryReply(
     lines.push("", `_${details.join(" · ")}_`);
   }
   return lines.join("\n");
+}
+
+// NUT-17: meta salva antes da validação (ex.: 100.000 kcal) é ignorada nos cálculos.
+function invalidCalorieTargetNotice(value) {
+  return [
+    `⚠️ Sua meta calórica salva (${Math.round(Number(value)).toLocaleString("pt-BR")} kcal) não é válida, então não a uso nos cálculos.`,
+    "Mande sua meta (ex.: *minha meta de calorias é 1800*) ou *restaure minhas metas automáticas*."
+  ].join("\n");
 }
 
 // ▓▓▓▓▓▓░░░░ 62% (fração 0–1; acima de 100% mostra a porcentagem real).
@@ -3265,7 +3276,9 @@ const summaryIntent = classifySummaryIntent(message);
       dailySummary.calorie_target ===
       null
     ) {
-      return "Ainda não tenho uma meta diária de calorias para calcular um orçamento seguro para a sugestão. Complete seu perfil ou informe sua meta.";
+      return dailySummary.calorie_target_invalid
+        ? invalidCalorieTargetNotice(dailySummary.calorie_target_invalid)
+        : "Ainda não tenho uma meta diária de calorias para calcular um orçamento seguro para a sugestão. Complete seu perfil ou informe sua meta.";
     }
 
     const remainingMealPeriods =

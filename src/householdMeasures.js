@@ -41,6 +41,7 @@ export const TBCA_HOUSEHOLD_MEASURES = {
   "mandioca-cozida": { "colher de sopa cheia": 37, "colher de sopa rasa": 22 },
   "mandioquinha-cozida": { "colher de servir cheia": 55, "colher de servir rasa": 35, "colher de sopa cheia": 35, "colher de sopa rasa": 25 },
   "inhame-cozido": { "colher de servir cheia": 62, "colher de servir rasa": 35, "colher de sopa cheia": 35, "colher de sopa rasa": 22, "escumadeira cheia": 110, "escumadeira rasa": 72 },
+  "cenoura-crua": { "colher de sopa cheia": 17, "colher de sopa rasa": 12 },
   "cenoura-cozida": { "colher de servir cheia": 40, "colher de sopa cheia": 25, "colher de sopa rasa": 15 },
   "brocolis-cozido": { "colher de sopa cheia": 15 },
   "couve-flor-cozida": { "colher de sopa cheia": 25, "colher de sopa rasa": 15 },

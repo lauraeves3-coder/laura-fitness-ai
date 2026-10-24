@@ -136,6 +136,7 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | mandioquinha-cozida | Mandioquinha cozida | BRC0054B | 77 | 0.85 | 18.9 | 0.17 | batata-baroa |
 | inhame-cozido | Inhame cozido | BRC0342B | 89 | 2.3 | 20.5 | 0.14 | — |
 | cenoura-cozida | Cenoura cozida | BRC0047B | 17 | 0.54 | 4.31 | 0.2 | — |
+| cenoura-crua | Cenoura crua | BRC0020B | 31 | 1.12 | 7.55 | 0.21 | s/ casca |
 | brocolis-cozido | Brócolis cozido | BRC0045B | 27 | 2.71 | 4.44 | 0.54 | — |
 | couve-flor-cozida | Couve-flor cozida | BRC0052B | 17 | 1.28 | 3.41 | 0.2 | — |
 | abobrinha-cozida | Abobrinha cozida | BRC0040B | 14 | 0.99 | 2.82 | 0.23 | italiana |
@@ -290,4 +291,4 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | pacoca | Paçoca | BRC0081K | 494 | 16 | 52.4 | 26.1 | amendoim, unidade de 30 g |
 | gelatina | Gelatina | BRC0060K | 57 | 1.24 | 12.8 | 0.08 | preparada c/ água; taça de 120 g é estimativa |
 
-Total: 280 itens.
+Total: 281 itens.

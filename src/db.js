@@ -366,8 +366,11 @@ export function updateUserProfile(
       data.food_dislikes ??
       current.food_dislikes,
 
+    // NUT-17: o perfil também recusa meta fora de 1–10.000 kcal (antes gravava 100.000).
     daily_calorie_target:
-      data.daily_calorie_target ??
+      (Number(data.daily_calorie_target) > 0 && Number(data.daily_calorie_target) <= 10000
+        ? data.daily_calorie_target
+        : null) ??
       current.daily_calorie_target,
 
     daily_protein_target:
@@ -455,7 +458,7 @@ export function updateUserProfile(
     userId
   );
 
-  if (Object.prototype.hasOwnProperty.call(data, "daily_calorie_target")) {
+  if (Number(data.daily_calorie_target) > 0 && Number(data.daily_calorie_target) <= 10000) {
     db.prepare("UPDATE users SET calorie_target_mode = 'custom' WHERE id = ?").run(userId);
   }
   if (["daily_protein_target", "daily_carbs_target", "daily_fat_target"].some((key) =>
@@ -1462,9 +1465,12 @@ export function getDailySummary(
   const user =
     getUser(userId);
 
-  const calorieTarget =
-    user?.daily_calorie_target ??
-    null;
+  // NUT-17: meta salva antes da validação (ex.: 100.000 kcal) não entra nos cálculos;
+  // fica em calorie_target_invalid para a resposta pedir uma meta nova.
+  const storedCalorieTarget = user?.daily_calorie_target ?? null;
+  const calorieTargetInvalid = storedCalorieTarget !== null
+    && !(Number(storedCalorieTarget) > 0 && Number(storedCalorieTarget) <= 10000);
+  const calorieTarget = calorieTargetInvalid ? null : storedCalorieTarget;
 
   const proteinTarget =
     user?.daily_protein_target ??
@@ -1494,6 +1500,8 @@ export function getDailySummary(
 
   return {
     date: day,
+
+    calorie_target_invalid: calorieTargetInvalid ? storedCalorieTarget : null,
 
     calories:
       meals.calories,
