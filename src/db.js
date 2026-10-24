@@ -1433,6 +1433,62 @@ export function saveTrainingPlan(userId, { goals, startDate, weeks, paces = null
   })();
 }
 
+/* =========================================================
+   STRAVA (INT-01)
+========================================================= */
+
+for (const [column, type] of [["strava_athlete_id", "TEXT"], ["strava_access_token", "TEXT"], ["strava_refresh_token", "TEXT"], ["strava_expires_at", "INTEGER"], ["strava_last_sync", "INTEGER"]]) {
+  ensureColumn("users", column, type);
+}
+for (const [column, type] of [["source", "TEXT"], ["external_id", "TEXT"], ["elevation_m", "REAL"], ["avg_hr", "REAL"]]) {
+  ensureColumn("workouts", column, type);
+}
+db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_workouts_external ON workouts (user_id, external_id) WHERE external_id IS NOT NULL`);
+
+export function setStravaConnection(userId, { athleteId, accessToken, refreshToken, expiresAt }) {
+  ensureUser(userId);
+  db.prepare(`
+    UPDATE users SET strava_athlete_id = ?, strava_access_token = ?, strava_refresh_token = ?, strava_expires_at = ?
+    WHERE id = ?
+  `).run(athleteId ?? null, accessToken ?? null, refreshToken ?? null, expiresAt ?? null, userId);
+}
+
+export function setStravaLastSync(userId, epochSeconds) {
+  db.prepare(`UPDATE users SET strava_last_sync = ? WHERE id = ?`).run(epochSeconds, userId);
+}
+
+export function getStravaUsers() {
+  return db.prepare(`SELECT * FROM users WHERE strava_refresh_token IS NOT NULL`).all();
+}
+
+// Atividade importada (Strava): grava uma vez por external_id. Se já houver treino manual
+// da mesma modalidade no mesmo dia sem origem externa, ele é completado (sem duplicar).
+export function saveImportedWorkout(userId, activity) {
+  ensureUser(userId);
+  const existing = db.prepare(`SELECT * FROM workouts WHERE user_id = ? AND external_id = ?`).get(userId, activity.external_id);
+  if (existing) return { workout: existing, created: false, merged: false };
+  const day = activity.trained_at.slice(0, 10);
+  const manual = db.prepare(`
+    SELECT * FROM workouts WHERE user_id = ? AND date(trained_at) = ? AND external_id IS NULL AND lower(workout_type) LIKE ?
+    ORDER BY id DESC LIMIT 1
+  `).get(userId, day, `%${activity.match_term}%`);
+  const pace = activity.distance_km > 0 && activity.duration_min > 0 ? Math.round(activity.duration_min * 60 / activity.distance_km) : null;
+  if (manual) {
+    db.prepare(`
+      UPDATE workouts SET distance_km = ?, pace_s_per_km = ?, duration_min = ?, source = ?, external_id = ?, elevation_m = ?, avg_hr = ?
+      WHERE id = ?
+    `).run(activity.distance_km || manual.distance_km, pace ?? manual.pace_s_per_km, activity.duration_min || manual.duration_min,
+      activity.source, activity.external_id, activity.elevation_m ?? null, activity.avg_hr ?? null, manual.id);
+    return { workout: getWorkoutWithExercises(manual.id), created: false, merged: true };
+  }
+  const id = db.prepare(`
+    INSERT INTO workouts (user_id, workout_type, duration_min, notes, trained_at, distance_km, pace_s_per_km, source, external_id, elevation_m, avg_hr)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(userId, activity.workout_type, activity.duration_min, activity.notes ?? null, activity.trained_at, activity.distance_km || null,
+    pace, activity.source, activity.external_id, activity.elevation_m ?? null, activity.avg_hr ?? null).lastInsertRowid;
+  return { workout: getWorkoutWithExercises(id), created: true, merged: false };
+}
+
 // Pedido de plano incompleto (aguardando respostas), para juntar com a próxima mensagem.
 ensureColumn("users", "pending_training_request", "TEXT");
 

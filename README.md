@@ -63,6 +63,23 @@ Limites da regra do WhatsApp:
 - O app só consegue mandar mensagem por conta própria (lembretes, resumo automático) se você tiver falado com ele nas últimas 24 h.
 - Fora dessa janela, a Meta exige um template aprovado, que ainda não está implementado.
 
+## Ligar ao Strava (opcional)
+
+Com o Strava conectado, o app importa sozinho, a cada 20 minutos, as atividades que você registra lá: corrida, pedal, natação, caminhada e musculação. Cada atividade traz distância, tempo, pace, elevação e frequência cardíaca, é ligada ao treino do plano e você recebe um aviso no WhatsApp.
+
+1. Em **strava.com/settings/api**, crie um app:
+   - nome: FitPulse;
+   - categoria: Training;
+   - site: qualquer endereço seu;
+   - **Authorization Callback Domain**: `localhost` se for autorizar no navegador do próprio PC que roda o servidor, ou o domínio do túnel (ex.: `algo.trycloudflare.com`) se for autorizar pelo celular.
+2. Copie o **Client ID** e o **Client Secret** para `STRAVA_CLIENT_ID` e `STRAVA_CLIENT_SECRET` no `.env`.
+3. Só se for autorizar pelo celular: defina `PUBLIC_BASE_URL` com o endereço do túnel.
+4. Reinicie o servidor e mande **conectar strava** no WhatsApp. Abra o link e autorize o acesso às atividades.
+
+Depois de conectado, o acesso se renova sozinho: o túnel pode mudar de endereço sem desconectar o Strava. Só uma nova conexão exige o domínio certo no app do Strava.
+
+Se você já tiver registrado uma atividade à mão no mesmo dia, a importação completa esse registro em vez de criar outro.
+
 ## Comandos úteis
 
 | Você manda | O app faz |
@@ -78,6 +95,13 @@ Limites da regra do WhatsApp:
 | "apaga a última refeição" | Mostra a refeição e pede confirmação antes de apagar |
 | "me lembre de beber água" / "pare os lembretes de água" | Liga ou desliga os lembretes |
 | "cadastrar alimento: …" | Cria um alimento só seu |
+| "monta um treino de corrida pra mim" | Pergunta o que falta e cria o plano personalizado |
+| "treino de hoje" / "treinos da semana" | Mostra o plano com o que foi feito |
+| "corri 6 km em 40 min" | Registra com o pace e compara com o plano |
+| "estou cansada" / "pulei o treino" | Ajusta o treino de hoje / marca a falta |
+| "como está minha corrida?" | Mostra km por semana, melhor pace e quanto do plano você cumpriu |
+| "tomei 2 scoops de whey da dux sabor cookies" | Usa o rótulo da marca e do sabor |
+| "conectar strava" / "sincronizar strava" | Liga o Strava / importa agora |
 
 ## Estrutura
 

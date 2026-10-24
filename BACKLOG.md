@@ -167,14 +167,14 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | COR-02 | Métricas (distância, tempo, pace/parciais, volume, FC/zonas, elevação, RPE…) | P2 | PARCIAL | — | distância e pace gravados em cada treino (`workouts.distance_km`, `pace_s_per_km`); ritmos de treino calculados de um tempo recente ou do pace confortável (Riegel + zonas). Faltam FC/zonas cardíacas, parciais e elevação |
 | COR-03 | Tipos de treino (rodagem, longão, intervalado, fartlek, limiar, strides…) | P2 | IMPLEMENTADO E TESTADO | — | rodagem, longão, regenerativo, fartlek, acelerações, intervalado (800 m / 1 km), limiar e blocos no ritmo de prova, por fase |
 | COR-04 | Periodização e planos semanais; adaptar faltas sem progressão agressiva | P2 | IMPLEMENTADO E TESTADO | — | periodização base → construção → específico → polimento; alvo semanal sobe até 10%, recuperação a cada 4 semanas, longão cresce em separado até o teto do objetivo; treinos fortes nunca em dias seguidos; faltas não são compensadas |
-| COR-05 | Registro por texto, feedback, recordes; manual ≠ planejado ≠ importado | P2 | PARCIAL | — | "corri 5 km em 30 min" registra com pace e compara com o plano; "progresso da corrida" mostra km por semana, maior corrida, melhor pace e adesão ao plano. Falta importar de relógio/apps (INT-01) |
+| COR-05 | Registro por texto, feedback, recordes; manual ≠ planejado ≠ importado | P2 | PARCIAL | — | "corri 5 km em 30 min" registra com pace e compara com o plano; atividades do Strava entram sozinhas (INT-01) e contam no "progresso da corrida" (km por semana, maior corrida, melhor pace, adesão). Faltam recordes por distância (melhores esforços do Strava) |
 | COR-06 | Objetivo por tempo/pace alvo ("fazer 10 km em 50 min", "melhorar meu pace nos 5 km"): ritmos do plano a partir do alvo, checando se é realista para o tempo atual (prompt mestre §58) | P2 | NÃO IMPLEMENTADO | COR-01 | — |
 
 ## INT — Integrações fitness
 
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
-| INT-01 | Strava autorizado: importar atividades, normalizar, deduplicar | P3 | NÃO IMPLEMENTADO | ESP-02, DEC-06 | — |
+| INT-01 | Strava autorizado: importar atividades, normalizar, deduplicar | P3 | IMPLEMENTADO E TESTADO | — | "conectar strava" envia o link OAuth com state assinado (HMAC); `/strava/callback` grava a conexão e recusa state inválido ou sem permissão de atividades; token renovado sozinho; importação a cada 20 min e com "sincronizar strava" (corrida, pedal, natação, caminhada, musculação, funcional) com distância, tempo, pace, elevação e FC; sem duplicar (external_id) e completando registro manual do mesmo dia; atividade cumpre a sessão do plano e avisa no WhatsApp (`src/integrations/strava.js`, `test/strava.test.js`, Strava simulado). Não validado com a conta real (precisa do app no Strava). Sem webhook do Strava: o túnel muda de endereço |
 | INT-02 | Arquitetura para Apple Health, Health Connect, Garmin, balanças | P3 | NÃO IMPLEMENTADO | INT-01 | — |
 
 ## CRP — Peso, medidas, sono e recuperação
@@ -291,3 +291,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 24/10/2026 | Treinos personalizados: motor `src/training/` (corrida, musculação e outras modalidades), plano datado com acompanhamento e ajustes, lembrete de treino. ESP-04, ESP-06, MUS-04, COR-01, COR-03, COR-04 → IMPLEMENTADO E TESTADO; ESP-02/03/05, MUS-02/05, COR-02/05 → PARCIAL. Totais: 45 testados, 1 não testado, 44 parciais, 28 não implementados, 2 bloqueados. 284 testes passando. |
 | 24/10/2026 | Análise do prompt mestre (FitPulse_AI_Prompt_Mestre.txt): itens sem ID entram como NUT-27, ESP-07, COR-06 e CONV-12. Escopo do catálogo mantido (grande maioria do que se come, não todas as comidas). Totais: 45 testados, 1 não testado, 44 parciais, 32 não implementados, 2 bloqueados. |
 | 24/10/2026 | Whey por marca e sabor com rótulos oficiais (SUP-05 → IMPLEMENTADO E TESTADO; SUP-01/03 → PARCIAL). Totais: 46 testados, 1 não testado, 45 parciais, 31 não implementados, 1 bloqueados. 287 testes passando. |
+| 24/10/2026 | Strava: conexão, importação automática e ligação com o plano (INT-01 → IMPLEMENTADO E TESTADO, simulado). Totais: 47 testados, 1 não testado, 45 parciais, 30 não implementados, 1 bloqueados. 294 testes passando. |

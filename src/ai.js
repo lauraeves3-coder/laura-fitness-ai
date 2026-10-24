@@ -114,6 +114,7 @@ import { runAgent, getClient } from "./agent/agent.js";
 import { describeMealPhoto, buildPhotoMealText, resolvePhotoItems } from "./vision.js";
 import { toFile } from "openai";
 import { handleTrainingMessage, createTrainingPlanFromRequest, afterWorkoutSaved } from "./training/service.js";
+import { handleStravaCommand } from "./integrations/strava.js";
 import { createAgentToolRegistry } from "./agent/tools.js";
 
 /* =========================================================
@@ -2637,6 +2638,10 @@ const summaryIntent = classifySummaryIntent(message);
         ? `💧 Removi o último registro de água de hoje (${Math.round(removed.amount_ml)} ml). Total agora: ${Math.round(getTodayWaterTotal(userId))} ml.`
         : "Não há registro de água hoje para remover.";
     }
+
+    // INT-01: "conectar strava", "sincronizar strava", "desconectar strava".
+    const stravaReply = await handleStravaCommand(userId, message, internal.fetchImpl ? { fetchImpl: internal.fetchImpl } : {});
+    if (stravaReply) return stravaReply;
 
     // ESP-04/05/06: "treino de hoje", "treinos da semana", "progresso da corrida", faltas e
     // ajustes por cansaço/dor, sem o modelo.

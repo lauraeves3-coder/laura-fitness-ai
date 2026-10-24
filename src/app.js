@@ -17,6 +17,7 @@ import {
 
 import { processMessage, processMealPhoto, processVoiceMessage } from "./ai.js";
 import { toWhatsAppText } from "./whatsappFormat.js";
+import { verifyState, connectWithCode } from "./integrations/strava.js";
 
 const app = express();
 
@@ -231,6 +232,29 @@ app.post("/api/chat", async (req, res) => {
 /* =========================================================
    WHATSAPP - VERIFICAÇÃO DO WEBHOOK
 ========================================================= */
+
+// INT-01: retorno da autorização do Strava. O "state" assinado diz de qual WhatsApp é a
+// conta; sem ele válido, nada é gravado.
+app.get("/strava/callback", async (req, res) => {
+  const page = (title, text) => `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><body style="font-family:system-ui;max-width:32rem;margin:3rem auto;padding:0 1rem"><h1>${title}</h1><p>${text}</p></body>`;
+  const userId = verifyState(req.query.state);
+  if (!userId || !req.query.code) {
+    return res.status(400).send(page("Não foi possível conectar", "O link de conexão é inválido ou expirou. Peça um novo no WhatsApp: <b>conectar strava</b>."));
+  }
+  if (!String(req.query.scope || "").includes("activity:read")) {
+    return res.status(400).send(page("Permissão necessária", "Para importar seus treinos, autorize o acesso às atividades. Peça um novo link: <b>conectar strava</b>."));
+  }
+  try {
+    const athlete = await connectWithCode(userId, String(req.query.code));
+    const name = athlete.firstname ? `, ${athlete.firstname}` : "";
+    sendWhatsAppMessage(userId, `🔗 *Strava conectado${name}!* Vou importar suas atividades a cada 20 minutos. Para buscar agora, mande *sincronizar strava*.`)
+      .catch((error) => console.error("Aviso do Strava não enviado:", error.message));
+    return res.send(page("Strava conectado ✅", "Pode voltar ao WhatsApp. Suas atividades serão importadas automaticamente."));
+  } catch (error) {
+    console.error("Falha ao conectar o Strava:", error.message);
+    return res.status(502).send(page("Não foi possível conectar", "O Strava não confirmou a conexão. Tente de novo pelo WhatsApp: <b>conectar strava</b>."));
+  }
+});
 
 app.get("/webhook/whatsapp", (req, res) => {
   const mode = req.query["hub.mode"];

@@ -216,13 +216,18 @@ export function afterWorkoutSaved(userId, workout, today) {
   if (workout.distance_km > 0 && workout.duration_min > 0) {
     lines.push(`🏃 ${Number(workout.distance_km).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km · pace ${formatPace(workout.duration_min * 60 / workout.distance_km)}/km`);
   }
-  const plan = getActiveTrainingPlan(userId);
-  if (!plan) return lines;
-  const planned = getPlannedSessions(userId, addDays(today, -1), today);
-  const session = matchPlannedSession({ modality: modalityOf(workout.workout_type), date: today }, planned);
-  if (!session) return lines;
+  const comparison = linkWorkoutToPlan(userId, workout, today);
+  return comparison.length ? [...lines, "", ...comparison] : lines;
+}
+
+// Liga o treino (manual ou importado do Strava) à sessão do plano daquele dia e devolve
+// as linhas de comparação; [] sem plano ou sem sessão correspondente.
+export function linkWorkoutToPlan(userId, workout, date) {
+  if (!getActiveTrainingPlan(userId)) return [];
+  const planned = getPlannedSessions(userId, addDays(date, -1), date);
+  const session = matchPlannedSession({ modality: modalityOf(workout.workout_type), date }, planned);
+  if (!session) return [];
   updatePlannedSession(session.id, { status: "feito", workout_id: workout.id });
   linkWorkoutToSession(workout.id, session.id);
-  lines.push("", ...compareWithPlan(session, workout));
-  return lines;
+  return compareWithPlan(session, workout);
 }
