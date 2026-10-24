@@ -513,6 +513,7 @@ export function buildMealClarificationQuestion(estimate) {
   const lines = estimate.needs_clarification.map(({ term, options }) =>
     `• ${term}: ${joinWithOu(options.map(({ name }) => name.toLocaleLowerCase("pt-BR")))}?`);
   return [
+    "🤔 *Só mais um detalhe*",
     "Antes de registrar, preciso saber o preparo, o corte ou o tipo:",
     ...lines,
     "Reenvie a refeição com esse detalhe (ex.: \"comi arroz, feijão e bife de patinho\"). Ainda não registrei nada."

@@ -16,6 +16,7 @@ import {
 } from "./db.js";
 
 import { processMessage, processMealPhoto, processVoiceMessage } from "./ai.js";
+import { toWhatsAppText } from "./whatsappFormat.js";
 
 const app = express();
 
@@ -305,7 +306,7 @@ export async function sendWhatsAppMessage(to, message) {
         type: "text",
         text: {
           preview_url: false,
-          body: message
+          body: toWhatsAppText(message)
         }
       })
     }

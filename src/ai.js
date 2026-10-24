@@ -1274,6 +1274,7 @@ function askMealQuantities(userId, message, items) {
 
 function buildMealQuantityQuestion(items) {
   return [
+    "📏 *Falta a quantidade*",
     "Para registrar com precisão, quanto foi de:",
     ...items.map(({ name, unit }) => `• ${name.toLocaleLowerCase("pt-BR")} (porção padrão: ${unit})?`),
     "Responda, por exemplo, \"150 g\", \"2 colheres de sopa\" ou \"1 concha\" para cada item, ou \"padrão\" para usar as porções padrão. Ainda não registrei nada."
@@ -1313,6 +1314,14 @@ async function handlePendingMealClarification(userId, message, internal) {
       clearPendingMealClarification(userId);
       return processMessage(userId, rewritten, internal);
     }
+  }
+
+  // Comando conhecido ("resumo do dia", "bebi 500 ml de água") encerra a pergunta pendente
+  // e segue o fluxo normal, mesmo sendo curto.
+  if (classifySummaryIntent(message)?.type === "full" || detectWaterIntake(message) || detectWaterStatusQuery(message)
+    || detectWeightReport(message) || detectSimpleWorkout(message) || detectSleepReport(message) || parseReminderCommand(message)) {
+    clearPendingMealClarification(userId);
+    return null;
   }
 
   // Resposta curta que não resolve a pergunta: pergunta de novo. Mensagem longa
@@ -1527,8 +1536,8 @@ function saveAction(
 ========================================================= */
 
 function formatRemainingStatus(remaining, unit) {
-  if (remaining > 0.5) return `Faltam ${Math.round(remaining)} ${unit}`;
-  if (remaining < -0.5) return `Ultrapassou ${Math.round(Math.abs(remaining))} ${unit}`;
+  if (remaining > 0.5) return `Faltam ${Math.round(remaining).toLocaleString("pt-BR")} ${unit}`;
+  if (remaining < -0.5) return `Ultrapassou ${Math.round(Math.abs(remaining)).toLocaleString("pt-BR")} ${unit}`;
   return "Meta atingida";
 }
 
@@ -1618,150 +1627,55 @@ function buildSummaryReply(
   waterMl = null,
   sleep = null
 ) {
-  const lines = [];
+  const fmt = (value) => Math.round(Number(value) || 0).toLocaleString("pt-BR");
+  // Consumido x meta, com saldo: "1.230 de 2.000 kcal · faltam 770".
+  const versus = (consumed, target, unit) => target
+    ? `${fmt(consumed)} de ${fmt(target)} ${unit} · ${formatRemainingStatus(target - consumed, unit).toLocaleLowerCase("pt-BR")}`
+    : `${fmt(consumed)} ${unit}`;
+  const [year, month, day] = String(summary.date).split("-");
 
-  lines.push(
-    `📊 Resumo de hoje (${summary.date})`
-  );
-
-  lines.push("");
-
-  lines.push(
-    `🔥 Calorias: ${Math.round(summary.calories)} kcal`
-  );
-
-  lines.push(
-    `🥩 Proteínas: ${Math.round(summary.protein_g)} g`
-  );
-
-  lines.push(
-    `🍚 Carboidratos: ${Math.round(summary.carbs_g)} g`
-  );
-
-  lines.push(
-    `🥑 Gorduras: ${Math.round(summary.fat_g)} g`
-  );
+  const lines = [`📊 *Resumo de hoje* — ${day}/${month}/${year}`, ""];
+  lines.push(`🔥 *Calorias:* ${versus(summary.calories, summary.calorie_target, "kcal")}`);
+  if (summary.calorie_target) {
+    lines.push(progressBar(summary.calories / summary.calorie_target));
+  }
+  lines.push(`🥩 *Proteína:* ${versus(summary.protein_g, summary.protein_target, "g")}`);
+  lines.push(`🍚 *Carboidratos:* ${versus(summary.carbs_g, summary.carbs_target, "g")}`);
+  lines.push(`🥑 *Gorduras:* ${versus(summary.fat_g, summary.fat_target, "g")}`);
 
   lines.push("");
-
-  lines.push(
-    `🏋️ Treinos: ${summary.workout_count}`
-  );
-
-  lines.push(
-    `⏱️ Tempo treinado: ${Math.round(summary.total_duration_min)} min`
-  );
-
-  // ACO-02: água do dia no fechamento.
+  lines.push(summary.workout_count
+    ? `🏋️ *Treinos:* ${summary.workout_count} · ${fmt(summary.total_duration_min)} min`
+    : "🏋️ *Treinos:* nenhum hoje");
+  // ACO-02: água e sono do dia no fechamento.
   if (waterMl !== null) {
+    const goal = waterGoalFor(user);
     const liters = (ml) => `${(ml / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} L`;
-    lines.push(`💧 Água: ${liters(waterMl)} de ${liters(waterGoalFor(user))}`);
+    lines.push(`💧 *Água:* ${liters(waterMl)} de ${liters(goal)} ${progressBar(waterMl / goal)}`);
   }
   if (sleep) {
-    lines.push(`😴 Sono: ${formatHours(sleep.hours)}${sleep.quality ? ` (${sleep.quality})` : ""}`);
+    lines.push(`😴 *Sono:* ${formatHours(sleep.hours)}${sleep.quality ? ` (${sleep.quality})` : ""}`);
+  }
+  if (user?.weight_kg) {
+    lines.push(`⚖️ *Peso:* ${formatKg(user.weight_kg)} kg`);
   }
 
-  /* =======================================================
-     MANUTENÇÃO E META
-  ======================================================= */
-
-  if (
-    summary.maintenance_calories
-  ) {
-    lines.push("");
-
-    lines.push(
-      `🔥 Manutenção estimada: ${Math.round(summary.maintenance_calories)} kcal`
-    );
+  if (summary.calorie_target) {
+    const details = [
+      summary.calorie_target_mode === "custom" ? "meta personalizada" : "meta calculada",
+      summary.maintenance_calories ? `manutenção ${fmt(summary.maintenance_calories)} kcal` : null,
+      summary.calorie_deficit_percent ? `déficit de ${summary.calorie_deficit_percent}%` : null
+    ].filter(Boolean);
+    lines.push("", `_${details.join(" · ")}_`);
   }
-
-  if (
-    summary.calorie_target
-  ) {
-    const remaining =
-      summary.calorie_target -
-      summary.calories;
-
-    lines.push("");
-
-    lines.push(
-      `🎯 ${summary.calorie_target_mode === "custom" ? "Meta calórica personalizada" : "Meta inicial calculada"}: ${Math.round(summary.calorie_target)} kcal`
-    );
-
-    lines.push(
-      `📌 ${formatRemainingStatus(remaining, "kcal")}`
-    );
-  }
-
-  if (
-    summary.calorie_deficit_percent
-  ) {
-    lines.push(
-      `📉 Déficit inicial considerado: ${summary.calorie_deficit_percent}%`
-    );
-  }
-
-  if (
-    summary.protein_target
-  ) {
-    const remaining =
-      summary.protein_target -
-      summary.protein_g;
-
-    lines.push("");
-
-    lines.push(
-      `🥩 Meta de proteína: ${Math.round(summary.protein_target)} g`
-    );
-
-    lines.push(
-      `📌 ${formatRemainingStatus(remaining, "g")}`
-    );
-  }
-
-  if (
-    summary.carbs_target
-  ) {
-    const remaining =
-      summary.carbs_target -
-      summary.carbs_g;
-
-    lines.push(
-      `🍚 Meta de carboidratos: ${Math.round(summary.carbs_target)} g`
-    );
-
-    lines.push(
-      `📌 ${formatRemainingStatus(remaining, "g")}`
-    );
-  }
-
-  if (
-    summary.fat_target
-  ) {
-    const remaining =
-      summary.fat_target -
-      summary.fat_g;
-
-    lines.push(
-      `🥑 Meta de gorduras: ${Math.round(summary.fat_target)} g`
-    );
-
-    lines.push(
-      `📌 ${formatRemainingStatus(remaining, "g")}`
-    );
-  }
-
-  if (
-    user?.weight_kg
-  ) {
-    lines.push("");
-
-    lines.push(
-      `⚖️ Peso atual: ${user.weight_kg} kg`
-    );
-  }
-
   return lines.join("\n");
+}
+
+// ▓▓▓▓▓▓░░░░ 62% (fração 0–1; acima de 100% mostra a porcentagem real).
+function progressBar(fraction) {
+  const pct = Math.max(0, Math.round((Number(fraction) || 0) * 100));
+  const filled = Math.min(10, Math.round(pct / 10));
+  return `${"▓".repeat(filled)}${"░".repeat(10 - filled)} ${pct}%`;
 }
 
 /* =========================================================
@@ -2585,7 +2499,6 @@ const summaryIntent = classifySummaryIntent(message);
     const totalMl = getTodayWaterTotal(userId);
     const goalMl = waterGoalFor(user);
     const remainingMl = Math.max(0, goalMl - totalMl);
-    const pct = goalMl > 0 ? Math.round((totalMl / goalMl) * 100) : 0;
     const totalStr = totalMl >= 1000
       ? `${(totalMl / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} L`
       : `${Math.round(totalMl)} ml`;
@@ -2595,10 +2508,12 @@ const summaryIntent = classifySummaryIntent(message);
     const remainStr = remainingMl >= 1000
       ? `${(remainingMl / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} L`
       : `${Math.round(remainingMl)} ml`;
-    if (totalMl >= goalMl) {
-      return `💧 Hidratação de hoje: ${totalStr} — meta de ${goalStr} atingida! 🎉`;
-    }
-    return `💧 Hidratação de hoje: ${totalStr} de ${goalStr} (${pct}%). Faltam ${remainStr} para atingir a meta.`;
+    return [
+      "💧 *Água de hoje*",
+      `${totalStr} de ${goalStr}`,
+      progressBar(totalMl / goalMl),
+      totalMl >= goalMl ? "🎉 *Meta de água atingida!*" : `_Faltam ${remainStr} para a meta._`
+    ].join("\n");
   }
 
   const recentHistory =
@@ -4508,7 +4423,7 @@ const summaryIntent = classifySummaryIntent(message);
   if (result.action === "weight") {
     if (!saved) return "Não registrei o peso: informe um valor válido em kg.";
     const format = (value) => Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 1 });
-    const reply = `⚖️ Registrei seu peso: ${format(saved.weight_kg)} kg. Seu perfil foi atualizado; as metas automáticas não foram recalculadas.`;
+    const reply = `⚖️ Registrei seu peso: ${format(saved.weight_kg)} kg\n_Perfil atualizado; as metas automáticas não foram recalculadas._`;
     // CRP-02 (DEC-07): mudança de 2 kg ou mais só sugere revisar as metas.
     const previous = Number(user?.weight_kg);
     const change = Number(saved.weight_kg) - previous;
@@ -4521,17 +4436,19 @@ const summaryIntent = classifySummaryIntent(message);
     if (!saved) return "Não registrei a água: informe um valor válido.";
     const totalMl = getTodayWaterTotal(userId);
     const goalMl = waterGoalFor(user);
-    const pct = goalMl > 0 ? Math.round((totalMl / goalMl) * 100) : 0;
     const fmt = (ml) => ml >= 1000
       ? `${(ml / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} L`
       : `${Math.round(ml)} ml`;
     const addedStr = fmt(saved.amount_ml);
     const totalStr = fmt(totalMl);
     const goalStr = fmt(goalMl);
-    if (totalMl >= goalMl) {
-      return `💧 +${addedStr} registrado! Total hoje: ${totalStr} — meta de ${goalStr} atingida! 🎉`;
-    }
-    return `💧 +${addedStr} registrado. Total hoje: ${totalStr} de ${goalStr} (${pct}%).`;
+    const remaining = goalMl - totalMl;
+    return [
+      `💧 *+${addedStr} de água*`,
+      `Hoje: ${totalStr} de ${goalStr}`,
+      progressBar(totalMl / goalMl),
+      remaining > 0 ? `_Faltam ${fmt(remaining)} para a meta._` : "🎉 *Meta de água atingida!*"
+    ].join("\n");
   }
 
   if (result.action === "water_goal") {
@@ -4642,7 +4559,18 @@ const summaryIntent = classifySummaryIntent(message);
     const pastNote = savedDate < dailySummary.date
       ? ` Data: ${formatDay(savedDate)}${saved.meal_period ? ` (${saved.meal_period})` : ""}; não entra no saldo de hoje.`
       : "";
-    return `✅ Registrei: ${saved.description} — ${Math.round(saved.calories)} kcal, ${formatKg(saved.protein_g)} g de proteína, ${formatKg(saved.carbs_g)} g de carboidratos e ${formatKg(saved.fat_g)} g de gorduras. ID da refeição: ${saved.id}.${pastNote}`;
+    const food = String(saved.description).replace(/^(?:hoje\s+|ontem\s+)?(?:eu\s+)?(?:comi|almocei|jantei|lanchei|tomei|bebi)\s+/i, "");
+    const today = savedDate < dailySummary.date ? null : getDailySummary(userId);
+    return [
+      `✅ *Refeição registrada* · #${saved.id}`,
+      `🍽️ ${food.charAt(0).toLocaleUpperCase("pt-BR")}${food.slice(1)}`,
+      "",
+      `🔥 ${Math.round(saved.calories).toLocaleString("pt-BR")} kcal · 🥩 P ${formatKg(saved.protein_g)} g · 🍚 C ${formatKg(saved.carbs_g)} g · 🥑 G ${formatKg(saved.fat_g)} g`,
+      today?.calorie_target
+        ? `📊 Hoje: ${Math.round(today.calories).toLocaleString("pt-BR")} de ${Math.round(today.calorie_target).toLocaleString("pt-BR")} kcal · ${formatRemainingStatus(today.calorie_target - today.calories, "kcal").toLocaleLowerCase("pt-BR")}`
+        : null,
+      pastNote ? `📅${pastNote}` : null
+    ].filter((line) => line !== null).join("\n");
   }
 
   if (

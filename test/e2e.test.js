@@ -394,8 +394,9 @@ test("NUT-15: resumo pelo agente mostra consumo e saldo atuais", async () => {
   await send(userId, "comi 2 ovos");
   const summary = db.getDailySummary(userId);
   const reply = await send(userId, "como está o meu dia?", fakeModel([toolCall("get_nutrition_state", {}), finalText("ok")]));
-  assert.match(reply, new RegExp(String(Math.round(summary.calories))));
-  assert.match(reply, new RegExp(String(Math.round(summary.calorie_remaining))));
+  const ptBR = (value) => Math.round(value).toLocaleString("pt-BR").replace(".", "\\.");
+  assert.match(reply, new RegExp(ptBR(summary.calories)));
+  assert.match(reply, new RegExp(ptBR(summary.calorie_remaining)));
 });
 
 // ---------- NUT-17: coerência das metas ----------
@@ -764,8 +765,8 @@ test("NUT-03: 'comi um pf' pergunta a proteína e 'frango' completa o prato", as
 
 test("HID-02: água relatada é registrada sem o modelo e soma no dia", async () => {
   const userId = newUser();
-  assert.match(await send(userId, "bebi 500 ml de água"), /\+500 ml registrado\. Total hoje: 500 ml de 2 L/);
-  assert.match(await send(userId, "tomei 2 copos d'água"), /Total hoje: 900 ml/);
+  assert.match(await send(userId, "bebi 500 ml de água"), /\*\+500 ml de água\*\nHoje: 500 ml de 2 L\n▓▓▓░░░░░░░ 25%/);
+  assert.match(await send(userId, "tomei 2 copos d'água"), /Hoje: 900 ml/);
   assert.equal(db.getTodayWaterTotal(userId), 900);
   assert.equal(db.getTodayMeals(userId).length, 0);
   assert.match(await send(userId, "quanto de água falta?"), /Faltam 1,1 L|Faltam 1100 ml/);
@@ -801,7 +802,7 @@ test("ACO-02: resumo do dia sem o modelo, com água", async () => {
   await send(userId, "bebi 500 ml de água");
   const reply = await send(userId, "resumo do dia");
   assert.match(reply, /Resumo de hoje/);
-  assert.match(reply, /💧 Água: 0,5 L de 2 L/);
+  assert.match(reply, /💧 \*Água:\* 0,5 L de 2 L ▓▓▓░░░░░░░ 25%/);
   assert.match(await send(userId, "como estou hoje?"), /Resumo de hoje/);
 });
 
@@ -915,7 +916,7 @@ test("CONV-10: áudio é transcrito e segue o fluxo de texto", async () => {
   const apiClient = { audio: { transcriptions: { create: async (request) => { requests.push(request); return { text: "comi 2 ovos" }; } } } };
   const reply = await processVoiceMessage(userId, { base64: Buffer.from("ogg").toString("base64"), mimeType: "audio/ogg; codecs=opus" }, { apiClient });
   assert.match(reply, /^🎙️ Entendi: "comi 2 ovos"/);
-  assert.match(reply, /Registrei/);
+  assert.match(reply, /✅ \*Refeição registrada\* · #\d+\n🍽️ 2 ovos/);
   assert.equal(requests[0].language, "pt");
   assert.equal(requests[0].file.name, "audio.ogg");
   assert.equal(db.getTodayMeals(userId).length, 1);
@@ -936,7 +937,7 @@ test("CONV-10: falha ou transcrição vazia pede texto e não registra", async (
 test("CRP-05: sono registrado sem o modelo e mostrado no resumo do dia", async () => {
   const userId = newUser();
   assert.match(await send(userId, "dormi 6 horas e 30 min, mal"), /Registrei 6 h 30 min de sono \(mal\)/);
-  assert.match(await send(userId, "resumo do dia"), /😴 Sono: 6 h 30 min \(mal\)/);
+  assert.match(await send(userId, "resumo do dia"), /😴 \*Sono:\* 6 h 30 min \(mal\)/);
   assert.match(await send(userId, "dormi 30 horas"), /Não registrei o sono/);
 });
 
@@ -1000,4 +1001,11 @@ test("VIS-01: termo genérico da foto usa o preparo visto e informa a escolha", 
   assert.match(reply, /Considerei: peixe grelhado → Tilápia grelhada; batata → Batata inglesa cozida/);
   assert.match(reply, /Carne bovina grelhada — ~110 g/);
   assert.doesNotMatch(reply, /Não encontrei no catálogo/);
+});
+
+test("CONV-09: comando conhecido encerra a pergunta pendente e é atendido", async () => {
+  const userId = newUser();
+  assert.match(await send(userId, "comi arroz"), /Falta a quantidade/);
+  assert.match(await send(userId, "resumo do dia"), /Resumo de hoje/);
+  assert.equal(db.getPendingMealClarification(userId), null);
 });
