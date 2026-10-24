@@ -3,10 +3,11 @@
 // falso; nada aqui chama o Strava nos testes).
 import { createHmac, timingSafeEqual } from "node:crypto";
 import {
-  setStravaConnection, setStravaLastSync, getUser, saveImportedWorkout, getStravaUsers
+  setStravaConnection, setStravaLastSync, getUser, saveImportedWorkout, getStravaUsers, markStravaDuplicates
 } from "../db.js";
 import { formatDuration, formatPace } from "../training/paces.js";
 import { linkWorkoutToPlan } from "../training/service.js";
+import { formatDay } from "../dates.js";
 
 const API = "https://www.strava.com";
 const FIRST_SYNC_DAYS = 14;
@@ -123,14 +124,23 @@ export function normalizeActivity(activity) {
 
 const normalizeTerm = (text) => String(text || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLocaleLowerCase("pt-BR");
 
+const ACTIVITY_ICONS = [[/corr/i, "🏃"], [/cicl/i, "🚴"], [/nata/i, "🏊"], [/caminh/i, "🚶"], [/muscula/i, "🏋️"]];
+const kmText = (value) => `${Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km`;
+
+// Bloco de uma atividade: título com dia e hora, depois uma linha por informação.
 export function describeImported(workout) {
-  const parts = [`${workout.workout_type}`];
-  if (workout.distance_km > 0) parts.push(`${Number(workout.distance_km).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km`);
-  if (workout.duration_min > 0) parts.push(formatDuration(workout.duration_min * 60));
-  if (workout.distance_km > 0 && workout.duration_min > 0 && /corr|caminh/i.test(workout.workout_type)) parts.push(`${formatPace(workout.duration_min * 60 / workout.distance_km)}/km`);
-  if (workout.elevation_m) parts.push(`↗ ${Math.round(workout.elevation_m)} m`);
-  if (workout.avg_hr) parts.push(`❤️ ${Math.round(workout.avg_hr)} bpm`);
-  return parts.join(" · ");
+  const icon = ACTIVITY_ICONS.find(([pattern]) => pattern.test(workout.workout_type))?.[1] || "🏅";
+  const when = String(workout.trained_at || "");
+  const title = when ? `${icon} *${workout.workout_type}* — ${formatDay(when.slice(0, 10))}, ${when.slice(11, 16)}` : `${icon} *${workout.workout_type}*`;
+  const lines = [title];
+  const size = [workout.distance_km > 0 ? `📏 ${kmText(workout.distance_km)}` : null, workout.duration_min > 0 ? `⏱️ ${formatDuration(workout.duration_min * 60)}` : null].filter(Boolean);
+  if (size.length) lines.push(size.join("   "));
+  if (workout.distance_km > 0 && workout.duration_min > 0 && /corr|caminh/i.test(workout.workout_type)) {
+    lines.push(`⚡ Pace médio: *${formatPace(workout.duration_min * 60 / workout.distance_km)} /km*`);
+  }
+  const extra = [workout.elevation_m ? `⛰️ ${Math.round(workout.elevation_m)} m` : null, workout.avg_hr ? `❤️ ${Math.round(workout.avg_hr)} bpm` : null].filter(Boolean);
+  if (extra.length) lines.push(extra.join("   "));
+  return lines;
 }
 
 // Importa as atividades novas desde a última sincronização (primeira vez: 14 dias).
@@ -154,6 +164,9 @@ export async function syncStrava(userId, { fetchImpl = fetch, now = new Date(), 
     const extra = onImported(result.workout, normalized.trained_at.slice(0, 10)) || [];
     imported.push({ workout: result.workout, merged: result.merged, lines: extra });
   }
+  // A mesma atividade enviada duas vezes (relógio e celular) sai das contas e da mensagem.
+  const duplicates = new Set(markStravaDuplicates(userId));
+  imported.splice(0, imported.length, ...imported.filter(({ workout }) => !duplicates.has(workout.id)));
   setStravaLastSync(userId, nowSeconds);
   return { connected: true, imported };
 }
@@ -231,12 +244,19 @@ export async function syncAllStrava({ send, fetchImpl = fetch, now = new Date() 
 export function buildSyncReply({ connected, imported }) {
   if (!connected) return "Seu Strava ainda não está conectado. Mande *conectar strava* para receber o link.";
   if (!imported.length) return "🔄 Strava sincronizado: nenhuma atividade nova.";
+  const totalKm = imported.reduce((sum, { workout }) => sum + (Number(workout.distance_km) || 0), 0);
+  const totalMin = imported.reduce((sum, { workout }) => sum + (Number(workout.duration_min) || 0), 0);
   return [
-    `🔄 *Strava* — ${imported.length} ${imported.length === 1 ? "atividade importada" : "atividades importadas"}`,
+    `🔄 *Strava* — ${imported.length} ${imported.length === 1 ? "atividade nova" : "atividades novas"}`,
+    "━━━━━━━━━━━━━━",
     ...imported.flatMap(({ workout, merged, lines }) => [
       "",
-      `🏃 ${describeImported(workout)}${merged ? " _(completou o treino que você já tinha registrado)_" : ""}`,
+      ...describeImported(workout),
+      merged ? "_Completou o treino que você já tinha registrado._" : null,
       ...lines.filter(Boolean)
-    ])
-  ].join("\n");
+    ].filter((line) => line !== null)),
+    "",
+    "━━━━━━━━━━━━━━",
+    imported.length > 1 ? `📊 *Total:* ${kmText(totalKm)} em ${formatDuration(totalMin * 60)}` : null
+  ].filter((line) => line !== null).join("\n");
 }

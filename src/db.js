@@ -1260,7 +1260,7 @@ export function getWorkoutsBetween(userId, startDate, endDate) {
   ensureUser(userId);
   return db.prepare(`
     SELECT id FROM workouts
-    WHERE user_id = ? AND date(trained_at) BETWEEN ? AND ?
+    WHERE user_id = ? AND date(trained_at) BETWEEN ? AND ? AND duplicate_of IS NULL
     ORDER BY trained_at, id
   `).all(userId, startDate, endDate).map(({ id }) => getWorkoutWithExercises(id));
 }
@@ -1346,7 +1346,7 @@ export function getSleepOn(userId, date) {
 export function getExerciseHistory(userId) {
   return db.prepare(`
     SELECT exercises.name, exercises.reps, exercises.weight_kg, workouts.trained_at
-    FROM exercises JOIN workouts ON workouts.id = exercises.workout_id
+    FROM exercises JOIN workouts ON workouts.id = exercises.workout_id AND workouts.duplicate_of IS NULL
     WHERE workouts.user_id = ? AND exercises.weight_kg > 0
     ORDER BY workouts.trained_at, exercises.id
   `).all(userId);
@@ -1440,7 +1440,7 @@ export function saveTrainingPlan(userId, { goals, startDate, weeks, paces = null
 for (const [column, type] of [["strava_athlete_id", "TEXT"], ["strava_access_token", "TEXT"], ["strava_refresh_token", "TEXT"], ["strava_expires_at", "INTEGER"], ["strava_last_sync", "INTEGER"]]) {
   ensureColumn("users", column, type);
 }
-for (const [column, type] of [["source", "TEXT"], ["external_id", "TEXT"], ["elevation_m", "REAL"], ["avg_hr", "REAL"]]) {
+for (const [column, type] of [["source", "TEXT"], ["external_id", "TEXT"], ["elevation_m", "REAL"], ["avg_hr", "REAL"], ["duplicate_of", "INTEGER"]]) {
   ensureColumn("workouts", column, type);
 }
 db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_workouts_external ON workouts (user_id, external_id) WHERE external_id IS NOT NULL`);
@@ -1487,6 +1487,33 @@ export function saveImportedWorkout(userId, activity) {
   `).run(userId, activity.workout_type, activity.duration_min, activity.notes ?? null, activity.trained_at, activity.distance_km || null,
     pace, activity.source, activity.external_id, activity.elevation_m ?? null, activity.avg_hr ?? null).lastInsertRowid;
   return { workout: getWorkoutWithExercises(id), created: true, merged: false };
+}
+
+// Mesma atividade enviada duas vezes ao Strava (relógio e celular): mesmo dia e tipo,
+// distância a até 5% e duração a até 10%. A versão com frequência cardíaca (ou a mais
+// antiga) fica; a outra é marcada em duplicate_of e sai das contas, sem ser apagada.
+export function markStravaDuplicates(userId) {
+  const rows = db.prepare(`
+    SELECT id, workout_type, distance_km, duration_min, avg_hr, date(trained_at) AS day FROM workouts
+    WHERE user_id = ? AND source = 'strava' AND duplicate_of IS NULL ORDER BY id
+  `).all(userId);
+  const marked = [];
+  for (const [index, row] of rows.entries()) {
+    if (marked.includes(row.id)) continue;
+    for (const other of rows.slice(index + 1)) {
+      if (marked.includes(other.id) || other.day !== row.day || other.workout_type !== row.workout_type) continue;
+      const distance = Math.max(row.distance_km || 0, other.distance_km || 0);
+      const duration = Math.max(row.duration_min || 0, other.duration_min || 0);
+      const sameDistance = distance === 0 || Math.abs((row.distance_km || 0) - (other.distance_km || 0)) <= distance * 0.05;
+      const sameDuration = duration > 0 && Math.abs((row.duration_min || 0) - (other.duration_min || 0)) <= duration * 0.1;
+      if (!sameDistance || !sameDuration) continue;
+      const [keep, drop] = !row.avg_hr && other.avg_hr ? [other, row] : [row, other];
+      db.prepare(`UPDATE workouts SET duplicate_of = ? WHERE id = ?`).run(keep.id, drop.id);
+      marked.push(drop.id);
+      if (drop === row) break;
+    }
+  }
+  return marked;
 }
 
 // Pedido de plano incompleto (aguardando respostas), para juntar com a próxima mensagem.
@@ -1536,7 +1563,7 @@ export function linkWorkoutToSession(workoutId, sessionId) {
 export function getRunsBetween(userId, startDate, endDate) {
   return db.prepare(`
     SELECT id, workout_type, duration_min, distance_km, pace_s_per_km, trained_at FROM workouts
-    WHERE user_id = ? AND date(trained_at) BETWEEN ? AND ? AND distance_km > 0
+    WHERE user_id = ? AND date(trained_at) BETWEEN ? AND ? AND distance_km > 0 AND duplicate_of IS NULL
     ORDER BY trained_at, id
   `).all(userId, startDate, endDate);
 }
@@ -1645,6 +1672,7 @@ export function getDailySummary(
       FROM workouts
       WHERE user_id = ?
         AND date(trained_at) = ?
+        AND duplicate_of IS NULL
     `).get(
       userId,
       day
@@ -1815,12 +1843,12 @@ export function getMealsBetween(userId, startDate, endDate) {
 export function getActivityBetween(userId, startDate, endDate) {
   ensureUser(userId);
   const between = (table, column, fields) => db.prepare(`
-    SELECT ${fields} FROM ${table}
+    SELECT ${fields}${table === "workouts" ? ", duplicate_of" : ""} FROM ${table}
     WHERE user_id = ? AND date(${column}) BETWEEN ? AND ?
     ORDER BY ${column}, id
   `).all(userId, startDate, endDate);
   return {
-    workouts: between("workouts", "trained_at", "workout_type, duration_min, trained_at"),
+    workouts: between("workouts", "trained_at", "workout_type, duration_min, trained_at").filter((row) => !row.duplicate_of),
     weights: between("weights", "measured_at", "weight_kg, measured_at"),
     water: between("water_logs", "logged_at", "amount_ml, logged_at"),
     sleeps: between("sleep_logs", "logged_at", "hours, logged_at")
@@ -2140,7 +2168,7 @@ export function getRecentHistory(
         notes,
         trained_at AS date
       FROM workouts
-      WHERE user_id = ?
+      WHERE user_id = ? AND duplicate_of IS NULL
       ORDER BY trained_at DESC
       LIMIT ?
     `).all(

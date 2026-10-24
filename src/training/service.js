@@ -31,10 +31,32 @@ const mondayOf = (date) => addDays(date, -((weekdayOf(date) + 6) % 7));
 export function createTrainingPlanFromRequest(userId, newRequest, today) {
   // Junta com o pedido anterior ainda incompleto: a resposta às perguntas chega em outra
   // mensagem, e o que já foi dito (objetivo, dias…) não pode se perder.
-  const request = mergeRequests(getPendingTrainingRequest(userId), newRequest);
+  const merged = mergeRequests(getPendingTrainingRequest(userId), newRequest);
+  const { request, note } = withRunningHistory(userId, merged, today);
   const reply = buildPlanFromRequest(userId, request, today);
-  setPendingTrainingRequest(userId, reply.created ? null : request);
-  return reply.text;
+  setPendingTrainingRequest(userId, reply.created ? null : merged);
+  return reply.created && note ? reply.text.replace("\n\n*Primeira semana*", `\n\n${note}\n\n*Primeira semana*`) : reply.text;
+}
+
+// COR-02: o histórico das últimas 4 semanas (Strava ou registros) preenche o que a pessoa
+// não informou: volume semanal, maior corrida, pace confortável e nível.
+function withRunningHistory(userId, request, today) {
+  if (!request.running_goal || request.running_goal === "comecar") return { request, note: null };
+  const runs = getRunsBetween(userId, addDays(today, -27), today);
+  if (runs.length < 2) return { request, note: null };
+  const weeklyKm = Math.round(runs.reduce((sum, run) => sum + run.distance_km, 0) / 4);
+  const longest = Math.max(...runs.map((run) => run.distance_km));
+  const paces = runs.map((run) => run.pace_s_per_km).filter(Boolean).sort((a, b) => a - b);
+  const medianPace = paces[Math.floor(paces.length / 2)];
+  const filled = { ...request };
+  filled.current_weekly_km ??= weeklyKm;
+  filled.longest_run_km ??= Math.round(longest * 10) / 10;
+  if (!filled.reference_time && !filled.easy_pace && medianPace) filled.easy_pace = formatPace(medianPace);
+  filled.running_level ??= weeklyKm < 15 ? "iniciante" : weeklyKm < 35 ? "intermediario" : "avancado";
+  return {
+    request: filled,
+    note: `📈 Usei suas corridas das últimas 4 semanas: ~${weeklyKm} km/semana, maior corrida ${String(Math.round(longest * 10) / 10).replace(".", ",")} km${medianPace ? `, pace médio ${formatPace(medianPace)}/km` : ""}.`
+  };
 }
 
 function mergeRequests(previous, next) {

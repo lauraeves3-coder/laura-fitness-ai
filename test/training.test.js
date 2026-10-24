@@ -203,3 +203,15 @@ test("ESP-04: respostas em outra mensagem completam o pedido anterior", () => {
   assert.match(service.createTrainingPlanFromRequest(userId, answer, TUESDAY), /Plano de treino criado[\s\S]*10 km/);
   assert.equal(db.getPendingTrainingRequest(userId), null);
 });
+
+test("COR-02: o histórico recente preenche volume, maior corrida, pace e nível do plano", () => {
+  const userId = "svc-history";
+  for (const [km, minutes] of [[5, 36], [7.4, 56], [6.4, 46]]) {
+    db.saveWorkout(userId, { workout_type: "Corrida", duration_min: minutes, distance_km: km, exercises: [] });
+  }
+  const today = db.getDailySummary(userId).date;
+  const reply = service.createTrainingPlanFromRequest(userId, { ...request, running_level: null, current_weekly_km: null, longest_run_km: null,
+    reference_distance_km: null, reference_time: null, strength_days_per_week: null, equipment: null }, today);
+  assert.match(reply, /Plano de treino criado/);
+  assert.match(reply, /Usei suas corridas das últimas 4 semanas: ~5 km\/semana, maior corrida 7,4 km, pace médio 7:12\/km/);
+});

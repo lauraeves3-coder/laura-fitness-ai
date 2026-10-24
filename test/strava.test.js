@@ -74,7 +74,7 @@ test("INT-01: conectar, importar sem duplicar e renovar o token vencido", async 
 
   const first = await strava.syncStrava(userId, { fetchImpl: fake.fetchImpl, now: NOW });
   assert.equal(first.imported.length, 2);
-  assert.match(strava.buildSyncReply(first), /2 atividades importadas[\s\S]*Corrida · 10 km · 58:00 · 5:48\/km · ↗ 42 m · ❤️ 151 bpm/);
+  assert.match(strava.buildSyncReply(first), /2 atividades novas[\s\S]*🏃 \*Corrida\* — dom 25\/10, 06:00\n📏 10 km   ⏱️ 58:00\n⚡ Pace médio: \*5:48 \/km\*\n⛰️ 42 m   ❤️ 151 bpm[\s\S]*Total:\* 15 km em 1:28:00/);
   const again = await strava.syncStrava(userId, { fetchImpl: fake.fetchImpl, now: new Date(NOW.getTime() + 60000) });
   assert.equal(again.imported.length, 0, "segunda sincronização não duplica");
 
@@ -124,7 +124,7 @@ test("INT-01: comandos na conversa", async () => {
   assert.match(await strava.handleStravaCommand(userId, "sincronizar strava"), /ainda não está conectado/);
   const fake = fakeStrava({ activities: [run(40, "2026-10-26", 6, 36)] });
   await strava.connectWithCode(userId, "codigo", fake.fetchImpl);
-  assert.match(await strava.handleStravaCommand(userId, "sincroniza o strava", { fetchImpl: fake.fetchImpl, now: NOW }), /1 atividade importada/);
+  assert.match(await strava.handleStravaCommand(userId, "sincroniza o strava", { fetchImpl: fake.fetchImpl, now: NOW }), /1 atividade nova/);
   assert.match(await strava.handleStravaCommand(userId, "desconectar strava"), /Strava desconectado/);
   assert.equal(db.getUser(userId).strava_refresh_token, null);
   assert.equal(await strava.handleStravaCommand(userId, "comi arroz"), null);
@@ -154,11 +154,25 @@ test("INT-01: endereço de retorno colado no WhatsApp conclui a conexão (autori
   const pasted = `http://localhost:3000/strava/callback?state=${encodeURIComponent(state)}&code=codigo-do-celular&scope=read,activity:read_all`;
   const reply = await strava.handleStravaCommand(userId, pasted, { fetchImpl: fake.fetchImpl, now: NOW });
   assert.match(reply, /Strava conectado, Laura/);
-  assert.match(reply, /1 atividade importada/);
+  assert.match(reply, /1 atividade nova/);
   assert.equal(JSON.parse(fake.calls[0].options.body).code, "codigo-do-celular");
   assert.equal(db.getUser(userId).strava_refresh_token, "refresh-1");
   // Endereço de outra conversa não conecta.
   assert.match(await strava.handleStravaCommand("5511666666666", pasted, { fetchImpl: fake.fetchImpl, now: NOW }), /não é desta conversa/);
   // Sem a permissão de atividades.
   assert.match(await strava.handleStravaCommand(userId, pasted.replace("read,activity:read_all", "read"), { fetchImpl: fake.fetchImpl, now: NOW }), /Faltou permitir/);
+});
+
+test("INT-01: a mesma corrida enviada duas vezes ao Strava conta uma vez só (fica a com FC)", async () => {
+  const userId = "strava-dup";
+  const fake = fakeStrava({ activities: [
+    run(60, "2026-10-15", 7.37, 56.4, { average_heartrate: undefined }),
+    run(61, "2026-10-15", 7.38, 56.5, { average_heartrate: 162 }),
+    run(62, "2026-10-20", 6.38, 45.7)
+  ] });
+  await strava.connectWithCode(userId, "codigo", fake.fetchImpl);
+  const result = await strava.syncStrava(userId, { fetchImpl: fake.fetchImpl, now: NOW });
+  assert.equal(result.imported.length, 2);
+  const runs = db.getRunsBetween(userId, "2026-10-01", "2026-10-31");
+  assert.deepEqual(runs.map((item) => item.distance_km), [7.38, 6.38]);
 });
