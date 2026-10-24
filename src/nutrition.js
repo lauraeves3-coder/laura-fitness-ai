@@ -80,7 +80,7 @@ const DESIRED_FOODS = {
     { name: "Pizza baiana", foods: ["pizza baiana (1 fatia média)"], calories: 320, protein_g: 14, carbs_g: 33, fat_g: 14, serving: "fatia média", availability_foods: ["pizza", "calabresa", "cebola", "pimenta"], key: "pizza-baiana" },
     { name: "Pizza americana", foods: ["pizza americana (1 fatia média)"], calories: 330, protein_g: 15, carbs_g: 32, fat_g: 16, serving: "fatia média", availability_foods: ["pizza", "presunto", "bacon", "ovo", "milho"], key: "pizza-americana" },
     { name: "Pizza de presunto e queijo", foods: ["pizza de presunto e queijo (1 fatia média)"], calories: 300, protein_g: 16, carbs_g: 31, fat_g: 12, serving: "fatia média", availability_foods: ["pizza", "presunto", "muçarela"], key: "pizza-presunto-queijo" },
-    { name: "Pizza de Catupiry", foods: ["pizza de Catupiry (1 fatia média)"], calories: 315, protein_g: 12, carbs_g: 34, fat_g: 14, serving: "fatia média", availability_foods: ["pizza", "catupiry"], key: "pizza-catupiry" },
+    { name: "Pizza de Catupiry", foods: ["pizza de Catupiry (1 fatia média)"], calories: 236, protein_g: 9, carbs_g: 25.5, fat_g: 10.5, serving: "fatia média", availability_foods: ["pizza", "catupiry"], key: "pizza-catupiry" },
     { name: "Pizza de frango com milho", foods: ["pizza de frango com milho (1 fatia média)"], calories: 290, protein_g: 16, carbs_g: 34, fat_g: 10, serving: "fatia média", availability_foods: ["pizza", "frango", "milho"], key: "pizza-frango-milho" },
     { name: "Pizza de frango com bacon", foods: ["pizza de frango com bacon (1 fatia média)"], calories: 320, protein_g: 17, carbs_g: 30, fat_g: 14, serving: "fatia média", availability_foods: ["pizza", "frango", "bacon"], key: "pizza-frango-bacon" },
     { name: "Pizza de frango com cheddar", foods: ["pizza de frango com cheddar (1 fatia média)"], calories: 320, protein_g: 18, carbs_g: 30, fat_g: 15, serving: "fatia média", availability_foods: ["pizza", "frango", "cheddar"], key: "pizza-frango-cheddar" },
@@ -96,11 +96,11 @@ const DESIRED_FOODS = {
     { name: "Pizza paulista", foods: ["pizza paulista (1 fatia média)"], calories: 300, protein_g: 14, carbs_g: 34, fat_g: 11, serving: "fatia média", availability_foods: ["pizza", "palmito", "milho", "ervilha"], key: "pizza-paulista" },
     { name: "Pizza moda da casa", foods: ["pizza moda da casa (1 fatia média)"], calories: 350, protein_g: 17, carbs_g: 31, fat_g: 17, serving: "fatia média", availability_foods: ["pizza"], key: "pizza-moda-da-casa" },
 
-    { name: "Pizza doce de banana com canela", foods: ["pizza doce de banana com canela (1 fatia média)"], calories: 320, protein_g: 5, carbs_g: 48, fat_g: 11, serving: "fatia média", availability_foods: ["pizza", "banana", "canela"], key: "pizza-doce-banana-canela" },
-    { name: "Pizza doce Romeu e Julieta", foods: ["pizza doce Romeu e Julieta (1 fatia média)"], calories: 340, protein_g: 8, carbs_g: 44, fat_g: 14, serving: "fatia média", availability_foods: ["pizza", "goiabada", "queijo"], key: "pizza-doce-romeu-julieta" },
-    { name: "Pizza doce de chocolate com morango", foods: ["pizza doce de chocolate com morango (1 fatia média)"], calories: 360, protein_g: 6, carbs_g: 49, fat_g: 16, serving: "fatia média", availability_foods: ["pizza", "chocolate", "morango"], key: "pizza-doce-chocolate-morango" },
-    { name: "Pizza doce de chocolate", foods: ["pizza doce de chocolate (1 fatia média)"], calories: 350, protein_g: 6, carbs_g: 46, fat_g: 17, serving: "fatia média", availability_foods: ["pizza", "chocolate"], key: "pizza-doce-chocolate" },
-    { name: "Pizza doce de prestígio", foods: ["pizza doce de prestígio (1 fatia média)"], calories: 370, protein_g: 6, carbs_g: 47, fat_g: 18, serving: "fatia média", availability_foods: ["pizza", "chocolate", "coco"], key: "pizza-doce-prestigio" }
+    { name: "Pizza doce de banana com canela", foods: ["pizza doce de banana com canela (1 fatia média)"], calories: 240, protein_g: 3.8, carbs_g: 36, fat_g: 8.3, serving: "fatia média", availability_foods: ["pizza", "banana", "canela"], key: "pizza-doce-banana-canela" },
+    { name: "Pizza doce Romeu e Julieta", foods: ["pizza doce Romeu e Julieta (1 fatia média)"], calories: 255, protein_g: 6, carbs_g: 33, fat_g: 10.5, serving: "fatia média", availability_foods: ["pizza", "goiabada", "queijo"], key: "pizza-doce-romeu-julieta" },
+    { name: "Pizza doce de chocolate com morango", foods: ["pizza doce de chocolate com morango (1 fatia média)"], calories: 270, protein_g: 4.5, carbs_g: 36.8, fat_g: 12, serving: "fatia média", availability_foods: ["pizza", "chocolate", "morango"], key: "pizza-doce-chocolate-morango" },
+    { name: "Pizza doce de chocolate", foods: ["pizza doce de chocolate (1 fatia média)"], calories: 263, protein_g: 4.5, carbs_g: 34.5, fat_g: 12.8, serving: "fatia média", availability_foods: ["pizza", "chocolate"], key: "pizza-doce-chocolate" },
+    { name: "Pizza doce de prestígio", foods: ["pizza doce de prestígio (1 fatia média)"], calories: 278, protein_g: 4.5, carbs_g: 35.3, fat_g: 13.5, serving: "fatia média", availability_foods: ["pizza", "chocolate", "coco"], key: "pizza-doce-prestigio" }
   ],
   hamburger: [
     { name: "Hambúrguer simples", foods: ["pão, carne e salada (1 unidade)"], calories: 430, protein_g: 25, carbs_g: 38, fat_g: 20, serving: "unidade", availability_foods: ["hamburger", "carne"], key: "hamburguer-simples" },
@@ -153,6 +153,16 @@ const DESIRED_FOODS = {
     catalogPortion("tempura-camarao", { key: "japonesa-tempura-camarao", portion: "100 g", serving: "100 g", availability: ["tempurá"], grams: 100, withServingGrams: true })
   ]
 };
+
+// Pizzas com item no catálogo (`<key>-direta`) usam os valores dele por fatia, para que
+// sugestão e registro coincidam (NC-02). As demais (doces, "catupiry") são estimativas
+// por fatia média de 90 g (DEC-01, TBCA BRC0225A).
+DESIRED_FOODS.pizza = DESIRED_FOODS.pizza.map((template) => {
+  const item = FOOD_CATALOG.find((food) => food.id === `${template.key}-direta`);
+  if (!item) return template;
+  const { calories, protein_g, carbs_g, fat_g } = catalogPortion(item.id, { key: template.key, portion: "", serving: "", availability: [] });
+  return { ...template, calories, protein_g, carbs_g, fat_g };
+});
 
 export function generateDesiredFoodOptions({
   desiredFood, calorieBudget, macroBudget = {}, macroPriority = null,

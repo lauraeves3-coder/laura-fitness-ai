@@ -22,12 +22,12 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | farinha-de-mandioca | Farinha de mandioca | BRC0088B | 351 | 1.23 | 89.2 | 0.29 | torrada |
 | tapioca-pronta | Tapioca pronta | BRC0906B | 289 | 0.36 | 71.9 | 0 | sem manteiga e sem recheio |
 | macarrao-cozido | Macarrão cozido | BRC0195A | 125 | 3.5 | 27.3 | 0.46 | s/ ovos, cozido e drenado |
-| pao-frances | Pão francês | BRC0002A | 300 | 9.83 | 61.6 | 2.12 | — |
-| pao-forma | Pão de forma tradicional | BRC0003A | 256 | 10.1 | 49.6 | 2.49 | média de marcas |
-| pao-integral | Pão integral | BRC0155A | 249 | 10.5 | 48.6 | 2.55 | de forma, média de marcas |
-| pao-de-leite | Pão de leite | BRC0147A | 284 | 8.15 | 53.9 | 4.63 | industrializado |
-| pao-de-hamburguer | Pão de hambúrguer | BRC0158A | 283 | 9.67 | 53.3 | 4.14 | — |
-| pao-sirio | Pão sírio | BRC0575A | 266 | 9.1 | 55.7 | 1.2 | dado importado pela TBCA |
+| pao-frances | Pão francês | BRC0002A | 300 | 9.83 | 61.6 | 2.12 | unidade média de 50 g |
+| pao-forma | Pão de forma tradicional | BRC0003A | 256 | 10.1 | 49.6 | 2.49 | média de marcas, fatia média de 25 g |
+| pao-integral | Pão integral | BRC0155A | 249 | 10.5 | 48.6 | 2.55 | de forma, média de marcas, fatia média de 25 g |
+| pao-de-leite | Pão de leite | BRC0147A | 284 | 8.15 | 53.9 | 4.63 | industrializado, unidade média de 40 g |
+| pao-de-hamburguer | Pão de hambúrguer | BRC0158A | 283 | 9.67 | 53.3 | 4.14 | unidade média de 70 g |
+| pao-sirio | Pão sírio | BRC0575A | 266 | 9.1 | 55.7 | 1.2 | dado importado pela TBCA, unidade média de 60 g |
 | torrada-integral | Torrada integral | BRC0170A | 398 | 13 | 71 | 7 | — |
 | biscoito-cream-cracker | Biscoito cream cracker | BRC0060A | 435 | 11.6 | 70.9 | 12.4 | — |
 | biscoito-maizena | Biscoito maisena | BRC0200A | 437 | 8.07 | 75.2 | 12 | — |
@@ -111,19 +111,19 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | pescada-grelhada | Pescada grelhada | BRC0153E | 136 | 20.8 | 0.05 | 5.84 | branca, assada/grelhada s/ óleo |
 | camarao-cozido | Camarão cozido | BRC0001E | 82 | 17.7 | 0.01 | 1.28 | s/ casca, cozido e drenado |
 | polvo-cozido | Polvo cozido | BRC0226E | 156 | 29.8 | 4.4 | 2.08 | cozido e drenado; dado importado pela TBCA |
-| ovo-inteiro | Ovo cozido | BRC0010J | 125 | 10.4 | 1.38 | 8.7 | — |
-| ovo-frito | Ovo frito | BRC0015J | 235 | 15.6 | 1.19 | 18.6 | — |
+| ovo-inteiro | Ovo cozido | BRC0010J | 125 | 10.4 | 1.38 | 8.7 | unidade média de 50 g |
+| ovo-frito | Ovo frito | BRC0015J | 235 | 15.6 | 1.19 | 18.6 | unidade média de 50 g |
 | ovo-mexido | Ovo mexido | BRC0065J | 146 | 12.2 | 2.3 | 9.77 | — |
 | clara-de-ovo | Clara de ovo | BRC0004J | 57 | 13.4 | 0.57 | 0.09 | cozida |
 | queijo-minas-frescal | Queijo minas frescal | BRC0052G | 243 | 15.9 | 3.02 | 18.6 | — |
 | muçarela | Queijo muçarela | BRC0059G | 320 | 23.8 | 1.97 | 24.1 | — |
 | parmesao | Queijo parmesão | BRC0061G | 468 | 32.1 | 4.83 | 36.7 | ralado |
 | queijo-prato | Queijo prato | BRC0064G | 346 | 24.2 | 0.2 | 27.6 | — |
-| queijo-coalho | Queijo coalho grelhado | BRC0139G | 311 | 21.4 | 3.35 | 23.5 | espeto grelhado s/ óleo |
+| queijo-coalho | Queijo coalho grelhado | BRC0139G | 311 | 21.4 | 3.35 | 23.5 | espeto grelhado s/ óleo, espeto médio de 80 g |
 | cottage | Queijo cottage | BRC0158G | 116 | 9.7 | 3.2 | 7.1 | dado importado pela TBCA |
 | cream-cheese | Cream cheese | BRC0009G | 235 | 6 | 2.24 | 22.5 | tradicional |
-| iogurte-natural-integral | Iogurte natural integral | BRC0020G | 57 | 4.02 | 4.76 | 2.43 | média de amostras |
-| iogurte-grego-natural | Iogurte grego natural | BRC0133G | 97 | 9 | 3.98 | 5 | integral; dado importado pela TBCA |
+| iogurte-natural-integral | Iogurte natural integral | BRC0020G | 57 | 4.02 | 4.76 | 2.43 | média de amostras, unidade média de 100 g |
+| iogurte-grego-natural | Iogurte grego natural | BRC0133G | 97 | 9 | 3.98 | 5 | integral; dado importado pela TBCA, unidade média de 100 g |
 | leite-integral | Leite integral | BRC0043G | 62 | 3.19 | 4.8 | 3.39 | pasteurizado |
 | leite-desnatado | Leite desnatado | BRC0036G | 37 | 3.12 | 5.14 | 0.4 | — |
 | creme-de-leite | Creme de leite | BRC0010G | 238 | 1.95 | 4.16 | 23.7 | 25% de gordura, UHT |
@@ -151,17 +151,17 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | bebida-de-soja | Bebida de soja | BRC0043T | 42 | 2.73 | 4.25 | 1.61 | extrato de soja, natural |
 | iogurte-de-soja | Iogurte de soja | BRC0182T | 49 | 2.82 | 8.23 | 0.59 | extrato de soja tipo iogurte, c/ açúcar |
 | banana-prata | Banana prata | BRC0011C | 107 | 1.11 | 25.9 | 0.28 | — |
-| maca | Maçã | BRC0063C | 65 | 0.23 | 16.6 | 0.25 | argentina, c/ casca |
-| mamao | Mamão | BRC0045C | 47 | 0.82 | 11.6 | 0.12 | formosa |
-| laranja | Laranja | BRC0020C | 37 | 0.87 | 8.63 | 0.21 | pera |
-| mexerica | Mexerica | BRC0032C | 40 | 0.85 | 9.54 | 0.07 | tangerina ponkã |
+| maca | Maçã | BRC0063C | 65 | 0.23 | 16.6 | 0.25 | argentina, c/ casca, unidade média de 130 g |
+| mamao | Mamão | BRC0045C | 47 | 0.82 | 11.6 | 0.12 | formosa, fatia média de 170 g |
+| laranja | Laranja | BRC0020C | 37 | 0.87 | 8.63 | 0.21 | pera, unidade média de 140 g |
+| mexerica | Mexerica | BRC0032C | 40 | 0.85 | 9.54 | 0.07 | tangerina ponkã, unidade média de 135 g |
 | abacaxi | Abacaxi | BRC0002C | 50 | 0.68 | 11.6 | 0.33 | — |
 | manga | Manga | BRC0046C | 67 | 0.41 | 16.7 | 0.26 | haden |
 | morango | Morango | BRC0029C | 30 | 0.82 | 6.54 | 0.4 | — |
 | uva | Uva | BRC0035C | 50 | 0.54 | 12.1 | 0.17 | rubi |
 | melancia | Melancia | BRC0027C | 29 | 0.7 | 6.53 | 0.06 | — |
 | melao | Melão | BRC0028C | 24 | 0.61 | 5.7 | 0.15 | — |
-| kiwi | Kiwi | BRC0061C | 59 | 1.25 | 12.7 | 1 | — |
+| kiwi | Kiwi | BRC0061C | 59 | 1.25 | 12.7 | 1 | unidade média de 90 g |
 | goiaba | Goiaba | BRC0016C | 50 | 0.92 | 13.3 | 0.54 | vermelha, c/ casca |
 | maracuja-polpa | Maracujá (polpa) | BRC0026C | 74 | 1.99 | 12.3 | 2.1 | amarelo |
 | acai-polpa-sem-xarope | Açaí polpa sem xarope | BRC0003C | 68 | 0.9 | 7.66 | 5.01 | polpa, média de amostras |
@@ -176,29 +176,29 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | nozes | Nozes | BRC0009U | 649 | 14 | 18.4 | 59.4 | crua |
 | chia | Semente de chia | BRC0402A | 443 | 16.5 | 42.1 | 30.7 | semente seca; dado importado pela TBCA |
 | linhaça | Linhaça | BRC0006U | 453 | 14.1 | 43.3 | 32.3 | semente |
-| brigadeiro | Brigadeiro | BRC0190K | 387 | 6.31 | 57.8 | 14.6 | artesanal, c/ chocolate ao leite (única versão na TBCA) |
-| beijinho | Beijinho | BRC0191K | 350 | 5.45 | 46.5 | 16.1 | caseiro |
+| brigadeiro | Brigadeiro | BRC0190K | 387 | 6.31 | 57.8 | 14.6 | artesanal, c/ chocolate ao leite (única versão na TBCA), unidade média de 25 g |
+| beijinho | Beijinho | BRC0191K | 350 | 5.45 | 46.5 | 16.1 | caseiro, unidade média de 25 g |
 | goiabada | Goiabada | BRC0097C | 309 | 0.42 | 78.7 | 0.1 | cascão |
 | chocolate-ao-leite | Chocolate ao leite | BRC0046K | 535 | 7.22 | 59.6 | 30.3 | média de marcas |
 | chocolate-meio-amargo | Chocolate meio amargo | BRC0054K | 548 | 4.86 | 62.4 | 29.9 | — |
-| pizza-mucarela-direta | Pizza de muçarela | BRC0225A | 286 | 14.1 | 28.9 | 13.1 | artesanal, assada |
-| pizza-calabresa-direta | Pizza de calabresa | BRC0425A | 297 | 12.2 | 33 | 13.2 | caseira |
-| pizza-frango-catupiry-direta | Pizza de frango com Catupiry | BRC0678A | 289 | 13 | 38.6 | 9.52 | frango com requeijão, caseira |
-| pizza-portuguesa-direta | Pizza portuguesa | BRC0427A | 249 | 9.82 | 29.5 | 10.7 | assada |
-| pizza-quatro-queijos-direta | Pizza quatro queijos | BRC0682A | 307 | 11.9 | 37.6 | 12.5 | caseira |
-| pizza-marguerita-direta | Pizza marguerita | BRC0685A | 251 | 10.5 | 31.4 | 9.65 | artesanal |
-| pizza-napolitana-direta | Pizza napolitana | BRC0688A | 301 | 11.8 | 38.7 | 11.3 | caseira |
-| pizza-atum-direta | Pizza de atum | BRC0677A | 255 | 14.3 | 28.1 | 9.75 | artesanal, c/ muçarela |
-| pizza-palmito-direta | Pizza de palmito | BRC0875A | 234 | 8.55 | 33.4 | 7.8 | palmito e requeijão |
-| pizza-pepperoni-direta | Pizza de pepperoni | BRC0686A | 334 | 12.2 | 38.6 | 14.9 | caseira |
-| pizza-presunto-queijo-direta | Pizza de presunto e queijo | BRC0426A | 250 | 12.2 | 32.6 | 8.17 | presunto, caseira |
-| pizza-vegetariana-direta | Pizza vegetariana | BRC0687A | 234 | 6.34 | 39.7 | 5.97 | caseira |
+| pizza-mucarela-direta | Pizza de muçarela | BRC0225A | 286 | 14.1 | 28.9 | 13.1 | artesanal, assada, fatia média de 90 g |
+| pizza-calabresa-direta | Pizza de calabresa | BRC0425A | 297 | 12.2 | 33 | 13.2 | caseira, fatia média de 90 g |
+| pizza-frango-catupiry-direta | Pizza de frango com Catupiry | BRC0678A | 289 | 13 | 38.6 | 9.52 | frango com requeijão, caseira, fatia média de 90 g |
+| pizza-portuguesa-direta | Pizza portuguesa | BRC0427A | 249 | 9.82 | 29.5 | 10.7 | assada, fatia média de 90 g |
+| pizza-quatro-queijos-direta | Pizza quatro queijos | BRC0682A | 307 | 11.9 | 37.6 | 12.5 | caseira, fatia média de 90 g |
+| pizza-marguerita-direta | Pizza marguerita | BRC0685A | 251 | 10.5 | 31.4 | 9.65 | artesanal, fatia média de 90 g |
+| pizza-napolitana-direta | Pizza napolitana | BRC0688A | 301 | 11.8 | 38.7 | 11.3 | caseira, fatia média de 90 g |
+| pizza-atum-direta | Pizza de atum | BRC0677A | 255 | 14.3 | 28.1 | 9.75 | artesanal, c/ muçarela, fatia média de 90 g |
+| pizza-palmito-direta | Pizza de palmito | BRC0875A | 234 | 8.55 | 33.4 | 7.8 | palmito e requeijão, fatia média de 90 g |
+| pizza-pepperoni-direta | Pizza de pepperoni | BRC0686A | 334 | 12.2 | 38.6 | 14.9 | caseira, fatia média de 90 g |
+| pizza-presunto-queijo-direta | Pizza de presunto e queijo | BRC0426A | 250 | 12.2 | 32.6 | 8.17 | presunto, caseira, fatia média de 90 g |
+| pizza-vegetariana-direta | Pizza vegetariana | BRC0687A | 234 | 6.34 | 39.7 | 5.97 | caseira, fatia média de 90 g |
 | sorvete-creme | Sorvete de creme | BRC0141K | 210 | 3.5 | 26.6 | 10.1 | industrializado, sabor não especificado; dado importado pela TBCA |
-| coxinha-frango | Coxinha de frango | BRC0100F | 273 | 9.61 | 34.5 | 11.8 | industrializada, frita |
-| pastel-carne | Pastel de carne | BRC0166A | 383 | 17.1 | 22.6 | 25.1 | frito, artesanal |
-| esfiha-carne | Esfiha de carne | BRC0422A | 276 | 16 | 39.7 | 6.25 | esfirra de carne caseira, assada |
-| empada-frango | Empada de frango | BRC0443A | 354 | 6.94 | 47.5 | 15.6 | assada |
-| cachorro-quente | Cachorro-quente | BRC0240A | 225 | 6.87 | 13.3 | 16.4 | pão de leite, salsicha, ketchup, mostarda e maionese |
+| coxinha-frango | Coxinha de frango | BRC0100F | 273 | 9.61 | 34.5 | 11.8 | industrializada, frita, unidade média de 50 g |
+| pastel-carne | Pastel de carne | BRC0166A | 383 | 17.1 | 22.6 | 25.1 | frito, artesanal, unidade média de 100 g |
+| esfiha-carne | Esfiha de carne | BRC0422A | 276 | 16 | 39.7 | 6.25 | esfirra de carne caseira, assada, unidade média de 70 g |
+| empada-frango | Empada de frango | BRC0443A | 354 | 6.94 | 47.5 | 15.6 | assada, unidade média de 50 g |
+| cachorro-quente | Cachorro-quente | BRC0240A | 225 | 6.87 | 13.3 | 16.4 | pão de leite, salsicha, ketchup, mostarda e maionese, porção média de 170 g |
 | lasanha-carne | Lasanha à bolonhesa | BRC0395A | 178 | 11.3 | 15.2 | 8.23 | bolonhesa, artesanal, assada |
 | strogonoff-frango | Strogonoff de frango | BRC0225F | 152 | 17.6 | 2.59 | 7.96 | — |
 | strogonoff-carne | Strogonoff de carne | BRC0224F | 169 | 15 | 2.98 | 10.8 | — |

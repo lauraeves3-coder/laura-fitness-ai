@@ -103,6 +103,14 @@ test("AI-03: '150 g de yakisoba' oferece meia porção", () => {
   assert.ok(optionsFor("quero 150g de yakisoba", "japonesa").includes(`Yakisoba brasileiro — 150 g ${yakisobaKcal(150)}`));
 });
 
+test("NC-02: sugestão de pizza por fatia = registro de 1 fatia", () => {
+  const options = generateDesiredFoodOptions({ desiredFood: "pizza", calorieBudget: 5000, limit: 50, requestedServings: 1 });
+  for (const [name, message] of [["Pizza de calabresa", "comi 1 fatia de pizza de calabresa"], ["Pizza de muçarela", "comi 1 fatia de pizza de muçarela"]]) {
+    const option = options.find((entry) => entry.name.startsWith(name));
+    assert.equal(option.calories, estimateMealFromText(message).calories, name);
+  }
+});
+
 test("CAT-02: sugestões de comida japonesa usam os valores do catálogo por peça", () => {
   const perPiece = (id) => { const food = FOOD_CATALOG.find((entry) => entry.id === id); return Math.round(food.kcal * food.default_g / 100 * 10) / 10; };
   const options = generateDesiredFoodOptions({ desiredFood: "japonesa", calorieBudget: 5000, limit: 50, requestedServings: 1 });

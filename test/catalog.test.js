@@ -249,6 +249,26 @@ test("CAT-02: peso por peça segue a medida caseira da TBCA", () => {
   assert.equal(grams("harumaki"), 60);
 });
 
+test("NUT-25: contagem multiplica o peso de UMA unidade (pão de queijo)", () => {
+  const one = estimateMealFromText("comi 1 pão de queijo").matched_items[0].grams;
+  assert.equal(one, 30);
+  assert.equal(estimateMealFromText("comi 3 pães de queijo").matched_items[0].grams, 3 * one);
+  // Fora as caixas de marca ("6 unidades" de nuggets), a porção contável é de 1 item.
+  const multi = FOOD_CATALOG.filter((food) => !/^official/.test(food.source)
+    && /^\s*[2-9]\d*\s+(?!g$|ml$)/.test(food.unit));
+  assert.deepEqual(multi.map((food) => food.id), []);
+});
+
+test("DEC-01: peso por unidade segue a medida caseira da TBCA", () => {
+  const grams = (id) => FOOD_CATALOG.find((food) => food.id === id).default_g;
+  assert.equal(grams("coxinha-frango"), 50);
+  assert.equal(grams("pao-de-hamburguer"), 70);
+  assert.equal(grams("iogurte-natural-integral"), 100);
+  assert.equal(grams("kiwi"), 90);
+  assert.ok(FOOD_CATALOG.filter((food) => food.id.startsWith("pizza-")).every((food) => food.default_g === 90));
+  assert.match(FOOD_CATALOG.find((food) => food.id === "coxinha-frango").reference, /unidade média de 50 g/);
+});
+
 test("NUT-08: o preparo citado escolhe o item certo", () => {
   for (const [message, id] of [
     ["comi 150 g de patinho frito", "patinho-frito"], ["comi 150 g de patinho cru", "patinho-cru"],

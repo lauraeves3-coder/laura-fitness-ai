@@ -65,7 +65,8 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | NUT-22 | Fome e saciedade (horário, intensidade, padrões) | P3 | NÃO IMPLEMENTADO | — | — |
 | NUT-23 | Restrições alimentares e combinações rejeitadas | P0 | IMPLEMENTADO E TESTADO | — | `mealIntent.js`; `test/intent.test.js` |
 | NUT-24 | Validação nutricional ao salvar refeição | P0 | IMPLEMENTADO E TESTADO | — | `validateMealRecord` (`nutrition.js`) em `saveMeal`/`correctMeal` e no `ai.js`; `test/db.test.js` |
-| NUT-25 | Peso por unidade correto em itens multiunidade (pão de queijo) | P1 | NÃO IMPLEMENTADO | DEC-01 | `default_g` representa a porção padrão |
+| NUT-25 | Peso por unidade correto em itens multiunidade (pão de queijo) | P1 | IMPLEMENTADO E TESTADO | — | porção contável = 1 item (pão de queijo 60 g/2 un. → 30 g/1 un.); pesos por unidade conferidos nas medidas caseiras da TBCA (DEC-01): pizza 120→90 g/fatia, coxinha e empada 100→50 g, pão de hambúrguer 55→70, pão de leite 50→40, iogurte 170/150→100 g/pote, kiwi, laranja, mexerica, mamão, esfiha, cachorro-quente, queijo coalho; sugestões de pizza derivam do catálogo (`test/catalog.test.js`, `test/desiredFood.test.js`). Mantidos por divergirem da unidade inteira: banana prata (TBCA 40 g por pedaço; catálogo 90 g), sorvete (TBCA porção 50 g; catálogo 1 bola 60 g), ovo mexido e clara (TBCA por porção) |
+| NUT-26 | "Pizza inteira" e outros inteiros (bolo, pacote) não viram 1 porção | P1 | NÃO IMPLEMENTADO | — | "comi uma pizza inteira" registra 1 fatia de 90 g; precisa perguntar o tamanho ou o número de fatias |
 
 ## CAT — Catálogo alimentar brasileiro
 
@@ -231,7 +232,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 
 | ID | Decisão | Afeta |
 |---|---|---|
-| DEC-01 | Quais fontes aceitar para pesos por unidade e densidades (TBCA, rótulo, IBGE/POF?) e o que fazer quando não houver fonte oficial (ex.: fatia de sashimi 25 g) | NUT-06, NUT-25, CAT-10 |
+| DEC-01 | **Decidido em 23/10/2026:** peso por unidade e medidas caseiras vêm das medidas caseiras da TBCA (página de detalhe do alimento); sem medida na TBCA, mantém-se a estimativa marcada como `curated_estimate` (ex.: fatia de sashimi 25 g, pão de queijo 30 g) | NUT-06, NUT-25, CAT-10 |
 | DEC-02 | **Confirmado na TBCA em 23/10/2026:** uramaki de salmão c/ pepino (BRC0985A) tem peça média de 60 g. As páginas de detalhe da TBCA trazem medidas caseiras (peça, fatia, colher), fonte possível para DEC-01 | CAT-02 |
 | DEC-03 | Serviço de transcrição de áudio e visão (custo, privacidade) | CONV-10, VIS-01 |
 | DEC-04 | Fonte e frequência de atualização dos cardápios de fast food | CAT-04 |
@@ -265,3 +266,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 23/10/2026 | CAT-10 avança: +35 itens (suínos e aves assados, soja, comida japonesa, 12 pizzas) com código TBCA; patinho refogado recebe o código que faltava. 218 itens com código TBCA, 57 estimativas restantes sem equivalente na TBCA. Totais inalterados; 217 testes passando. |
 | 23/10/2026 | CAT-01: lacuna do "queijo" genérico corrigida ("tapioca com queijo" pergunta o tipo e a resposta curta completa o registro); novo item queijo coalho (TBCA BRC0139G). Totais inalterados; 219 testes passando. |
 | 23/10/2026 | CAT-02 avança: harumaki, kappa maki, joe, shoyu e teriyaki; peso por peça conferido nas medidas caseiras da TBCA (DEC-02 confirmado: uramaki 60 g); sugestões de comida japonesa passam a usar os valores do catálogo (hossomaki 41→50 kcal/peça, Califórnia 48→42, tempurá 220→189). Totais inalterados; 222 testes passando. |
+| 23/10/2026 | DEC-01 decidida (medidas caseiras da TBCA; sem medida, estimativa marcada). NUT-25 → IMPLEMENTADO E TESTADO; novo item NUT-26 (pizza inteira). Totais: 35 testados, 1 não testado, 24 parciais, 58 não implementados, 2 bloqueados. 225 testes passando. |
