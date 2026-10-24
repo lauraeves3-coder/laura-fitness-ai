@@ -71,12 +71,12 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
-| CAT-01 | Expandir catálogo para alimentação real (caseiros, regionais, padaria, doces, bebidas, industrializados) | P1 | PARCIAL | CAT-08 | 345 itens em `nutritionCatalog.js` (218 com código TBCA). Lacuna observada: "queijo" sozinho não tem item genérico ("tapioca com queijo" ignora o queijo) |
+| CAT-01 | Expandir catálogo para alimentação real (caseiros, regionais, padaria, doces, bebidas, industrializados) | P1 | PARCIAL | CAT-08 | 346 itens em `nutritionCatalog.js` (219 com código TBCA). "queijo" sozinho virou termo genérico: pergunta o tipo (muçarela, minas frescal ou prato) em vez de ignorar o queijo; queijo coalho adicionado (TBCA) |
 | CAT-02 | Comida japonesa padrão Brasil (inclui jow/joe, harumaki, combinados, rodízios, molhos) | P1 | PARCIAL | DEC-02 | subtipos e recheios testados; faltam jow, harumaki, combinados, molhos |
 | CAT-03 | Cortes bovinos e métodos de preparo | P1 | IMPLEMENTADO E TESTADO | — | 16 cortes da TBCA (patinho, alcatra, contrafilé, coxão duro/mole, cupim, filé-mignon, fraldinha, lagarto, maminha, músculo, acém, picanha c/ e s/ gordura, costela, fígado, carne moída, carne-seca) em cru/cozido/grelhado-assado/frito quando a TBCA tem; `test/catalog.test.js`; `docs/fontes-tbca.md` |
 | CAT-04 | Fast food por marca e cardápio brasileiro | P1 | PARCIAL | DEC-04 | `BRANDED_FAST_FOOD_CATALOG` (68 itens de marca, maioria "official_menu_item_estimate") |
 | CAT-05 | Interpretar marca+produto+tamanho+combo; decompor combos sem duplicar | P1 | NÃO IMPLEMENTADO | CAT-04 | — |
-| CAT-06 | Guardar fonte, data, confiança e status de cada dado | P1 | PARCIAL | — | campo `source` em todos; campo `reference` (código TBCA + data de consulta) em 218 itens (todo item `tbca_verified` tem código, testado), listados em `docs/fontes-tbca.md` (gerado por `scripts/gerar-fontes-tbca.mjs`, sincronia testada); demais itens sem data nem status |
+| CAT-06 | Guardar fonte, data, confiança e status de cada dado | P1 | PARCIAL | — | campo `source` em todos; campo `reference` (código TBCA + data de consulta) em 219 itens (todo item `tbca_verified` tem código, testado), listados em `docs/fontes-tbca.md` (gerado por `scripts/gerar-fontes-tbca.mjs`, sincronia testada); demais itens sem data nem status |
 | CAT-07 | Sem aliases falsos, duplicatas ou valores incoerentes | P0 | IMPLEMENTADO E TESTADO | — | `test/catalog.test.js` (IDs únicos, alias único, energia × macros) |
 | CAT-08 | Catálogo atualizável sem editar código | P1 | NÃO IMPLEMENTADO | ARQ-01 | catálogo está em código JS |
 | CAT-09 | Alimento desconhecido: perguntar dados, calcular e cadastrar | P1 | NÃO IMPLEMENTADO | CAT-08 | — |
@@ -263,3 +263,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 23/10/2026 | CAT-10 avança: +26 itens (gorduras, oleaginosas, embutidos, peixes e frutos do mar) e novo item atum em óleo; sashimi passa a usar o salmão cru da TBCA (41 kcal/fatia). 150 itens com código TBCA. Totais inalterados; 213 testes passando. |
 | 23/10/2026 | CAT-10 avança: +33 pratos, salgados, doces e bebidas com preparações da TBCA; 183 itens com código TBCA, 92 estimativas restantes. Teste NC-04 ajustado (farinha de mandioca agora é verificada). Totais inalterados; 215 testes passando. |
 | 23/10/2026 | CAT-10 avança: +35 itens (suínos e aves assados, soja, comida japonesa, 12 pizzas) com código TBCA; patinho refogado recebe o código que faltava. 218 itens com código TBCA, 57 estimativas restantes sem equivalente na TBCA. Totais inalterados; 217 testes passando. |
+| 23/10/2026 | CAT-01: lacuna do "queijo" genérico corrigida ("tapioca com queijo" pergunta o tipo e a resposta curta completa o registro); novo item queijo coalho (TBCA BRC0139G). Totais inalterados; 219 testes passando. |

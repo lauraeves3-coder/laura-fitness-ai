@@ -164,6 +164,7 @@ export const FOOD_CATALOG = [
   F("muçarela", "Queijo muçarela", ["muçarela", "mucarela", "mussarela"], 320, 23.8, 1.97, 24.1, 30, "30 g", "tbca_verified", "TBCA BRC0059G (consulta 23/10/2026)"),
   F("parmesao", "Queijo parmesão", ["parmesão", "parmesao"], 468, 32.1, 4.83, 36.7, 15, "15 g", "tbca_verified", "TBCA BRC0061G, ralado (consulta 23/10/2026)"),
   F("queijo-prato", "Queijo prato", ["queijo prato"], 346, 24.2, 0.2, 27.6, 30, "30 g", "tbca_verified", "TBCA BRC0064G (consulta 23/10/2026)"),
+  F("queijo-coalho", "Queijo coalho grelhado", ["queijo coalho", "queijo coalho assado", "queijo coalho grelhado", "espeto de queijo coalho", "queijo de coalho"], 311, 21.4, 3.35, 23.5, 50, "1 espeto", "tbca_verified", "TBCA BRC0139G, espeto grelhado s/ óleo (consulta 23/10/2026)"),
   F("cottage", "Queijo cottage", ["cottage"], 116, 9.7, 3.2, 7.1, 60, "60 g", "tbca_verified", "TBCA BRC0158G, dado importado pela TBCA (consulta 23/10/2026)"),
   F("requeijao-cremoso", "Requeijão cremoso", ["requeijão", "requeijao"], 260, 9.0, 4.0, 23.0, 30, "30 g", "curated_estimate"),
   F("cream-cheese", "Cream cheese", ["cream cheese", "creamcheese"], 235, 6, 2.24, 22.5, 30, "30 g", "tbca_verified", "TBCA BRC0009G, tradicional (consulta 23/10/2026)"),
@@ -637,7 +638,8 @@ export function normalizeText(value) {
 // vez de escolher silenciosamente uma das opções.
 const GENERIC_FOOD_TERMS = [
   { term: "batata", options: ["batata-cozida", "batata-assada", "batata-frita", "batata-rustica"] },
-  { term: "bife", options: ["patinho-grelhado", "alcatra-grelhada", "bife-acebolado"] }
+  { term: "bife", options: ["patinho-grelhado", "alcatra-grelhada", "bife-acebolado"] },
+  { term: "queijo", options: ["muçarela", "queijo-minas-frescal", "queijo-prato"] }
 ];
 
 let catalogEntries = null;

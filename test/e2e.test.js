@@ -78,6 +78,19 @@ test("CONV-09: 'bife' pergunta o corte e 'patinho' completa o registro", async (
   assert.equal(db.getPendingMealClarification(userId), null);
 });
 
+test("CAT-01: 'tapioca com queijo' pergunta o tipo e 'minas' registra o queijo", async () => {
+  const userId = newUser();
+  const question = await send(userId, "comi 60 g de tapioca com 30 g de queijo");
+  assert.match(question, /queijo: queijo muçarela, queijo minas frescal ou queijo prato/);
+  assert.equal(db.getTodayMeals(userId).length, 0);
+
+  await send(userId, "minas");
+  const meals = db.getTodayMeals(userId);
+  assert.equal(meals.length, 1);
+  assert.equal(meals[0].calories, estimateMealFromText("comi 60 g de tapioca com 30 g de queijo minas frescal").calories);
+  assert.ok(meals[0].calories > estimateMealFromText("comi 60 g de tapioca").calories);
+});
+
 test("CONV-09: resposta curta sem opção válida pergunta de novo e não grava", async () => {
   const userId = newUser();
   await send(userId, "comi batata");

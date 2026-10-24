@@ -119,6 +119,7 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | muçarela | Queijo muçarela | BRC0059G | 320 | 23.8 | 1.97 | 24.1 | — |
 | parmesao | Queijo parmesão | BRC0061G | 468 | 32.1 | 4.83 | 36.7 | ralado |
 | queijo-prato | Queijo prato | BRC0064G | 346 | 24.2 | 0.2 | 27.6 | — |
+| queijo-coalho | Queijo coalho grelhado | BRC0139G | 311 | 21.4 | 3.35 | 23.5 | espeto grelhado s/ óleo |
 | cottage | Queijo cottage | BRC0158G | 116 | 9.7 | 3.2 | 7.1 | dado importado pela TBCA |
 | cream-cheese | Cream cheese | BRC0009G | 235 | 6 | 2.24 | 22.5 | tradicional |
 | iogurte-natural-integral | Iogurte natural integral | BRC0020G | 57 | 4.02 | 4.76 | 2.43 | média de amostras |
@@ -228,4 +229,4 @@ Preparos "grelhada/assada s/ óleo" para grelhado e assado; "frita (c/ óleo de 
 | agua-de-coco | Água de coco | BRC0174C | 21 | 0 | 5.29 | 0 | industrializada |
 | milk-shake-chocolate | Milk-shake de chocolate | BRC0144H | 113 | 2.84 | 21.8 | 5.86 | baunilha c/ calda de chocolate; os macros publicados somam ~151 kcal, mantido o valor de energia publicado |
 
-Total: 218 itens.
+Total: 219 itens.

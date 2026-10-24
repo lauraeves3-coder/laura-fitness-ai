@@ -218,6 +218,16 @@ test("CAT-03: cortes reconhecidos pelo nome", () => {
   ]) assert.equal(firstId(message), id, message);
 });
 
+test("CAT-01: 'queijo' sem tipo pede esclarecimento; nomes específicos vencem", () => {
+  const terms = (text) => (estimateMealFromText(text).needs_clarification || []).map(({ term }) => term);
+  assert.deepEqual(terms("comi tapioca com queijo"), ["queijo"]);
+  assert.deepEqual(terms("comi pão com 30 g de queijo"), ["queijo"]);
+  assert.deepEqual(ids(estimateMealFromText("comi tapioca com queijo minas")), ["tapioca-pronta", "queijo-minas-frescal"]);
+  assert.deepEqual(ids(estimateMealFromText("comi pão de queijo")), ["pao-de-queijo"]);
+  assert.deepEqual(ids(estimateMealFromText("comi uma fatia de pizza quatro queijos")), ["pizza-quatro-queijos-direta"]);
+  assert.deepEqual(ids(estimateMealFromText("comi um espeto de queijo coalho")), ["queijo-coalho"]);
+});
+
 test("NUT-08: o preparo citado escolhe o item certo", () => {
   for (const [message, id] of [
     ["comi 150 g de patinho frito", "patinho-frito"], ["comi 150 g de patinho cru", "patinho-cru"],
