@@ -47,8 +47,12 @@ import {
   getRecentHistory,
   getFreeMealSettings,
   setFreeMealSettings,
-  addFreeMealPreference
+  addFreeMealPreference,
+  getWeightsBetween,
+  getDailyCaloriesBetween,
+  setGoalReviewAt
 } from "./db.js";
+import { reviewTargets, describeTargetReview } from "./goalReview.js";
 import {
   calculateNutritionBalance,
   analyzeRemainingNutritionBudget,
@@ -106,7 +110,7 @@ import {
   detectMealPeriodMention,
   pastMealTimestamp
 } from "./mealIntent.js";
-import { parsePastMealDate, formatDay } from "./dates.js";
+import { parsePastMealDate, formatDay, addDays, daysBetween, weekdayOf } from "./dates.js";
 import { getQuantityQuestions, applyQuantityAnswer, catalogFoodNames, suggestSides, findFoodCandidates } from "./nutritionCatalog.js";
 import { parseFoodRegistration, buildFoodRegistrationReply } from "./userFoods.js";
 import { parseReminderCommand, buildReminderCommandReply, dueReminders, buildWaterReminder } from "./reminders.js";
@@ -1746,7 +1750,28 @@ function buildSummaryReply(
     ].filter(Boolean);
     lines.push("", `_${details.join(" · ")}_`);
   }
+  lines.push(...goalReviewLines(user?.id, summary.date));
   return lines.join("\n");
+}
+
+// ACO-04: no fechamento do dia, no máximo uma vez por semana, aponta metas que ficaram
+// para trás (peso mudou, platô, meta difícil de seguir, plano mais intenso). Só sugere.
+function goalReviewLines(userId, today) {
+  const user = userId ? getUser(userId) : null;
+  if (!user || !today) return [];
+  if (user.goal_review_at && daysBetween(user.goal_review_at, today) < 7) return [];
+  const monday = addDays(today, -((weekdayOf(today) + 6) % 7));
+  const plannedTrainingDays = getActiveTrainingPlan(userId)
+    ? new Set(getPlannedSessions(userId, monday, addDays(monday, 6)).map((session) => session.date)).size
+    : null;
+  const review = reviewTargets({
+    user, today, plannedTrainingDays,
+    weights: getWeightsBetween(userId, addDays(today, -35), today),
+    dailyCalories: getDailyCaloriesBetween(userId, addDays(today, -14), today)
+  });
+  if (!review.reasons.length) return [];
+  setGoalReviewAt(userId, today);
+  return describeTargetReview(review);
 }
 
 // NUT-17: meta salva antes da validação (ex.: 100.000 kcal) é ignorada nos cálculos.

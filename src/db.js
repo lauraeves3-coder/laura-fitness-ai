@@ -207,6 +207,9 @@ ensureColumn("users", "activity_level", "TEXT");
 ensureColumn("users", "training_days_per_week", "INTEGER");
 ensureColumn("users", "dietary_preferences", "TEXT");
 ensureColumn("users", "food_dislikes", "TEXT");
+// ACO-04: peso usado no último cálculo das metas e última sugestão de revisão.
+ensureColumn("users", "targets_weight_kg", "REAL");
+ensureColumn("users", "goal_review_at", "TEXT");
 
 ensureColumn(
   "users",
@@ -1007,6 +1010,7 @@ export function calculateAndSaveNutritionTargets(
       daily_fat_target = ?,
       maintenance_calories = ?,
       calorie_deficit_percent = ?,
+      targets_weight_kg = weight_kg,
       calorie_target_mode = CASE WHEN calorie_target_mode = 'custom' THEN 'custom' ELSE 'automatic' END,
       macro_target_mode = CASE WHEN macro_target_mode = 'custom' THEN 'custom' ELSE 'automatic' END
     WHERE id = ?
@@ -1553,6 +1557,25 @@ export function updatePlannedSession(id, changes) {
   const values = entries.map(([key, value]) => key === "target_pace" && value ? JSON.stringify(value) : value);
   db.prepare(`UPDATE planned_sessions SET ${entries.map(([key]) => `${key} = ?`).join(", ")} WHERE id = ?`).run(...values, id);
   return parsePlannedSession(db.prepare(`SELECT * FROM planned_sessions WHERE id = ?`).get(id));
+}
+
+// ACO-04: dados para detectar metas desatualizadas.
+export function getWeightsBetween(userId, startDate, endDate) {
+  return db.prepare(`
+    SELECT weight_kg, date(measured_at) AS date FROM weights
+    WHERE user_id = ? AND date(measured_at) BETWEEN ? AND ? ORDER BY measured_at, id
+  `).all(userId, startDate, endDate);
+}
+
+export function getDailyCaloriesBetween(userId, startDate, endDate) {
+  return db.prepare(`
+    SELECT date(consumed_at) AS date, SUM(calories) AS calories FROM meals
+    WHERE user_id = ? AND date(consumed_at) BETWEEN ? AND ? GROUP BY date(consumed_at) ORDER BY date
+  `).all(userId, startDate, endDate);
+}
+
+export function setGoalReviewAt(userId, date) {
+  db.prepare(`UPDATE users SET goal_review_at = ? WHERE id = ?`).run(date, userId);
 }
 
 // COR-06: ritmos e objetivos recalibrados após um teste.

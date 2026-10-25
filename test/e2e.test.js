@@ -1143,3 +1143,36 @@ test("NUT-03/26: feijoada pergunta o acompanhamento; inteiros registram com o ta
   const pizzaReply = await send(pizza, "comi uma pizza inteira de calabresa");
   assert.match(pizzaReply, /✅ \*Refeição registrada\*[\s\S]*📐 Considerei: pizza grande inteira de 8 fatias \(~720 g\)\. Se foi diferente, me diga que eu corrijo\./);
 });
+
+// ---------- ACO-04: metas desatualizadas ----------
+
+test("ACO-04: detecta metas desatualizadas e só sugere a revisão", async () => {
+  const { reviewTargets, describeTargetReview } = await import("../src/goalReview.js");
+  const today = "2026-10-25";
+  const user = { goal: "emagrecer", weight_kg: 66, targets_weight_kg: 69, calorie_target_mode: "automatic", daily_calorie_target: 1800, activity_level: "light" };
+  const weights = [{ date: "2026-09-28", weight_kg: 66.2 }, { date: "2026-10-10", weight_kg: 66.1 }, { date: "2026-10-24", weight_kg: 66 }];
+  const days = Array.from({ length: 12 }, (_, index) => ({ date: `2026-10-${String(12 + index).padStart(2, "0")}`, calories: 2300 }));
+  const review = reviewTargets({ user, weights, dailyCalories: days, plannedTrainingDays: 5, today });
+  assert.equal(review.reasons.length, 4);
+  const text = describeTargetReview(review).join("\n");
+  assert.match(text, /🔎 \*Vale revisar suas metas\*/);
+  assert.match(text, /calculadas com 69,0 kg e hoje você está com 66,0 kg/);
+  assert.match(text, /peso está parado há 4 semanas \(66,2 → 66,0 kg\)/);
+  assert.match(text, /média foi 2\.300 kcal por dia, acima da meta de 1\.800 kcal/);
+  assert.match(text, /plano tem 5 treinos por semana, mas suas metas usam nível de atividade leve/);
+  assert.match(text, /\*restaure minhas metas automáticas\*[\s\S]*Não mudei nada\./);
+  // Emagrecendo de verdade, meta seguida, sem plano: nada a revisar.
+  assert.deepEqual(reviewTargets({ user: { ...user, targets_weight_kg: 66 }, weights: [{ date: "2026-09-28", weight_kg: 68 }, { date: "2026-10-10", weight_kg: 67 }, { date: "2026-10-24", weight_kg: 66 }], dailyCalories: days.map((day) => ({ ...day, calories: 1750 })), plannedTrainingDays: null, today }).reasons, []);
+  // Meta personalizada não acusa diferença de peso.
+  assert.equal(reviewTargets({ user: { ...user, calorie_target_mode: "custom" }, today }).reasons.length, 0);
+
+  // No resumo do dia: aparece uma vez e não repete na mesma semana.
+  const userId = newUser();
+  db.updateUserProfile(userId, { age_years: 30, sex: "female", height_cm: 165, weight_kg: 69, goal: "emagrecer", activity_level: "light" });
+  db.calculateAndSaveNutritionTargets(userId);
+  db.saveWeight(userId, 66.5);
+  const first = await send(userId, "resumo do dia");
+  assert.match(first, /🔎 \*Vale revisar suas metas\*[\s\S]*calculadas com 69,0 kg e hoje você está com 66,5 kg/);
+  assert.doesNotMatch(await send(userId, "resumo do dia"), /Vale revisar/);
+  assert.equal(db.getUser(userId).targets_weight_kg, 69, "nada recalculado sozinho");
+});

@@ -194,7 +194,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | ACO-01 | Check-in diário opcional | P2 | NÃO IMPLEMENTADO | CRP-05, HID-02 | — |
 | ACO-02 | Fechamento diário (macros, água, treino, passos, sono, metas) | P2 | PARCIAL | — | "resumo do dia" / "como estou hoje?" sai sem chamar o modelo, com calorias, macros, treinos, peso e água do dia (`test/e2e.test.js`). Faltam passos e sono (sem módulo ainda) |
 | ACO-03 | Resumo semanal e análise multimodal | P2 | PARCIAL | — | "resumo da semana" / "últimos 7 dias" mostra a nutrição por dia e um bloco "Outras áreas" com treinos (quantidade e minutos), peso (início → fim), média de água e de sono (`getActivityBetween`, `test/e2e.test.js`). Falta análise cruzada e comparação com a semana anterior |
-| ACO-04 | Detectar metas desatualizadas e sugerir revisão (nunca em silêncio) | P2 | NÃO IMPLEMENTADO | ACO-03 | — |
+| ACO-04 | Detectar metas desatualizadas e sugerir revisão (nunca em silêncio) | P2 | IMPLEMENTADO E TESTADO | ACO-03 | src/goalReview.js: no resumo do dia (no máximo 1×/semana, users.goal_review_at) aponta metas calculadas com peso que mudou 2 kg+ (users.targets_weight_kg), platô ou peso indo contra o objetivo em 3+ semanas, média de 2 semanas 15% acima ou 25% abaixo da meta e plano com 4+ treinos/semana com atividade sedentária/leve. Só sugere; nada é recalculado. test/e2e.test.js |
 | ACO-05 | Gamificação (streaks, recordes, conquistas) sem culpa | P3 | NÃO IMPLEMENTADO | ACO-03 | — |
 
 ## WEB — Dashboard web
@@ -296,3 +296,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 25/10/2026 | NUT-27 (ajuste do dia em tempo real) e ESP-07 (gasto estimado do treino). Correções dos testes reais: 'treinos da semana' mostra a próxima quando o plano começa na segunda; teste de 3 km compara com o tempo exato anterior. Totais: 50 testados, 1 não testado, 45 parciais, 27 não implementados, 1 bloqueados. |
 | 25/10/2026 | NUT-26: pizza/bolo inteiros com sabor depois de 'inteira', tamanho e pacotes passam a pedir a quantidade em vez de virar 1 porção. Totais: 51 testados, 1 não testado, 44 parciais, 27 não implementados, 1 bloqueados. |
 | 25/10/2026 | Testes reais: inteiros passam a usar tamanho padrão avisado (sem perguntar); 'prato' como medida; feijoada, strogonoff, parmegiana, moqueca e churrasco sozinhos perguntam o acompanhamento antes de registrar (NUT-03). Totais: 51 testados, 1 não testado, 44 parciais, 27 não implementados, 1 bloqueados. |
+| 25/10/2026 | ACO-04: revisão de metas desatualizadas no resumo do dia. Também: última corrida/treino com km, pace, FC e gasto; histórico do agente com km e pace. Totais: 52 testados, 1 não testado, 44 parciais, 26 não implementados, 1 bloqueados. |
