@@ -5,6 +5,7 @@
 // porção. Sem o modelo.
 import { FOOD_CATALOG, findFoodCandidates } from "./nutritionCatalog.js";
 import { getPantry, getUser, saveMeal, setRecipeState } from "./db.js";
+import { flavorGroup, getWheyProfile } from "./wheyProfile.js";
 
 // [id, nome, refeições, minutos, dificuldade, equipamentos, ingredientes [catálogoId|null, g, texto], passos]
 const RECIPES = [
@@ -28,7 +29,7 @@ const RECIPES = [
     ["Coloque o iogurte numa tigela.", "Cubra com a banana em rodelas, a granola e o mel."]],
   ["vitamina-proteica", "Vitamina proteica de banana", ["cafe", "pos-treino", "lanche"], 5, "fácil", ["liquidificador"],
     [["leite-desnatado", 250, "1 copo de leite desnatado"], ["banana-prata", 90, "1 banana"], ["whey", 30, "1 scoop de whey"], ["aveia-em-flocos", 20, "2 colheres de aveia"]],
-    ["Bata tudo no liquidificador com gelo a gosto."]],
+    ["Bata tudo no liquidificador com gelo a gosto."], ["fruta", "neutro", "chocolate"]],
   ["cuscuz-com-ovo", "Cuscuz com ovos", ["cafe", "jantar"], 15, "fácil", ["fogão"],
     [["cuscuz-de-milho-cozido", 120, "1 prato raso de cuscuz"], ["ovo-inteiro", 100, "2 ovos"], ["manteiga", 5, "1 ponta de faca de manteiga"]],
     ["Hidrate a farinha de milho com água e sal e cozinhe na cuscuzeira por 10 min.", "Cozinhe ou frite os ovos com pouco óleo.", "Sirva o cuscuz com a manteiga e os ovos."]],
@@ -103,7 +104,7 @@ const RECIPES = [
     ["Corte a abobrinha ao meio e retire o miolo.", "Refogue a carne com o miolo e o molho.", "Recheie, cubra com o queijo e asse 20 min a 200 °C."]],
   ["panqueca-whey", "Panqueca de whey", ["pos-treino", "lanche", "cafe"], 10, "fácil", ["fogão"],
     [["whey", 30, "1 scoop de whey"], ["ovo-inteiro", 50, "1 ovo"], ["banana-prata", 45, "½ banana"], ["aveia-em-flocos", 20, "2 colheres de aveia"]],
-    ["Misture tudo até formar uma massa.", "Doure em frigideira antiaderente, 2 min de cada lado."]],
+    ["Misture tudo até formar uma massa.", "Doure em frigideira antiaderente, 2 min de cada lado."], ["fruta", "neutro", "chocolate"]],
   ["pao-pasta-amendoim-banana", "Pão integral com pasta de amendoim e banana", ["lanche", "pre-treino", "cafe"], 3, "fácil", ["sem fogão"],
     [["pao-integral", 50, "2 fatias de pão integral"], ["pasta-de-amendoim", 15, "1 colher de pasta de amendoim"], ["banana-prata", 45, "½ banana"]],
     ["Espalhe a pasta no pão e cubra com a banana em rodelas."]],
@@ -112,7 +113,25 @@ const RECIPES = [
     ["Cozinhe os ovos por 10 min em água fervente.", "Sirva com a maçã."]],
   ["smoothie-acai-proteico", "Smoothie de açaí proteico", ["pos-treino", "lanche"], 5, "fácil", ["liquidificador"],
     [["acai-polpa-sem-xarope", 100, "1 polpa de açaí"], ["banana-prata", 90, "1 banana"], ["whey", 30, "1 scoop de whey"], ["leite-desnatado", 100, "½ copo de leite"]],
-    ["Bata tudo no liquidificador até ficar cremoso."]],
+    ["Bata tudo no liquidificador até ficar cremoso."], ["fruta", "neutro", "chocolate"]],
+  ["shake-proteico-frutas", "Shake proteico de frutas", ["pos-treino", "lanche", "cafe"], 5, "fácil", ["liquidificador"],
+    [["whey", 30, "1 scoop de whey"], ["leite-desnatado", 250, "1 copo de leite desnatado"], ["morango", 100, "7 morangos (ou outra fruta)"]],
+    ["Bata tudo no liquidificador com gelo."], ["fruta", "neutro"]],
+  ["mousse-proteica", "Mousse proteica de iogurte", ["sobremesa", "lanche"], 5, "fácil", ["sem fogão"],
+    [["iogurte-grego-natural", 120, "1 pote de iogurte grego"], ["whey", 30, "1 scoop de whey"]],
+    ["Misture o whey ao iogurte até ficar liso.", "Leve à geladeira por 20 min."], ["fruta", "neutro", "chocolate"]],
+  ["brownie-caneca-proteico", "Brownie de caneca proteico", ["sobremesa", "lanche"], 5, "fácil", ["micro-ondas"],
+    [["whey", 30, "1 scoop de whey"], ["ovo-inteiro", 50, "1 ovo"], ["banana-prata", 45, "½ banana amassada"], ["aveia-em-flocos", 15, "1½ colher de aveia"], ["chocolate-meio-amargo", 10, "1 quadradinho de chocolate meio amargo picado"]],
+    ["Misture tudo numa caneca.", "Micro-ondas por 1 min e 30 s.", "Espere 2 min antes de comer."], ["chocolate", "neutro"]],
+  ["overnight-oats-proteico", "Overnight oats proteico", ["cafe", "lanche"], 5, "fácil", ["sem fogão"],
+    [["aveia-em-flocos", 40, "4 colheres de aveia"], ["iogurte-natural-integral", 120, "1 pote pequeno de iogurte natural"], ["whey", 15, "½ scoop de whey"], ["chia", 10, "1 colher de chia"], ["banana-prata", 45, "½ banana"]],
+    ["Misture aveia, iogurte, whey e chia num pote.", "Cubra com a banana e deixe na geladeira de um dia para o outro."], ["fruta", "neutro", "chocolate"]],
+  ["picole-proteico", "Picolé proteico de iogurte e fruta", ["sobremesa", "lanche"], 5, "fácil", ["sem fogão"],
+    [["iogurte-natural-integral", 100, "1 pote pequeno de iogurte natural"], ["whey", 30, "1 scoop de whey"], ["morango", 80, "5 morangos picados"]],
+    ["Misture o iogurte com o whey e a fruta.", "Coloque em forminhas de picolé e congele por 4 h."], ["fruta", "neutro"]],
+  ["iogurte-proteico-granola", "Iogurte proteico com granola", ["cafe", "lanche", "pos-treino"], 3, "fácil", ["sem fogão"],
+    [["iogurte-grego-natural", 120, "1 pote de iogurte grego"], ["whey", 15, "½ scoop de whey"], ["granola-tradicional", 20, "2 colheres de granola"]],
+    ["Misture o whey no iogurte.", "Cubra com a granola."], ["fruta", "neutro", "chocolate"]],
   ["torrada-cottage-tomate", "Torrada com cottage e tomate", ["lanche", "cafe"], 3, "fácil", ["sem fogão"],
     [["torrada-integral", 30, "3 torradas integrais"], ["cottage", 60, "2 colheres de cottage"], ["tomate", 50, "rodelas de tomate"]],
     ["Espalhe o cottage nas torradas.", "Cubra com tomate, sal e orégano."]],
@@ -128,7 +147,21 @@ const RECIPES = [
   ["pudim-chia-manga", "Pudim de chia com manga", ["sobremesa", "cafe", "lanche"], 5, "fácil", ["sem fogão"],
     [["chia", 20, "2 colheres de chia"], ["bebida-de-soja", 200, "1 copo de bebida de soja"], ["mel", 10, "1 colher de chá de mel"], ["manga", 80, "½ manga em cubos"]],
     ["Misture a chia com a bebida de soja e o mel.", "Deixe na geladeira por 4 h (ou de um dia para o outro).", "Cubra com a manga."]]
-].map(([id, name, meals, minutes, difficulty, equipment, ingredients, steps]) => ({ id, name, meals, minutes, difficulty, equipment, ingredients, steps }));
+].map(([id, name, meals, minutes, difficulty, equipment, ingredients, steps, whey = null]) => ({ id, name, meals, minutes, difficulty, equipment, ingredients, steps, whey }));
+
+// Receita com whey usa o whey da pessoa: item da marca/sabor (macros do rótulo) e o nome.
+export function personalizeWhey(ingredients, profile) {
+  if (!profile) return ingredients;
+  const food = byId(profile.food_id);
+  if (!food) return ingredients;
+  const label = ["whey", profile.brand, profile.flavor].filter(Boolean).join(" ");
+  return ingredients.map((entry) => {
+    if (entry[0] !== "whey") return entry;
+    const scoops = entry[1] / 30;
+    const grams = Math.round(food.default_g * scoops);
+    return [food.id, grams, `${scoops === 1 ? "1 scoop" : scoops === 0.5 ? "½ scoop" : `${scoops} scoops`} do seu ${label} (${grams} g)`];
+  });
+}
 
 const MEAL_LABEL = { cafe: "café da manhã", almoco: "almoço", jantar: "jantar", lanche: "lanche", sobremesa: "sobremesa", "pos-treino": "pós-treino", "pre-treino": "pré-treino" };
 const MEAT = /frango|patinho|carne|musculo|bife|bovin|hamburguer|salmao|tilapia|atum|peixe|camarao|bacon|presunto|peru|calabresa|linguica|lombo|pernil/;
@@ -189,7 +222,9 @@ export function allRecipes() {
 // Filtros a partir do pedido. null quando a mensagem não fala de receita.
 export function parseRecipeQuery(message) {
   const text = normalize(message);
-  if (!/\breceitas?\b/.test(text) || /\b(?:minhas receitas favoritas|receitas favoritas|comi a receita|favoritar|salvar (?:a|essa) receita)\b/.test(text)) return null;
+  // "opções/ideias com whey" também são receitas (o plano de refeições não monta preparo com whey).
+  const wheyIdeas = /\bwhey\b/.test(text) && /\b(?:opcoes|opcao|ideias?|sugest\w*|sugir\w*|o que (?:posso|da pra) fazer)\b/.test(text);
+  if ((!/\breceitas?\b/.test(text) && !wheyIdeas) || /\b(?:minhas receitas favoritas|receitas favoritas|comi a receita|favoritar|salvar (?:a|essa) receita)\b/.test(text)) return null;
   const filters = { meal: null, maxMinutes: null, equipment: null, foods: [], tags: [], pantry: false, fitBudget: false };
   for (const [key, pattern] of [["cafe", /cafe da manha|desjejum/], ["almoco", /almoco/], ["jantar", /janta/], ["lanche", /lanche/], ["sobremesa", /sobremesa|doce/], ["pos-treino", /pos[- ]?treino/], ["pre-treino", /pre[- ]?treino/]]) {
     if (pattern.test(text)) { filters.meal = key; break; }
@@ -229,7 +264,7 @@ export function parseRecipeQuery(message) {
 
 // Pontua e devolve até `limit` receitas. Ingrediente pedido é obrigatório; despensa e
 // saldo do dia ordenam. pantryNames: nomes dos itens da despensa ("Frango", "Ovos").
-export function searchRecipes(filters, { pantryNames = [], budgetKcal = null, limit = 5 } = {}) {
+export function searchRecipes(filters, { pantryNames = [], budgetKcal = null, limit = 5, wheyGroup = null } = {}) {
   const pantryWords = pantryNames.map((name) => normalize(name).split(/\s+/)[0].replace(/s$/, "")).filter((word) => word.length >= 3);
   return RECIPES
     .map((recipe) => {
@@ -241,6 +276,7 @@ export function searchRecipes(filters, { pantryNames = [], budgetKcal = null, li
       if (filters.maxMinutes && recipe.minutes > filters.maxMinutes) return null;
       if (filters.equipment && !recipe.equipment.includes(filters.equipment)) return null;
       if (filters.tags.some((tag) => !tags.includes(tag))) return null;
+      if (recipe.whey && wheyGroup && !recipe.whey.includes(wheyGroup)) return null;
       if (filters.foods.length && !filters.foods.every((word) => texts.some((text) => text.includes(word)))) return null;
       const fromPantry = texts.filter((text) => pantryWords.some((word) => text.includes(word)));
       if (filters.pantry && pantryWords.length && fromPantry.length < Math.min(2, ids.length)) return null;
@@ -323,8 +359,9 @@ export function handleRecipeMessage(userId, message, { today, budgetKcal = null,
   if (pick && state.list?.length && recent(30)) {
     const recipe = getRecipe(state.list[Number(pick[1]) - 1]);
     if (!recipe) return null;
-    save({ open: recipe.id, ingredients: null });
-    return buildRecipeCard(recipe);
+    const personal = recipe.whey ? personalizeWhey(recipe.ingredients, getWheyProfile(userId)) : null;
+    save({ open: recipe.id, ingredients: personal });
+    return buildRecipeCard(recipe, personal ? { ingredients: personal } : {});
   }
   if (/\b(?:minhas receitas favoritas|receitas favoritas|minhas favoritas)\b/.test(text)) {
     const favorites = (state.favorites || []).map(getRecipe).filter(Boolean);
@@ -364,8 +401,9 @@ export function handleRecipeMessage(userId, message, { today, budgetKcal = null,
     const matches = wanted.length >= 4 ? RECIPES.filter((item) => normalize(item.name).includes(wanted)) : [];
     const recipe = matches.length === 1 ? matches[0] : null;
     if (recipe) {
-      save({ open: recipe.id, ingredients: null });
-      return buildRecipeCard(recipe);
+      const personal = recipe.whey ? personalizeWhey(recipe.ingredients, getWheyProfile(userId)) : null;
+      save({ open: recipe.id, ingredients: personal });
+      return buildRecipeCard(recipe, personal ? { ingredients: personal } : {});
     }
   }
   const filters = parseRecipeQuery(message);
@@ -377,7 +415,10 @@ export function handleRecipeMessage(userId, message, { today, budgetKcal = null,
   if (filters.pantry && !pantryNames.length) {
     return "🧺 Sua despensa está vazia. Me conte o que comprou (ex.: *comprei 1 kg de frango e 12 ovos*) que eu sugiro receitas com isso.";
   }
-  const results = searchRecipes(filters, { pantryNames, budgetKcal: filters.fitBudget ? budgetKcal : null });
+  const whey = getWheyProfile(userId);
+  const flavorInText = /\bwhey\b/.test(text) && text.match(/\bwhey\b.*?\b(?:de|sabor)\s+([a-z ]+)$/)?.[1];
+  const wheyGroup = flavorInText ? flavorGroup(flavorInText.trim()) : filters.foods.includes("whey") ? whey?.group || null : null;
+  const results = searchRecipes(filters, { pantryNames, budgetKcal: filters.fitBudget ? budgetKcal : null, wheyGroup });
   save({ list: results.map(({ recipe }) => recipe.id) });
   return buildRecipeList(results, filters);
 }

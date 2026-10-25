@@ -1367,3 +1367,46 @@ test("REC: busca com filtros, ficha, troca de ingrediente, favoritas e registro 
   assert.match(await send(userId, "minhas receitas favoritas"), /⭐ \*Suas receitas favoritas\*\n\n1\. \*/);
   assert.match(await send(userId, "receita de strogonoff"), /🍳 \*Strogonoff fit de frango\*/);
 });
+
+// ---------- Whey da pessoa e receitas pelo sabor ----------
+
+test("Whey: pergunta a marca, guarda o whey e sugere receitas que combinam com o sabor", async () => {
+  const userId = newUser();
+  const ask = await send(userId, "Tenho whey de morango me mande alguma receita");
+  assert.match(ask, /Qual é a \*marca\* do seu whey\?/);
+  assert.doesNotMatch(ask, /Qual o \*sabor\*/, "sabor já foi dito");
+  const reply = await send(userId, "growth");
+  assert.match(reply, /✅ Anotei seu \*Whey Growth Morango\* \(tabela do rótulo da marca\) e coloquei na despensa\./);
+  assert.match(reply, /🍳 \*Receitas para você\*/);
+  assert.match(reply, /Shake proteico de frutas|Picolé proteico/);
+  assert.doesNotMatch(reply, /Brownie de caneca/, "brownie é para whey de chocolate/neutro");
+  assert.ok(db.getPantry(userId).some((item) => item.name === "Whey Growth Morango"));
+  // A ficha usa o whey da pessoa.
+  const list = reply.split("\n");
+  const shakeIndex = list.filter((line) => /^\d\. /.test(line)).findIndex((line) => /Shake proteico/.test(line)) + 1;
+  const card = await send(userId, String(shakeIndex || 1));
+  assert.match(card, /do seu whey Growth morango \(30 g\)/);
+
+  // Pedido de receita com whey sem ter contado qual é: pergunta marca e sabor.
+  const other = newUser();
+  const both = await send(other, "me mande receita com whey");
+  assert.match(both, /Para sugerir receitas que combinem com o seu whey:[\s\S]*\*marca\*[\s\S]*\*sabor\*/);
+  const chocolate = await send(other, "dux chocolate");
+  assert.match(chocolate, /Whey Dux Chocolate/);
+  assert.match(chocolate, /Brownie de caneca proteico/);
+  assert.doesNotMatch(chocolate, /Picolé proteico/);
+  // Depois, "receitas com whey" já usa o sabor salvo.
+  assert.match(await send(other, "receitas com whey"), /Brownie de caneca proteico/);
+  // "não sei" a marca: usa valores médios.
+  const generic = newUser();
+  await send(generic, "comprei whey de baunilha");
+  assert.match(await send(generic, "não sei"), /Whey Baunilha\* \(valores médios de whey\)/);
+});
+
+test("Whey: 'opções de lanche com whey' vira receitas com o whey salvo", async () => {
+  const userId = newUser();
+  await send(userId, "tenho whey dux cookies");
+  const reply = await send(userId, "me dá opções de lanche com whey");
+  assert.match(reply, /🍳 \*Receitas para você\*/);
+  assert.match(reply, /Brownie de caneca proteico|Mousse proteica/);
+});

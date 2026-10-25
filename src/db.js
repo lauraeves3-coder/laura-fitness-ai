@@ -214,6 +214,9 @@ ensureColumn("users", "goal_review_at", "TEXT");
 ensureColumn("users", "reply_style", "TEXT");
 // REC: última lista, receita aberta (com trocas) e favoritas, em JSON.
 ensureColumn("users", "recipe_state", "TEXT");
+// Whey da pessoa (marca, sabor, item do catálogo) e pergunta pendente, em JSON.
+ensureColumn("users", "whey_profile", "TEXT");
+ensureColumn("users", "whey_pending", "TEXT");
 // MUS-02: esforço por exercício (RPE/RIR) e da sessão (0–10).
 ensureColumn("exercises", "rpe", "REAL");
 ensureColumn("exercises", "rir", "REAL");
@@ -1688,6 +1691,12 @@ export function getDailyCaloriesBetween(userId, startDate, endDate) {
     SELECT date(consumed_at) AS date, SUM(calories) AS calories FROM meals
     WHERE user_id = ? AND date(consumed_at) BETWEEN ? AND ? GROUP BY date(consumed_at) ORDER BY date
   `).all(userId, startDate, endDate);
+}
+
+export function setWheyState(userId, { profile, pending }) {
+  ensureUser(userId);
+  if (profile !== undefined) db.prepare(`UPDATE users SET whey_profile = ? WHERE id = ?`).run(profile, userId);
+  if (pending !== undefined) db.prepare(`UPDATE users SET whey_pending = ? WHERE id = ?`).run(pending, userId);
 }
 
 export function setRecipeState(userId, state) {

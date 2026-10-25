@@ -59,6 +59,7 @@ import { reviewTargets, describeTargetReview } from "./goalReview.js";
 import { handleBodyMessage } from "./body.js";
 import { handlePantryMessage, consumeFromPantry } from "./pantry.js";
 import { handleRecipeMessage } from "./recipes.js";
+import { handleWheyMessage } from "./wheyProfile.js";
 import { handleCheckinMessage, CHECKIN_QUESTION } from "./checkin.js";
 import { detectReplyStyle, STYLE_INSTRUCTIONS, buildReplyStyleConfirmation } from "./replyStyle.js";
 import {
@@ -2736,6 +2737,18 @@ const summaryIntent = classifySummaryIntent(message);
     // CRP-03: medidas corporais e evolução do peso.
     const bodyReply = handleBodyMessage(userId, message, dailySummary.date);
     if (bodyReply) return bodyReply;
+
+    // SUP/REC: "tenho whey de morango" pergunta marca/sabor que faltam e guarda o whey;
+    // pedido de receita junto já recebe as receitas que combinam com o sabor.
+    const recipeContext = {
+      today: dailySummary.date,
+      mealPeriod: getMealPeriod(),
+      budgetKcal: getMealBudget(dailySummary, getMealPeriod()).calories
+    };
+    const wheyReply = handleWheyMessage(userId, message, {
+      onSaved: (profile, wantsRecipe) => (wantsRecipe ? handleRecipeMessage(userId, "receitas com whey", recipeContext) : null)
+    });
+    if (wheyReply) return wheyReply;
 
     // DSP-01: despensa ("comprei…", "minha despensa", "acabou o leite").
     const pantryReply = handlePantryMessage(userId, message, dailySummary.date);
