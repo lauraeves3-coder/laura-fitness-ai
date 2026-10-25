@@ -276,16 +276,15 @@ test("NUT-25: contagem multiplica o peso de UMA unidade (pão de queijo)", () =>
   assert.deepEqual(multi.map((food) => food.id), []);
 });
 
-test("NUT-26: 'pizza inteira' pergunta a quantidade e '8' vale 8 fatias", () => {
+test("NUT-26: 'pizza inteira' usa a pizza grande de 8 fatias, sem perguntar", () => {
   const message = "comi uma pizza de calabresa inteira";
-  const questions = getQuantityQuestions(message);
-  assert.deepEqual(questions.map((item) => item.id), ["pizza-calabresa-direta"]);
-  for (const reply of ["8", "8 fatias"]) {
-    const answer = applyQuantityAnswer(message, questions, reply);
-    assert.equal(estimateMealFromText(answer.message).matched_items[0].grams, 8 * 90, reply);
-  }
+  assert.deepEqual(getQuantityQuestions(message), []);
+  const item = estimateMealFromText(message).matched_items[0];
+  assert.equal(item.grams, 8 * 90);
+  assert.match(item.assumed, /pizza grande inteira de 8 fatias/);
+  assert.equal(estimateMealFromText("comi uma pizza media inteira de calabresa").matched_items[0].grams, 6 * 90);
   assert.deepEqual(getQuantityQuestions("comi uma pizza de calabresa"), []);
-  assert.deepEqual(getQuantityQuestions("comi 4 fatias de pizza de calabresa inteira"), []);
+  assert.equal(estimateMealFromText("comi 4 fatias de pizza de calabresa inteira").matched_items[0].grams, 4 * 90);
 });
 
 test("DEC-01: peso por unidade segue a medida caseira da TBCA", () => {
@@ -509,20 +508,26 @@ test("SUP-03: sabor sem tabela própria informa que usa a do sabor de referênci
   assert.match(FOOD_CATALOG.find((food) => food.id === "whey-dux-concentrado-neutro").reference, /rótulo oficial por sabor/);
 });
 
-test("NUT-26: sabor depois de 'inteira', tamanho antes de 'inteira' e pacotes pedem a quantidade", async () => {
-  const { getMissingMealQuantities: missing, applyQuantityAnswer: answer, estimateMealFromText: estimate } = await import("../src/nutritionCatalog.js");
+test("NUT-26: inteiros e pacotes com tamanho padrão; prato de feijoada; acompanhamentos", async () => {
+  const { getMissingMealQuantities: missing, estimateMealFromText: estimate, suggestSides } = await import("../src/nutritionCatalog.js");
   const cases = [
-    ["comi uma pizza inteira de calabresa", "Pizza de calabresa", "8", 1800],
-    ["comi um pacote de biscoito recheado", "Biscoito recheado de chocolate", "130 g", 550],
-    ["comi um bolo inteiro de chocolate", "Bolo de chocolate", "10 fatias", 1200]
+    ["comi uma pizza inteira de calabresa", "Pizza de calabresa", 720, /8 fatias/],
+    ["comi duas pizzas inteiras de calabresa", "Pizza de calabresa", 1440, /8 fatias/],
+    ["comi um pacote de biscoito recheado", "Biscoito recheado de chocolate", 130, /pacote de 130 g/],
+    ["comi um bolo inteiro de chocolate", "Bolo de chocolate", 600, /bolo inteiro de 12 fatias/],
+    ["almocei 2 pratos de feijoada", "Feijoada", 600, /prato de ~300 g/]
   ];
-  for (const [message, name, reply, minKcal] of cases) {
-    const items = missing(message);
-    assert.deepEqual(items.map((item) => item.name), [name], message);
-    const result = estimate(answer(message, items, reply).message);
-    assert.ok(result.calories > minKcal, `${message}: ${result.calories}`);
-    assert.equal(result.matched_items.length, 1, "sem calabresa avulsa");
+  for (const [message, name, grams, assumed] of cases) {
+    assert.deepEqual(missing(message), [], message);
+    const items = estimate(message).matched_items;
+    assert.deepEqual(items.map((item) => [item.name, item.grams]), [[name, grams]], message);
+    assert.match(items[0].assumed, assumed);
   }
-  assert.equal(missing("comi uma pizza grande inteira").length, 1);
-  assert.deepEqual(missing("comi 2 fatias de pizza de calabresa"), []);
+  // Prato só vale para pratos servidos inteiros: "prato de arroz" continua perguntando.
+  assert.equal(missing("comi um prato de arroz").length, 1);
+  // Acompanhamentos: pergunta só quando o prato vem sozinho.
+  assert.deepEqual(suggestSides("almocei 2 pratos de feijoada"), { dish: "Feijoada", sides: "arroz, farofa, couve e laranja" });
+  assert.equal(suggestSides("almocei feijoada com arroz"), null);
+  assert.equal(suggestSides("comi só feijoada"), null);
+  assert.equal(suggestSides("comi arroz e feijão"), null);
 });

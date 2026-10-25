@@ -1117,9 +1117,29 @@ test("NUT-27: refeição acima da sua fatia do dia redistribui o saldo, sem culp
   // Meta já batida.
   assert.match(planDayAdjustment({ summary: { calorie_target: 2000, calorie_remaining: -200 }, period: "jantar", mealCalories: 1100 }).join("\n"), /já chegou na meta de hoje \(passou ~200 kcal\)[\s\S]*Amanhã segue o plano normal/);
 
-  // Pela conversa: meta 600 kcal e 4 ovos (~300 kcal) passam de qualquer fatia do dia.
+  // Pela conversa: meta 600 kcal e 6 ovos (~375 kcal) passam de qualquer fatia do dia.
   const userId = newUser();
   db.updateUserProfile(userId, { daily_calorie_target: 600 });
-  const reply = await send(userId, "comi 4 ovos");
+  const reply = await send(userId, "comi 6 ovos");
   assert.match(reply, /✅ \*Refeição registrada\*[\s\S]*🔄 \*Ajuste do dia\*/);
+});
+
+test("NUT-03/26: feijoada pergunta o acompanhamento; inteiros registram com o tamanho padrão avisado", async () => {
+  const userId = newUser();
+  const question = await send(userId, "almocei 2 pratos de feijoada");
+  assert.match(question, /🍽️ \*Teve acompanhamento\?\*\nFeijoada costuma vir com arroz, farofa, couve e laranja/);
+  assert.equal(db.getTodayMeals(userId).length, 0);
+  const reply = await send(userId, "4 colheres de sopa de arroz e 2 colheres de sopa de farofa");
+  assert.match(reply, /✅ \*Refeição registrada\*[\s\S]*com 4 colheres de sopa de arroz[\s\S]*📐 Considerei: prato de ~300 g/);
+  const meal = db.getTodayMeals(userId)[0];
+  assert.ok(meal.calories > 900, `feijoada + arroz + farofa: ${meal.calories}`);
+
+  const only = newUser();
+  await send(only, "almocei feijoada");
+  assert.match(await send(only, "só feijoada"), /📏 \*Falta a quantidade\*[\s\S]*feijoada/);
+  assert.match(await send(only, "1 prato"), /✅ \*Refeição registrada\*[\s\S]*📐 Considerei: prato de ~300 g/);
+
+  const pizza = newUser();
+  const pizzaReply = await send(pizza, "comi uma pizza inteira de calabresa");
+  assert.match(pizzaReply, /✅ \*Refeição registrada\*[\s\S]*📐 Considerei: pizza grande inteira de 8 fatias \(~720 g\)\. Se foi diferente, me diga que eu corrijo\./);
 });

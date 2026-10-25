@@ -107,7 +107,7 @@ import {
   pastMealTimestamp
 } from "./mealIntent.js";
 import { parsePastMealDate, formatDay } from "./dates.js";
-import { getQuantityQuestions, applyQuantityAnswer, catalogFoodNames } from "./nutritionCatalog.js";
+import { getQuantityQuestions, applyQuantityAnswer, catalogFoodNames, suggestSides, findFoodCandidates } from "./nutritionCatalog.js";
 import { parseFoodRegistration, buildFoodRegistrationReply } from "./userFoods.js";
 import { parseReminderCommand, buildReminderCommandReply, dueReminders, buildWaterReminder } from "./reminders.js";
 import { validateWorkoutRecord, buildWorkoutReply } from "./workouts.js";
@@ -1311,6 +1311,20 @@ function askMealQuantities(userId, message, items) {
   return buildMealQuantityQuestion(items);
 }
 
+// NUT-03: prato que costuma vir com acompanhamento (feijoada, strogonoff…): pergunta antes.
+function askMealSides(userId, message, suggestion) {
+  setPendingMealClarification(userId, { type: "meal_sides", original_message: message, suggestion, created_at: Date.now() });
+  return buildMealSidesQuestion(suggestion);
+}
+
+function buildMealSidesQuestion({ dish, sides }) {
+  return [
+    "🍽️ *Teve acompanhamento?*",
+    `${dish} costuma vir com ${sides}.`,
+    `Me diga o que comeu junto, com a quantidade se souber (ex.: *4 colheres de arroz e 2 de farofa*), ou *só ${dish.toLocaleLowerCase("pt-BR")}*. Ainda não registrei nada.`
+  ].join("\n");
+}
+
 function buildMealQuantityQuestion(items) {
   return [
     "📏 *Falta a quantidade*",
@@ -1322,7 +1336,7 @@ function buildMealQuantityQuestion(items) {
 
 async function handlePendingMealClarification(userId, message, internal) {
   const pending = getPendingMealClarification(userId);
-  if (!pending || !["generic_food", "missing_quantity", "photo_meal"].includes(pending.type)) return null;
+  if (!pending || !["generic_food", "missing_quantity", "photo_meal", "meal_sides"].includes(pending.type)) return null;
 
   if (!(Date.now() - Number(pending.created_at) <= PENDING_CLARIFICATION_MAX_AGE_MS)) {
     clearPendingMealClarification(userId);
@@ -1338,12 +1352,25 @@ async function handlePendingMealClarification(userId, message, internal) {
       : null;
   }
 
-  if (pending.type === "missing_quantity") {
+  if (pending.type === "meal_sides") {
+    const reply = normalizeRequestText(message).trim();
+    if (/^(?:nao|n|nada|so|somente|apenas|sem|nenhum|pura|puro)\b/.test(reply)) {
+      clearPendingMealClarification(userId);
+      return processMessage(userId, pending.original_message, { ...internal, skipMealSides: true });
+    }
+    if (findFoodCandidates(message).length) {
+      clearPendingMealClarification(userId);
+      const sides = message.trim().replace(/^(?:sim|teve|tinha|comi)[,!.\s]+/i, "").replace(/^(?:com|tinha|teve)\s+/i, "");
+      return processMessage(userId, `${pending.original_message.trim().replace(/[.!]+$/, "")} com ${sides}`, { ...internal, skipMealSides: true });
+    }
+  } else if (pending.type === "missing_quantity") {
     const answer = applyQuantityAnswer(pending.original_message, pending.items || [], message, getUserFoods(userId));
     if (answer) {
       clearPendingMealClarification(userId);
       return processMessage(userId, answer.message, {
         ...internal,
+        // O acompanhamento é perguntado antes da quantidade: não pergunta de novo.
+        skipMealSides: true,
         acceptDefaultQuantities: answer.acceptDefaults
       });
     }
@@ -1367,12 +1394,21 @@ async function handlePendingMealClarification(userId, message, internal) {
   // é outro assunto: a pendência é encerrada e o fluxo normal segue.
   const words = normalizeRequestText(message).trim().split(/\s+/).filter(Boolean);
   if (words.length <= 3 && !message.includes("?")) {
+    if (pending.type === "meal_sides") return `Não entendi o acompanhamento.\n${buildMealSidesQuestion(pending.suggestion)}`;
     return pending.type === "missing_quantity"
       ? `Não identifiquei a quantidade.\n${buildMealQuantityQuestion(pending.items || [])}`
       : `Não identifiquei a opção.\n${buildMealClarificationQuestion({ needs_clarification: pending.clarifications })}`;
   }
   clearPendingMealClarification(userId);
   return null;
+}
+
+// NUT-26: tamanho padrão usado (pizza inteira, pacote, prato) aparece na resposta.
+function assumedPortionLines(description) {
+  const assumed = (estimateMealFromText(description)?.matched_items || []).filter((item) => item.assumed);
+  return assumed.length
+    ? [`📐 Considerei: ${assumed.map((item) => item.assumed).join("; ")}. Se foi diferente, me diga que eu corrijo.`]
+    : [];
 }
 
 function describeMealForReply(meal) {
@@ -2743,6 +2779,9 @@ const summaryIntent = classifySummaryIntent(message);
         return askMealClarification(userId, message, estimatedMeal);
       }
 
+      const sidesSuggestion = estimatedMeal && !internal.skipMealSides && !internal.acceptDefaultQuantities ? suggestSides(message, getUserFoods(userId)) : null;
+      if (sidesSuggestion) return askMealSides(userId, message, sidesSuggestion);
+
       const quantityQuestions =
         estimatedMeal && !internal.acceptDefaultQuantities
           ? getQuantityQuestions(message, getUserFoods(userId))
@@ -3153,6 +3192,9 @@ const summaryIntent = classifySummaryIntent(message);
             if (estimatedMeal.needs_clarification) {
               return askMealClarification(userId, message, estimatedMeal);
             }
+
+            const sidesSuggestion = !internal.skipMealSides && !internal.acceptDefaultQuantities ? suggestSides(message, getUserFoods(userId)) : null;
+            if (sidesSuggestion) return askMealSides(userId, message, sidesSuggestion);
 
             const quantityQuestions =
               internal.acceptDefaultQuantities
@@ -4653,6 +4695,7 @@ const summaryIntent = classifySummaryIntent(message);
       `✅ *Refeição registrada* · #${saved.id}`,
       `🍽️ ${food.charAt(0).toLocaleUpperCase("pt-BR")}${food.slice(1)}`,
       "",
+      ...assumedPortionLines(saved.description),
       `🔥 ${Math.round(saved.calories).toLocaleString("pt-BR")} kcal · 🥩 P ${formatKg(saved.protein_g)} g · 🍚 C ${formatKg(saved.carbs_g)} g · 🥑 G ${formatKg(saved.fat_g)} g`,
       today?.calorie_target
         ? `📊 Hoje: ${Math.round(today.calories).toLocaleString("pt-BR")} de ${Math.round(today.calorie_target).toLocaleString("pt-BR")} kcal · ${formatRemainingStatus(today.calorie_target - today.calories, "kcal").toLocaleLowerCase("pt-BR")}`

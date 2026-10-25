@@ -710,7 +710,7 @@ export function normalizeText(value) {
 
 // NUT-26: "pizza inteira de calabresa" → "pizza de calabresa inteira" (sabor junto do prato).
 // Também aplicado ao texto original na resposta de quantidade, para os índices baterem.
-const WHOLE_BEFORE_FLAVOR = /\b(pizza|bolo|torta|lasanha|quiche|esfiha|empad[aã]o)\s+((?:grande|m[eé]dia|pequena|broto|fam[ií]lia)\s+)?(inteir[ao]s?)\s+de\s+([a-zà-ú]+(?:\s+(?:com|e)\s+[a-zà-ú]+)?)/gi;
+const WHOLE_BEFORE_FLAVOR = /\b(pizza|bolo|torta|lasanha|quiche|esfiha|empad[aã]o)(?:s|es)?\s+((?:grande|m[eé]dia|pequena|broto|fam[ií]lia)\s+)?(inteir[ao]s?)\s+de\s+([a-zà-ú]+(?:\s+(?:com|e)\s+[a-zà-ú]+)?)/gi;
 
 // Termos genéricos que não definem preparo ou corte. Um nome mais específico na mesma
 // posição vence ("batata frita", "bife acebolado"); sozinhos, pedem esclarecimento em
@@ -955,6 +955,45 @@ function unitToGrams(amount, unit, item, fill = null) {
   return { grams: amount * (tbcaMeasureGrams(item.id, countLabel) ?? item.default_g), measure: null };
 }
 
+// NUT-03: pratos que quase sempre vêm com acompanhamento. Citado sozinho (sem "só",
+// "apenas", "sem acompanhamento"), pergunta o que veio junto antes de registrar.
+const SIDE_RULES = [
+  [/feijoada/, "arroz, farofa, couve e laranja"],
+  [/strogonoff|estrogonofe/, "arroz e batata palha"],
+  [/parmegiana|parmigiana/, "arroz e batata frita"],
+  [/moqueca|bobo de camarao/, "arroz e pirão"],
+  [/picanha|churrasco|costela/, "arroz, farofa, vinagrete e mandioca"]
+];
+
+export function suggestSides(message, extraFoods = []) {
+  const text = normalizeText(message);
+  if (/\b(?:so|somente|apenas|sem acompanhamentos?|pur[ao]|sozinh[ao])\b/.test(text)) return null;
+  const { groups } = groupOccurrencesByFood(text, extraFoods);
+  if (groups.length !== 1) return null;
+  const name = normalizeText(groups[0].item.name);
+  const sides = SIDE_RULES.find(([pattern]) => pattern.test(name))?.[1];
+  return sides ? { dish: groups[0].item.name, sides } : null;
+}
+
+// NUT-26: tamanho padrão de um inteiro (pizza, bolo, torta…) ou pacote. null = sem padrão.
+const WHOLE_SLICES = [[/pizza/, { grande: 8, media: 6, pequena: 4, broto: 4, familia: 12 }, 8, "pizza"], [/bolo/, {}, 12, "bolo"], [/torta|quiche|empadao/, {}, 8, "torta"]];
+const PACKS = [[/biscoito recheado|bolacha recheada|recheado/, 130], [/biscoito|bolacha/, 200], [/salgadinho|chips/, 90], [/bombom/, 250], [/chocolate/, 90]];
+
+function standardWholeSize(item, size, pack) {
+  const name = normalizeText(`${item.name} ${(item.aliases || []).join(" ")}`);
+  if (pack) {
+    const grams = PACKS.find(([pattern]) => pattern.test(name))?.[1];
+    return grams ? { grams, label: `${pack.replace(/s$/, "")} de ${grams} g` } : null;
+  }
+  const rule = WHOLE_SLICES.find(([pattern]) => pattern.test(name));
+  if (!rule) return null;
+  const [, sizes, fallback, kind] = rule;
+  const slices = sizes[size] || fallback;
+  const sliceGrams = tbcaMeasureGrams(item.id, "fatia") ?? item.default_g;
+  const sizeLabel = kind === "pizza" ? ` ${size === "media" ? "média" : size === "familia" ? "família" : size || "grande"}` : "";
+  return { grams: slices * sliceGrams, label: `${kind}${sizeLabel} inteira de ${slices} fatias (~${Math.round(slices * sliceGrams)} g)`.replace("bolo inteira", "bolo inteiro") };
+}
+
 // Quantidade de uma menção de alimento: { grams, measure } ou null.
 // measure indica medida caseira genérica (aproximação), quando usada.
 function extractQuantityDetails(text, item, fromIndex = 0, { endIndex = null } = {}) {
@@ -976,10 +1015,24 @@ function extractQuantityDetails(text, item, fromIndex = 0, { endIndex = null } =
     if (amount) return unitToGrams(amount, match[2], item, match[3]?.replace(/s$/, "") || null);
   }
 
-  // NUT-26: "pizza inteira", "bolo inteiro" sem medida: quantidade desconhecida, perguntar.
-  if (/^\s*(?:(?:grande|media|pequena|broto|familia)\s+)?inteir[ao]s?\b/.test(after)) return { grams: 0, measure: null, whole: true };
-  // "um pacote de biscoito", "uma caixa de bombom": tamanho varia, perguntar.
-  if (/\b(?:pacotes?|caixas?|potes?|latas? de leite condensado)\s+(?:inteir[ao]s?\s+)?(?:de|do|da)\s*$/.test(before)) return { grams: 0, measure: null, whole: true };
+  // NUT-26: "pizza inteira", "bolo inteiro", "pacote de biscoito": tamanho padrão
+  // (pizza grande de 8 fatias, bolo de 12…) avisado na resposta; sem padrão, perguntar.
+  const wholeAfter = after.match(/^\s*(?:(grande|media|pequena|broto|familia)\s+)?inteir[ao]s?\b/);
+  const packBefore = before.match(/\b(pacotes?|caixas?|potes?|barras?)\s+(?:inteir[ao]s?\s+)?(?:de|do|da)\s*$/);
+  if (wholeAfter || packBefore) {
+    const count = Number(before.match(/\b(\d+)\s*$/)?.[1]) || (/\b(?:duas|dois)\s+(?:\w+\s+){0,2}$/.test(before) ? 2 : 1);
+    const standard = standardWholeSize(item, wholeAfter?.[1] || null, packBefore?.[1] || null);
+    return standard
+      ? { grams: count * standard.grams, measure: null, assumed: standard.label }
+      : { grams: 0, measure: null, whole: true };
+  }
+
+  // "2 pratos de feijoada": prato só vale para pratos servidos inteiros (porção ≥ 200 g).
+  const plateBefore = before.match(new RegExp(`(${QUANTITY_PATTERN})\\s*pratos?(?:\\s+(cheios?|fundos?))?\\s*(?:de|do|da)\\s*$`));
+  if (plateBefore && item.default_g >= 200) {
+    const amount = parseQuantity(plateBefore[1]);
+    if (amount) return { grams: Math.round(amount * item.default_g * (plateBefore[2] ? 1.3 : 1)), measure: null, assumed: `prato de ~${Math.round(item.default_g * (plateBefore[2] ? 1.3 : 1))} g` };
+  }
 
   // Contagem direta antes/depois do alimento: "2 bananas", "meia banana", "1/2 mamão".
   const directBefore = before.match(new RegExp(`(${QUANTITY_PATTERN})\\s*$`));
@@ -1039,6 +1092,7 @@ function groupOccurrencesByFood(text, extraFoods = []) {
       ...occurrence,
       explicitGrams: details?.grams > 0 ? details.grams : null,
       measure: details?.measure || null,
+      assumed: details?.assumed || null,
       whole: Boolean(details?.whole)
     });
     groups.set(occurrence.item.id, group);
@@ -1112,12 +1166,14 @@ export function applyQuantityAnswer(originalMessage, items, reply, extraFoods = 
     const amount = parseQuantity(match[1]);
     if (!amount) return null;
     if (match[2]) return `${match[1]} ${match[2]}`;
+    // "1 prato", "2 pratos" para pratos servidos inteiros (feijoada, caldo…).
+    if (match[3] && item.default_g >= 200) return `${match[1]} ${amount > 1 ? "pratos" : "prato"}`;
     // Item contado em fatias (pizza inteira): número pequeno = fatias.
     if (amount < 10 && /fatia/.test(String(item.unit || ""))) return `${match[1]} fatias`;
     // Número solto vale como gramas quando não pode ser contagem ("150", não "2").
     return amount >= 10 ? `${match[1]} g` : null;
   };
-  const unit = `(?:\\s*(${UNIT_PATTERN})(?![a-z]))?`;
+  const unit = `(?:\\s*(${UNIT_PATTERN})(?![a-z]))?(?:\\s*(pratos?)(?![a-z]))?`;
   const original = String(originalMessage || "").normalize("NFC").replace(WHOLE_BEFORE_FLAVOR, "$1 de $4 $2$3");
   const originalOccurrences = findFoodOccurrences(normalizeFoodText(original), extraFoods);
   const replyOccurrences = findFoodOccurrences(replyText, extraFoods);
@@ -1176,7 +1232,8 @@ export function estimateMealFromText(message, options = {}) {
       carbs_g: item.carbs * factor,
       fat_g: item.fat * factor,
       source: item.source,
-      ...(householdMeasures.length ? { household_measures: householdMeasures, approximate_quantity: true } : {})
+      ...(householdMeasures.length ? { household_measures: householdMeasures, approximate_quantity: true } : {}),
+      ...(mentions.some((mention) => mention.assumed) && !(override > 0) ? { assumed: mentions.find((mention) => mention.assumed).assumed } : {})
     });
   }
 
