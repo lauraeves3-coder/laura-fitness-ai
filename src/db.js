@@ -1559,6 +1559,27 @@ export function updatePlannedSession(id, changes) {
   return parsePlannedSession(db.prepare(`SELECT * FROM planned_sessions WHERE id = ?`).get(id));
 }
 
+// CRP-03: medidas corporais (cm) e percentual de gordura (%), com histórico.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS body_measurements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    part TEXT NOT NULL,
+    value REAL NOT NULL,
+    measured_at TEXT NOT NULL
+  );
+`);
+
+export function saveMeasurements(userId, entries, date) {
+  ensureUser(userId);
+  const insert = db.prepare(`INSERT INTO body_measurements (user_id, part, value, measured_at) VALUES (?, ?, ?, ?)`);
+  db.transaction(() => { for (const { part, value } of entries) insert.run(userId, part, value, date); })();
+}
+
+export function getMeasurements(userId) {
+  return db.prepare(`SELECT part, value, measured_at AS date FROM body_measurements WHERE user_id = ? ORDER BY measured_at, id`).all(userId);
+}
+
 // ACO-04: dados para detectar metas desatualizadas.
 export function getWeightsBetween(userId, startDate, endDate) {
   return db.prepare(`

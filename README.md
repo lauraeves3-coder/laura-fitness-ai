@@ -102,6 +102,12 @@ Se você já tiver registrado uma atividade à mão no mesmo dia, a importação
 | "como está minha corrida?" | Mostra km por semana, melhor pace e quanto do plano você cumpriu |
 | "tomei 2 scoops de whey da dux sabor cookies" | Usa o rótulo da marca e do sabor |
 | "conectar strava" / "sincronizar strava" | Liga o Strava / importa agora |
+| "monte um treino para fazer 5 km abaixo de 25 min" | Analisa a meta, monta ritmos progressivos e testes de 3 km |
+| "teste 3 km em 15:30" | Recalibra os ritmos do plano pelo resultado |
+| "qual foi minha última corrida?" | Mostra km, tempo, pace, FC e gasto estimado |
+| "comi uma pizza inteira" / "2 pratos de feijoada" | Usa o tamanho padrão e avisa; pergunta o acompanhamento |
+| "cintura 78 cm, quadril 98 cm" / "minhas medidas" | Registra medidas e mostra a evolução |
+| "evolução do peso" | Mini gráfico, variação por semana e se está no ritmo do objetivo |
 
 ## Estrutura
 

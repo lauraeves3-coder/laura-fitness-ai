@@ -53,6 +53,7 @@ import {
   setGoalReviewAt
 } from "./db.js";
 import { reviewTargets, describeTargetReview } from "./goalReview.js";
+import { handleBodyMessage } from "./body.js";
 import {
   calculateNutritionBalance,
   analyzeRemainingNutritionBudget,
@@ -2709,6 +2710,10 @@ const summaryIntent = classifySummaryIntent(message);
     // ajustes por cansaço/dor, sem o modelo.
     const trainingReply = handleTrainingMessage(userId, message, dailySummary.date);
     if (trainingReply) return trainingReply;
+
+    // CRP-03: medidas corporais e evolução do peso.
+    const bodyReply = handleBodyMessage(userId, message, dailySummary.date);
+    if (bodyReply) return bodyReply;
 
     // Registros e consultas frequentes vão direto, sem o modelo (economia e previsibilidade).
     const weightKg = detectWeightReport(message);

@@ -1176,3 +1176,27 @@ test("ACO-04: detecta metas desatualizadas e só sugere a revisão", async () =>
   assert.doesNotMatch(await send(userId, "resumo do dia"), /Vale revisar/);
   assert.equal(db.getUser(userId).targets_weight_kg, 69, "nada recalculado sozinho");
 });
+
+// ---------- CRP-03: medidas corporais e tendências ----------
+
+test("CRP-03: medidas pela conversa, evolução e tendência do peso", async () => {
+  const { parseMeasurements, buildWeightTrendReply } = await import("../src/body.js");
+  assert.deepEqual(parseMeasurements("cintura 78 cm, quadril 98 cm, braço 31 cm").map((entry) => entry.part), ["cintura", "quadril", "braco"]);
+  assert.deepEqual(parseMeasurements("minha cintura está 78"), [{ part: "cintura", value: 78 }]);
+  assert.deepEqual(parseMeasurements("meu percentual de gordura é 24%"), [{ part: "gordura", value: 24 }]);
+  for (const text of ["treino de braço 3x12", "fiz 40 min de perna e braço", "comi 2 coxas de frango", "quero diminuir a cintura para 70 cm"]) {
+    assert.deepEqual(parseMeasurements(text), [], text);
+  }
+
+  const userId = newUser();
+  assert.match(await send(userId, "minhas medidas"), /Ainda não tenho medidas suas/);
+  const saved = await send(userId, "cintura 80 cm, quadril 100 cm e gordura 26%");
+  assert.match(saved, /📏 \*Medidas registradas\*[\s\S]*• \*Cintura:\* 80 cm\n• \*Quadril:\* 100 cm\n• \*Gordura corporal:\* 26%/);
+  await send(userId, "minha cintura está 78,5");
+  assert.match(await send(userId, "minhas medidas"), /• \*Cintura:\* 78,5 cm \(−1,5 cm desde/);
+
+  const trend = buildWeightTrendReply([{ date: "2026-09-01", weight_kg: 70 }, { date: "2026-09-15", weight_kg: 69.2 }, { date: "2026-10-01", weight_kg: 68.6 }, { date: "2026-10-20", weight_kg: 68 }], { goal: "emagrecer" });
+  assert.match(trend, /⚖️ \*Evolução do peso\*\n\n█▅▃▁\n70 kg \(ter 01\/09\) → \*68 kg\* \(ter 20\/10\)\nVariação: \*−2 kg\* em 49 dias · −0,3 kg\/semana/);
+  assert.match(trend, /✅ No ritmo certo para emagrecer/);
+  assert.match(await send(userId, "evolução do peso"), /Preciso de pelo menos 2 pesagens/);
+});
