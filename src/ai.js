@@ -587,6 +587,13 @@ function getMealPeriod(date = new Date()) {
   return "ceia";
 }
 
+// "1", "a 2", "opção 3", "quero a 2", "vou de 1" → número da opção (1–5) ou null.
+function parseOptionPick(message) {
+  const text = normalizeRequestText(message).trim().replace(/[.!]+$/, "");
+  const match = text.match(/^(?:(?:quero|vou de|escolho|fico com|pode ser)\s+)?(?:a\s+|o\s+)?(?:opcao\s+|numero\s+|n\s*)?([1-5])(?:a|o)?$/);
+  return match ? Number(match[1]) : null;
+}
+
 function isExplicitSelectionConfirmation(message) {
   const normalized = String(message || "")
     .normalize("NFD")
@@ -910,11 +917,11 @@ function buildMealProjectionReply(
 
   const projected = calculateNutritionBalance(targets, consumed, result.data);
   const lines = [
-    `🍽️ ${result.data.name || result.data.meal || "Sugestão para agora"}`,
+    `✅ *${result.data.name || result.data.meal || "Sugestão para agora"}*`,
     ...(result.data.foods || []).map((food) => `• ${food}`),
-    `🔥 Aproximadamente ${Math.round(result.data.calories)} kcal · 🥩 ${Math.round(result.data.protein_g)} g proteína · 🍚 ${Math.round(result.data.carbs_g)} g carboidratos · 🥑 ${Math.round(result.data.fat_g)} g gorduras`,
+    `🔥 ${Math.round(result.data.calories)} kcal · 🥩 P ${Math.round(result.data.protein_g)} g · 🍚 C ${Math.round(result.data.carbs_g)} g · 🥑 G ${Math.round(result.data.fat_g)} g`,
     "",
-    "📊 Projeção da opção escolhida (ainda não registrada como consumo):"
+    "📊 *Como fica seu dia com essa opção*"
   ];
 
   const labels = {
@@ -929,10 +936,10 @@ function buildMealProjectionReply(
     if (metric.target === null) continue;
     const remaining = metric.remaining;
     const status = metric.status === "falta"
-      ? `faltariam ${Math.round(remaining)} ${unit}`
+      ? `ainda restariam ${Math.round(remaining).toLocaleString("pt-BR")} ${unit}`
       : metric.status === "atingida"
-        ? "meta atingida"
-        : `ultrapassaria em ${Math.round(Math.abs(remaining))} ${unit}`;
+        ? "✅ meta atingida"
+        : `⚠️ passaria ${Math.round(Math.abs(remaining)).toLocaleString("pt-BR")} ${unit} da meta`;
     lines.push(`${label}: ${status}`);
     if (result.data.explicit_overage) {
       lines.push(`  Projeção: ${Math.round(metric.projected_consumed)} / ${Math.round(metric.target)} ${unit}`);
@@ -953,7 +960,7 @@ function buildMealProjectionReply(
       : "Vou respeitar o limite de calorias e não tentar aumentar um macro que já atingiu ou ultrapassou a meta.");
   }
 
-  lines.push("\nSe quiser, posso registrar quando você confirmar que comeu.");
+  lines.push("\n👉 Comeu? Mande *comi essa opção* que eu registro. Ainda não registrei nada.");
   return lines.join("\n");
 }
 
@@ -2225,6 +2232,13 @@ function handleFreeMealConversation({
   const status = settings?.setup_status || "unknown";
   const explicitFreeMeal = isFreeMealRequest(message);
 
+  // Pergunta da configuração feita há mais de 30 min (ou sem horário, de antes desta
+  // correção): resposta solta como "1" é de outra conversa (ex.: escolher a opção 1).
+  const staleSetup = /^asked/.test(status) && !(settings?.setup_at && Date.now() - settings.setup_at <= 30 * 60 * 1000);
+  if (staleSetup && !explicitFreeMeal) {
+    return null;
+  }
+
   if (
     status === "unknown" &&
     hasExplicitProfileUpdateIntent(message) &&
@@ -2750,6 +2764,22 @@ const summaryIntent = classifySummaryIntent(message);
     // DSP-01: despensa ("comprei…", "minha despensa", "acabou o leite").
     const pantryReply = handlePantryMessage(userId, message, dailySummary.date);
     if (pantryReply) return pantryReply;
+
+    // "1", "opção 2", "quero a 3" logo depois das opções de refeição: escolhe a opção,
+    // sem depender do modelo. Se a lista mais recente for de receitas, o número é dela.
+    const pickedOption = parseOptionPick(message);
+    if (pickedOption) {
+      const offer = getLatestMealPlanEvent(userId, "suggestion_offered", null, dailySummary.date);
+      // created_at do evento é hora de Brasília (UTC−3).
+      const offerAt = offer ? Date.parse(`${String(offer.created_at).replace(" ", "T")}-03:00`) : 0;
+      const recipeAt = Number(JSON.parse(getUser(userId)?.recipe_state || "{}").at) || 0;
+      if (offer && Date.now() - offerAt <= 30 * 60 * 1000 && offerAt >= recipeAt) {
+        return processMessage(userId, message, {
+          ...internal,
+          interpretedAction: { action: "meal_choice", data: { option_index: pickedOption, meal_period: offer.meal_period }, reply: "" }
+        });
+      }
+    }
 
     // REC: receitas (busca com filtros, ficha, troca de ingrediente, favoritas, registro).
     const recipeReply = handleRecipeMessage(userId, message, {

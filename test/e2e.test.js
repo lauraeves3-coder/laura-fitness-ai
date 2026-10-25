@@ -1412,3 +1412,27 @@ test("Whey: 'opções de lanche com whey' vira receitas com o whey salvo", async
   assert.match(reply, /🍳 \*Receitas para você\*/);
   assert.match(reply, /Brownie de caneca proteico|Mousse proteica/);
 });
+
+test("Opções de refeição: responder só o número escolhe a opção (mesmo com configuração antiga de refeição livre pendente)", async () => {
+  const userId = userWithTargets();
+  // Configuração de refeição livre parada há dias em "asked_frequency" (o caso real).
+  db.setFreeMealSettings(userId, { setup_status: "asked_frequency", enabled: true });
+  const { default: Database } = await import("better-sqlite3");
+  const raw = new Database(process.env.FITPULSE_DB_PATH);
+  raw.prepare("UPDATE users SET free_meal_setup_at = ? WHERE id = ?").run(Date.now() - 3 * 24 * 3600 * 1000, userId);
+  raw.close();
+  const options = await send(userId, "Me mande opções para o almoço", fakeModel([toolCall("suggest_meals", {
+    meal_period: "almoço", desired_food: null, requested_servings: null, available_foods: [], required_foods: [],
+    explicit_excluded_foods: [], explicit_excluded_compositions: []
+  }), finalText("ok")]));
+  assert.match(options, /\*Opção 1\* — /);
+  const firstName = options.match(/\*Opção 1\* — (.+)/)[1];
+  const secondName = options.match(/\*Opção 2\* — (.+)/)[1];
+  const reply = await send(userId, "1");
+  assert.doesNotMatch(reply, /refeição livre/i, "não cai na configuração da refeição livre");
+  assert.ok(reply.startsWith(`✅ *${firstName}*`), reply);
+  assert.match(reply, /📊 \*Como fica seu dia com essa opção\*\n🔥 Calorias: ainda restariam [\d.]+ kcal/);
+  assert.match(reply, /👉 Comeu\? Mande \*comi essa opção\* que eu registro/);
+  assert.ok((await send(userId, "quero a 2")).startsWith(`✅ *${secondName}*`));
+  assert.match(await send(userId, "comi essa opção"), /Refeição registrada|registr/i);
+});

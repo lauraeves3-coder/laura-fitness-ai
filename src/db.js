@@ -214,6 +214,8 @@ ensureColumn("users", "goal_review_at", "TEXT");
 ensureColumn("users", "reply_style", "TEXT");
 // REC: última lista, receita aberta (com trocas) e favoritas, em JSON.
 ensureColumn("users", "recipe_state", "TEXT");
+// Quando a pergunta da refeição livre foi feita (ms): resposta solta muito depois não vale.
+ensureColumn("users", "free_meal_setup_at", "INTEGER");
 // Whey da pessoa (marca, sabor, item do catálogo) e pergunta pendente, em JSON.
 ensureColumn("users", "whey_profile", "TEXT");
 ensureColumn("users", "whey_pending", "TEXT");
@@ -622,7 +624,8 @@ export function getFreeMealSettings(userId) {
     meals_per_week: Math.max(0, Number(user?.free_meals_per_week || 0)),
     days: normalizeFreeMealDays(parseJsonArray(user?.free_meal_days)),
     period: user?.free_meal_period || null,
-    preferences: parseJsonArray(user?.free_meal_preferences)
+    preferences: parseJsonArray(user?.free_meal_preferences),
+    setup_at: user?.free_meal_setup_at ? Number(user.free_meal_setup_at) : null
   };
 }
 
@@ -673,7 +676,8 @@ export function setFreeMealSettings(userId, settings = {}) {
       free_meals_per_week = ?,
       free_meal_days = ?,
       free_meal_period = ?,
-      free_meal_preferences = ?
+      free_meal_preferences = ?,
+      free_meal_setup_at = ?
     WHERE id = ?
   `).run(
     setupStatus,
@@ -682,6 +686,8 @@ export function setFreeMealSettings(userId, settings = {}) {
     JSON.stringify(days),
     period,
     JSON.stringify(preferences),
+    // Nova pergunta da configuração: guarda o horário; senão mantém o anterior.
+    /^asked/.test(setupStatus) && setupStatus !== current.setup_status ? Date.now() : current.setup_at,
     userId
   );
 
