@@ -435,6 +435,7 @@ export function createAgentToolRegistry({
     }),
     defineTool("record_workout", "Registrar somente um treino que o usuário informou que realizou.", {
       workout_type: { type: "string" },
+      effort: { type: ["number", "null"], minimum: 0, maximum: 10, description: "esforço/cansaço da sessão de 0 a 10, só se a pessoa disser" },
       duration_min: { type: "number", minimum: 0 },
       distance_km: { type: ["number", "null"], minimum: 0, description: "distância em km (corrida, pedal, nado, caminhada)" },
       notes: { type: "string" },
@@ -446,9 +447,11 @@ export function createAgentToolRegistry({
             name: { type: "string" },
             sets: { type: "integer", minimum: 0 },
             reps: { type: "integer", minimum: 0 },
-            weight_kg: { type: "number", minimum: 0 }
+            weight_kg: { type: "number", minimum: 0 },
+            rpe: { type: ["number", "null"], minimum: 0, maximum: 10, description: "RPE do exercício, só se informado" },
+            rir: { type: ["number", "null"], minimum: 0, maximum: 10, description: "repetições na reserva, só se informado" }
           },
-          required: ["name", "sets", "reps", "weight_kg"],
+          required: ["name", "sets", "reps", "weight_kg", "rpe", "rir"],
           additionalProperties: false
         }
       }

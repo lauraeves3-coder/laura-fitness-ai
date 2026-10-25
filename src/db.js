@@ -212,6 +212,10 @@ ensureColumn("users", "targets_weight_kg", "REAL");
 ensureColumn("users", "goal_review_at", "TEXT");
 // CONV-12: estilo de resposta preferido ("curta" | "detalhada" | null = normal).
 ensureColumn("users", "reply_style", "TEXT");
+// MUS-02: esforço por exercício (RPE/RIR) e da sessão (0–10).
+ensureColumn("exercises", "rpe", "REAL");
+ensureColumn("exercises", "rir", "REAL");
+ensureColumn("workouts", "effort", "REAL");
 
 ensureColumn(
   "users",
@@ -1187,9 +1191,10 @@ export function saveWorkout(
           notes,
           trained_at,
           distance_km,
-          pace_s_per_km
+          pace_s_per_km,
+          effort
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         userId,
         workout.workout_type,
@@ -1200,7 +1205,8 @@ export function saveWorkout(
         Number(workout.distance_km) > 0 ? Number(workout.distance_km) : null,
         Number(workout.distance_km) > 0 && Number(workout.duration_min) > 0
           ? Math.round(Number(workout.duration_min) * 60 / Number(workout.distance_km))
-          : null
+          : null,
+        workout.effort ?? null
       );
 
     const workoutId =
@@ -1218,9 +1224,11 @@ export function saveWorkout(
             name,
             sets,
             reps,
-            weight_kg
+            weight_kg,
+            rpe,
+            rir
           )
-          VALUES (?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
         `);
 
       const insertMany =
@@ -1235,7 +1243,9 @@ export function saveWorkout(
                 exercise.name,
                 exercise.sets ?? 0,
                 exercise.reps ?? 0,
-                exercise.weight_kg ?? 0
+                exercise.weight_kg ?? 0,
+                exercise.rpe ?? null,
+                exercise.rir ?? null
               );
             }
           }
@@ -1256,7 +1266,7 @@ function getWorkoutWithExercises(workoutId) {
   return {
     ...workout,
     exercises: db.prepare(
-      "SELECT name, sets, reps, weight_kg FROM exercises WHERE workout_id = ? ORDER BY id"
+      "SELECT name, sets, reps, weight_kg, rpe, rir FROM exercises WHERE workout_id = ? ORDER BY id"
     ).all(workoutId)
   };
 }
@@ -1603,6 +1613,15 @@ export function saveMeasurements(userId, entries, date) {
 
 export function getMeasurements(userId) {
   return db.prepare(`SELECT part, value, measured_at AS date FROM body_measurements WHERE user_id = ? ORDER BY measured_at, id`).all(userId);
+}
+
+// MUS-02: esforço das últimas sessões de musculação (mais antiga primeiro).
+export function getRecentStrengthEfforts(userId, limit = 3) {
+  return db.prepare(`
+    SELECT effort FROM workouts
+    WHERE user_id = ? AND effort IS NOT NULL AND (distance_km IS NULL OR distance_km = 0) AND duplicate_of IS NULL
+    ORDER BY trained_at DESC, id DESC LIMIT ?
+  `).all(userId, limit).map((row) => row.effort).reverse();
 }
 
 // ACO-04: dados para detectar metas desatualizadas.

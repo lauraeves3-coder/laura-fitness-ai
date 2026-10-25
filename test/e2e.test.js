@@ -689,7 +689,7 @@ test("MUS-01: treino registra cada exercício com séries, repetições e carga,
   assert.match(reply, /supino: 4 × 8 com 50 kg/);
   assert.match(reply, /Volume total: 3\.760 kg/);
   const [workout] = db.getWorkoutsBetween(userId, today(userId), today(userId));
-  assert.deepEqual(workout.exercises, [
+  assert.deepEqual(workout.exercises.map(({ rpe, rir, ...exercise }) => exercise), [
     { name: "supino", sets: 4, reps: 8, weight_kg: 50 },
     { name: "agachamento", sets: 3, reps: 12, weight_kg: 60 }
   ]);
@@ -1264,4 +1264,39 @@ test("CONV-12: preferência por respostas curtas ou detalhadas vai para as instr
   const normal = fakeModel([finalText("Oi!")]);
   await send(userId, "me dá uma dica para dormir melhor", normal);
   assert.doesNotMatch(normal.requests[0].instructions, /Preferência de estilo/);
+});
+
+// ---------- MUS-02: esforço e progressão ----------
+
+test("MUS-02: RPE/RIR por exercício, esforço da sessão, progressão de carga e alerta de fadiga", async () => {
+  const { applyEffortFromText, progressionAdvice, fatigueAdvice } = await import("../src/workouts.js");
+  const parsed = applyEffortFromText({ workout_type: "Musculação", exercises: [{ name: "supino", sets: 3, reps: 10, weight_kg: 40 }] }, "supino 3x10 com 40 kg, rir 3, esforço 7/10");
+  assert.equal(parsed.exercises[0].rir, 3);
+  assert.equal(parsed.effort, 7);
+  assert.match(progressionAdvice(parsed.exercises).join("\n"), /⬆️ supino: sobrou fôlego \(RIR 3\)\. Suba a carga ~2 kg \(para 42 kg\)/);
+  assert.match(progressionAdvice([{ name: "agachamento", weight_kg: 60, rpe: 10 }]).join("\n"), /⏸️ agachamento: foi até a falha/);
+  assert.deepEqual(progressionAdvice([{ name: "remada", weight_kg: 30, rir: 2 }]), [], "RIR 1–2 é a faixa certa");
+  assert.equal(fatigueAdvice([9, 9.5]), null);
+  assert.match(fatigueAdvice([9, 9, 10]), /semana mais leve/);
+
+  const userId = newUser();
+  const reply = await send(userId, "treinei supino 3x10 com 40 kg, rir 3, esforço 9/10", fakeModel([
+    toolCall("record_workout", { workout_type: "musculação", effort: null, duration_min: 45, exercises: [{ name: "supino", sets: 3, reps: 10, weight_kg: 40, rpe: null, rir: null }] }),
+    finalText("ok")
+  ]));
+  assert.match(reply, /• supino: 3 × 10 com 40 kg \(RIR 3\)/);
+  assert.match(reply, /💢 Esforço da sessão: 9\/10/);
+  assert.match(reply, /📈 \*Próximo treino\*\n⬆️ supino/);
+  const workout = db.getWorkoutsBetween(userId, "2000-01-01", "2100-01-01")[0];
+  assert.equal(workout.effort, 9);
+  assert.equal(workout.exercises[0].rir, 3);
+  let lastReply = "";
+  for (const effort of [9, 10]) {
+    lastReply = await send(userId, `treinei agachamento 4x8 com 60 kg, esforço ${effort}/10`, fakeModel([
+      toolCall("record_workout", { workout_type: "musculação", effort: null, duration_min: 50, exercises: [{ name: "agachamento", sets: 4, reps: 8, weight_kg: 60, rpe: null, rir: null }] }),
+      finalText("ok")
+    ]));
+  }
+  assert.match(db.getRecentStrengthEfforts(userId).join(","), /9,9,10/);
+  assert.match(lastReply, /😮‍💨 Suas últimas 3 sessões foram muito pesadas/);
 });

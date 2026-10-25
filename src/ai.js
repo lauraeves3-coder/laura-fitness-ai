@@ -51,7 +51,8 @@ import {
   getWeightsBetween,
   getDailyCaloriesBetween,
   setGoalReviewAt,
-  setReplyStyle
+  setReplyStyle,
+  getRecentStrengthEfforts
 } from "./db.js";
 import { reviewTargets, describeTargetReview } from "./goalReview.js";
 import { handleBodyMessage } from "./body.js";
@@ -118,7 +119,7 @@ import { parsePastMealDate, formatDay, addDays, daysBetween, weekdayOf } from ".
 import { getQuantityQuestions, applyQuantityAnswer, catalogFoodNames, suggestSides, findFoodCandidates } from "./nutritionCatalog.js";
 import { parseFoodRegistration, buildFoodRegistrationReply } from "./userFoods.js";
 import { parseReminderCommand, buildReminderCommandReply, dueReminders, buildWaterReminder } from "./reminders.js";
-import { validateWorkoutRecord, buildWorkoutReply } from "./workouts.js";
+import { validateWorkoutRecord, buildWorkoutReply, applyEffortFromText, fatigueAdvice } from "./workouts.js";
 import { runAgent, getClient } from "./agent/agent.js";
 import { describeMealPhoto, buildPhotoMealText, resolvePhotoItems } from "./vision.js";
 import { toFile } from "openai";
@@ -4575,6 +4576,9 @@ const summaryIntent = classifySummaryIntent(message);
     }
   }
 
+  // MUS-02: RPE/RIR e esforço citados no texto ("rpe 8", "esforço 9/10").
+  if (result.action === "workout") result.data = applyEffortFromText(result.data, message);
+
   // MUS-03: recordes antes de gravar, para avisar quando o treino supera a marca anterior.
   const previousRecords = result.action === "workout" ? exerciseRecords(getExerciseHistory(userId)) : null;
 
@@ -4587,6 +4591,7 @@ const summaryIntent = classifySummaryIntent(message);
   // MUS-01 / CRP-01: confirmação explícita (antes caía em "Entendi. Como posso te ajudar?").
   if (result.action === "workout") {
     if (!saved) return "Não consegui registrar o treino. Nada foi gravado.";
+    const fatigue = saved.effort != null ? fatigueAdvice(getRecentStrengthEfforts(userId)) : null;
     const newRecords = (result.data.exercises || []).filter((exercise) => {
       const previous = previousRecords.get(normalizeRequestText(exercise.name).trim());
       return previous && Number(exercise.weight_kg) > previous.weight_kg;
@@ -4595,7 +4600,8 @@ const summaryIntent = classifySummaryIntent(message);
       buildWorkoutReply(saved),
       // COR-05 / ESP-06: pace e comparação com o plano de treino.
       ...afterWorkoutSaved(userId, saved, dailySummary.date),
-      ...newRecords.map((exercise) => `🏆 Novo recorde em ${exercise.name}: ${formatKg(exercise.weight_kg)} kg!`)
+      ...newRecords.map((exercise) => `🏆 Novo recorde em ${exercise.name}: ${formatKg(exercise.weight_kg)} kg!`),
+      ...(fatigue ? ["", fatigue] : [])
     ].join("\n");
   }
 
