@@ -531,3 +531,26 @@ test("NUT-26: inteiros e pacotes com tamanho padrão; prato de feijoada; acompan
   assert.equal(suggestSides("comi só feijoada"), null);
   assert.equal(suggestSides("comi arroz e feijão"), null);
 });
+
+test("SUP-02: suplementos além do whey, por dose, sem perguntar quantidade", async () => {
+  const { estimateMealFromText: estimate, getQuantityQuestions: questions } = await import("../src/nutritionCatalog.js");
+  const cases = [
+    ["tomei 5 g de creatina", "Creatina monohidratada", 5, 0],
+    ["tomei 1 scoop de caseína", "Caseína micelar", 30, 110],
+    ["tomei 1 dose de albumina", "Albumina em pó", 30, 113],
+    ["comi 2 barras de proteína", "Barra de proteína", 90, 350],
+    ["tomei um yopro", "Bebida proteica pronta", 250, 160],
+    ["tomei 2 sachês de gel de carboidrato", "Gel de carboidrato", 60, 160],
+    ["tomei 2 cápsulas de ômega 3", "Ômega 3 (cápsula)", 2, 18],
+    ["bebi um gatorade", "Isotônico", 500, 120],
+    ["tomei pré-treino", "Pré-treino", 10, 15]
+  ];
+  for (const [message, name, grams, kcal] of cases) {
+    assert.deepEqual(questions(message), [], message);
+    const [item] = estimate(message).matched_items;
+    assert.equal(item.name, name, message);
+    assert.equal(item.grams, grams, message);
+    assert.equal(Math.round(item.calories), kcal, message);
+    assert.equal(item.source, "curated_estimate");
+  }
+});

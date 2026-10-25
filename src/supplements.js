@@ -108,6 +108,43 @@ export function wheyCatalogItems() {
   });
 }
 
+// SUP-02: outras categorias de suplemento, com valores típicos de rótulo (média de marcas
+// do mercado brasileiro, por dose). São estimativas: marca e sabor exatos ficam para SUP-01.
+// [id, nome, aliases, dose (g/ml), kcal, P, C, G, unidade]
+const SUPPLEMENTS = [
+  ["creatina", "Creatina monohidratada", ["creatina", "creatina monohidratada"], 3, 0, 0, 0, 0, "1 dose (3 g)"],
+  ["caseina", "Caseína micelar", ["caseína", "caseina", "caseína micelar", "caseina micelar"], 30, 110, 24, 3, 0.5, "1 dose (30 g)"],
+  ["albumina", "Albumina em pó", ["albumina", "albumina em pó"], 30, 113, 24, 2, 0.1, "1 dose (30 g)"],
+  ["proteina-vegana", "Proteína vegana (ervilha/arroz)", ["proteína vegana", "proteina vegana", "proteína vegetal", "proteina vegetal", "proteína de ervilha", "proteina de ervilha", "whey vegano"], 30, 115, 21, 3, 2, "1 dose (30 g)"],
+  ["hipercalorico", "Hipercalórico (massa)", ["hipercalórico", "hipercalorico", "massa hipercalórica", "massa hipercalorica"], 100, 380, 20, 70, 2.5, "1 dose (100 g)"],
+  ["maltodextrina", "Maltodextrina", ["maltodextrina", "malto"], 20, 76, 0, 19, 0, "1 dose (20 g)"],
+  ["dextrose", "Dextrose", ["dextrose"], 20, 76, 0, 19, 0, "1 dose (20 g)"],
+  ["palatinose", "Palatinose", ["palatinose"], 20, 80, 0, 20, 0, "1 dose (20 g)"],
+  ["gel-carboidrato", "Gel de carboidrato", ["gel de carboidrato", "gel energético", "gel energetico", "carb gel", "gel de corrida", "sachê de gel", "sache de gel"], 30, 80, 0, 20, 0, "1 sachê (30 g)"],
+  ["bcaa", "BCAA", ["bcaa"], 5, 18, 4.5, 0, 0, "1 dose (5 g)"],
+  ["glutamina", "Glutamina", ["glutamina"], 5, 20, 5, 0, 0, "1 dose (5 g)"],
+  ["pre-treino", "Pré-treino", ["pré-treino", "pre-treino", "pré treino", "pre treino", "preworkout", "pre workout"], 10, 15, 0, 3.5, 0, "1 dose (10 g)"],
+  ["colageno", "Colágeno hidrolisado", ["colágeno", "colageno", "colágeno hidrolisado", "colageno hidrolisado"], 10, 36, 9, 0, 0, "1 dose (10 g)"],
+  ["omega-3", "Ômega 3 (cápsula)", ["ômega 3", "omega 3", "omega3", "ômega-3", "omega-3", "óleo de peixe", "oleo de peixe"], 1, 9, 0, 0, 1, "1 cápsula (1 g)"],
+  ["barra-proteina", "Barra de proteína", ["barra de proteína", "barra de proteina", "barrinha de proteína", "barrinha de proteina", "barra proteica", "protein bar"], 45, 175, 15, 17, 6.5, "1 barra (45 g)"],
+  ["bebida-proteica", "Bebida proteica pronta", ["bebida proteica", "yopro", "shake pronto", "shake proteico pronto", "iogurte proteico"], 250, 160, 25, 12, 1, "1 garrafa (250 ml)"],
+  ["isotonico", "Isotônico", ["isotônico", "isotonico", "gatorade", "powerade"], 500, 120, 0, 30, 0, "1 garrafa (500 ml)"],
+  ["eletrolitos", "Eletrólitos (repositor)", ["eletrólitos", "eletrolitos", "repositor eletrolítico", "repositor eletrolitico", "sais minerais"], 5, 10, 0, 2, 0, "1 dose (5 g)"]
+];
+
+export function supplementCatalogItems() {
+  return SUPPLEMENTS.map(([id, name, aliases, portion, kcal, protein, carbs, fat, unit]) => ({
+    id: `sup-${id}`,
+    name,
+    aliases,
+    kcal: round(kcal * 100 / portion), protein: round(protein * 100 / portion), carbs: round(carbs * 100 / portion), fat: round(fat * 100 / portion),
+    default_g: portion,
+    unit,
+    source: "curated_estimate",
+    reference: "SUP-02: valores típicos de rótulo por dose (média de marcas no Brasil, consulta 25/10/2026); estimativa até haver a marca exata"
+  }));
+}
+
 // Menção de whey com marca/sabor no texto normalizado ("2 scoops de whey da dux sabor
 // cookies", "whey isolado dux morango", "growth chocolate whey"). Retorna
 // { id, index, end } com o trecho reconhecido, ou [] sem marca conhecida.

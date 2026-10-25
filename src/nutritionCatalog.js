@@ -13,7 +13,7 @@
 import { fileURLToPath } from "node:url";
 import { loadExtraFoods } from "./catalogExtra.js";
 import { tbcaMeasureGrams } from "./householdMeasures.js";
-import { wheyCatalogItems, findWheyMentions } from "./supplements.js";
+import { wheyCatalogItems, findWheyMentions, supplementCatalogItems } from "./supplements.js";
 import { matchFoodTerms, normalizeFoodText, parseQuantity, QUANTITY_PATTERN } from "./foodMatching.js";
 
 const F = (
@@ -551,7 +551,7 @@ const BRANDED_FAST_FOOD_CATALOG = [
 FOOD_CATALOG.push(...BRANDED_FAST_FOOD_CATALOG);
 
 // SUP-01/05: whey por marca e sabor (rótulos oficiais), reconhecido por findWheyMentions.
-FOOD_CATALOG.push(...wheyCatalogItems());
+FOOD_CATALOG.push(...wheyCatalogItems(), ...supplementCatalogItems());
 
 // CAT-08: alimentos extras em JSON, sem editar código. Entradas inválidas ficam em
 // CATALOG_EXTRA_ISSUES.
@@ -929,7 +929,7 @@ const UNIT_PATTERN = [
   "ml", "mililitros?", "litros?", "l",
   "colher(?:es)?\\s+(?:de\\s+)?(?:sopa|cha|sobremesa|cafe|servir)", "c\\.?\\s*(?:de\\s+)?sopa", "colher(?:es)?", "cs",
   "conchas?", "escumadeiras?", "xicaras?", "scoops?", "doses?", "dosador(?:es)?", "medidas?", "copos?", "latas?", "garrafas?",
-  "fatias?", "unidades?", "unid\\.?", "ovos?", "pecas?", "porcoes", "porcao", "pedacos?", "bolas?", "bifes?"
+  "fatias?", "unidades?", "unid\\.?", "ovos?", "pecas?", "porcoes", "porcao", "pedacos?", "bolas?", "bifes?", "capsulas?", "saches?", "sachets?"
 ].join("|");
 
 // NUT-06: medida caseira do próprio alimento na TBCA vence a genérica e não é tratada
@@ -1020,7 +1020,12 @@ function extractQuantityDetails(text, item, fromIndex = 0, { endIndex = null } =
   const wholeAfter = after.match(/^\s*(?:(grande|media|pequena|broto|familia)\s+)?inteir[ao]s?\b/);
   const packBefore = before.match(/\b(pacotes?|caixas?|potes?|barras?)\s+(?:inteir[ao]s?\s+)?(?:de|do|da)\s*$/);
   if (wholeAfter || packBefore) {
-    const count = Number(before.match(/\b(\d+)\s*$/)?.[1]) || (/\b(?:duas|dois)\s+(?:\w+\s+){0,2}$/.test(before) ? 2 : 1);
+    const count = Number(before.match(/\b(\d+)\s*$/)?.[1]) || Number(before.match(/\b(\d+)\s+\w+\s+(?:inteir[ao]s?\s+)?(?:de|do|da)\s*$/)?.[1])
+      || (/\b(?:duas|dois)\s+(?:\w+\s+){0,2}$/.test(before) ? 2 : 1);
+    // A porção do próprio item já é a barra/garrafa ("barra de proteína", "isotônico"): conta unidades.
+    if (packBefore && /^1 (?:barra|garrafa|sache|capsula)/.test(normalizeText(item.unit || ""))) {
+      return { grams: count * item.default_g, measure: null };
+    }
     const standard = standardWholeSize(item, wholeAfter?.[1] || null, packBefore?.[1] || null);
     return standard
       ? { grams: count * standard.grams, measure: null, assumed: standard.label }
