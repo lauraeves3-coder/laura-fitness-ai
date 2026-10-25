@@ -4,6 +4,7 @@
 import { saveCheckin, saveSleep } from "./db.js";
 import { detectSleepReport } from "./mealIntent.js";
 import { adaptTodayTraining, handleTrainingMessage } from "./training/service.js";
+import { getActiveTrainingPlan } from "./db.js";
 
 const normalize = (text) => String(text || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLocaleLowerCase("pt-BR").trim();
 
@@ -62,7 +63,8 @@ export function handleCheckinMessage(userId, message, today) {
       || "😮‍💨 Dia de energia baixa: priorize se hidratar, comer bem e, se der, dormir mais cedo hoje.");
   } else {
     const training = handleTrainingMessage(userId, "qual meu treino de hoje?", today);
-    lines.push(answer.energy >= 4 ? "💪 Energia boa, bora!" : "👍 Tudo certo para seguir o plano.");
+    const hasPlan = Boolean(getActiveTrainingPlan(userId));
+    lines.push(answer.energy >= 4 ? "💪 Energia boa, bora!" : hasPlan ? "👍 Tudo certo para seguir o plano." : "👍 Tudo certo para treinar hoje. Se quiser, monto um plano de treino para você.");
     if (training && !/ainda não tem um plano/.test(training)) lines.push("", training);
   }
   return lines.join("\n");

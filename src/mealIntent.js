@@ -402,6 +402,29 @@ export function detectSimpleWorkout(message) {
   };
 }
 
+// MUS-01/02: musculação relatada com séries × repetições ("treinei supino 3x10 com 40 kg e
+// remada 3x12 30kg, rir 2"). A duração é opcional. Retorna o treino ou null.
+export function detectStrengthWorkout(message) {
+  const text = normalizeRequestText(message);
+  if (!/\b(?:treinei|fiz|malhei|mandei|hoje (?:foi|teve))\b/.test(text) || /\b(?:nao|vou|quero|amanha|plano)\b/.test(text)) return null;
+  const body = text.replace(/\b(?:hoje|eu|treinei|fiz|malhei|mandei|foi|teve|na academia|de musculacao|musculacao|treino de \w+)\b/g, " ");
+  const exercises = [];
+  for (const match of body.matchAll(/([a-z][a-z ]{2,30}?)\s+(\d{1,2})\s*(?:x|series de|de)\s*(\d{1,3})\b(?:\s*(?:reps?|repeticoes))?(?:\s*(?:com|de|c\/)?\s*(\d{1,3}(?:[.,]\d+)?)\s*(?:kg|quilos?))?/g)) {
+    const name = match[1].replace(/^(?:e|com|,|mais)\s+/g, "").replace(/\s+(?:e|com)$/g, "").trim();
+    if (!name || /\b(?:min|minutos|horas?|km)\b/.test(name)) continue;
+    exercises.push({ name, sets: Number(match[2]), reps: Number(match[3]), weight_kg: match[4] ? Number(match[4].replace(",", ".")) : 0 });
+  }
+  if (!exercises.length) return null;
+  const duration = text.match(/(\d+(?:[.,]\d+)?)\s*(h|horas?|min|minutos?)\b/);
+  return {
+    workout_type: "Musculação",
+    duration_min: duration ? Math.round(Number(duration[1].replace(",", ".")) * (/^h/.test(duration[2]) ? 60 : 1)) : 0,
+    distance_km: null,
+    notes: "",
+    exercises
+  };
+}
+
 // CRP-05: "dormi 7h", "dormi 6 horas e 30 min, mal". Retorna { hours, quality } ou null.
 export function detectSleepReport(message) {
   const text = normalizeRequestText(message);

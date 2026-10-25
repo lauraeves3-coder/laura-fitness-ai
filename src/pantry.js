@@ -106,11 +106,11 @@ export function buildPantryReply(items, today, { title = "🧺 *Sua despensa*", 
       : "🧺 Sua despensa está vazia. Mande, por exemplo: *comprei 1 kg de frango, 12 ovos e 1 kg de arroz* (pode incluir *na geladeira* e *vence 30/10*).";
   }
   const groups = new Map();
-  for (const item of list) groups.set(item.location || "sem local", [...(groups.get(item.location || "sem local") || []), item]);
-  const order = ["geladeira", "freezer", "armário", "sem local"];
+  for (const item of list) groups.set(item.location || "outros", [...(groups.get(item.location || "outros") || []), item]);
+  const order = ["geladeira", "freezer", "armário", "outros"];
   const lines = [title];
   for (const location of order.filter((key) => groups.has(key))) {
-    lines.push("", groups.size > 1 || location !== "sem local" ? `*${location.charAt(0).toLocaleUpperCase("pt-BR")}${location.slice(1)}*` : null);
+    lines.push("", groups.size > 1 || location !== "outros" ? `*${location.charAt(0).toLocaleUpperCase("pt-BR")}${location.slice(1)}*` : null);
     lines.push(...groups.get(location).map((item) => `• ${item.name}${item.quantity != null ? `: ${fmtQuantity(item)}` : ""}${expiryNote(item, today)}`));
   }
   const soon = list.filter((item) => item.expires_on && daysBetween(today, item.expires_on) <= 3 && daysBetween(today, item.expires_on) >= 0);

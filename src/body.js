@@ -97,6 +97,7 @@ export function buildWeightTrendReply(weights, { goal = "", today } = {}) {
   const change = last.weight_kg - first.weight_kg;
   const days = Math.max(1, daysBetween(first.date, last.date));
   const perWeek = change / days * 7;
+  const dayLabel = `${days} ${days === 1 ? "dia" : "dias"}`;
   const losing = /emagrec|perder|defini/.test(normalize(goal));
   const gaining = /hipertrof|ganh|massa/.test(normalize(goal));
   const verdict = days < 14
@@ -114,7 +115,8 @@ export function buildWeightTrendReply(weights, { goal = "", today } = {}) {
     "",
     `${sparkline(weights.map((entry) => entry.weight_kg))}`,
     `${fmt(first.weight_kg)} kg (${formatDay(first.date)}) → *${fmt(last.weight_kg)} kg* (${formatDay(last.date)})`,
-    `Variação: *${signed(change, "kg")}* em ${days} dias · ${signed(perWeek, "kg")}/semana`,
+    // Ritmo por semana só com 1 semana ou mais de dados (antes disso é oscilação).
+    `Variação: *${signed(change, "kg")}* em ${dayLabel}${days >= 7 ? ` · ${signed(perWeek, "kg")}/semana` : ""}`,
     "",
     verdict,
     "",

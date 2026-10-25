@@ -108,6 +108,7 @@ import {
   detectWaterStatusQuery,
   detectWeightReport,
   detectSimpleWorkout,
+  detectStrengthWorkout,
   detectSleepReport,
   detectRecordQuery,
   findExerciseRecord,
@@ -1445,7 +1446,9 @@ function describeMealForReply(meal) {
 function handleMealDeletion(userId, message, todayMeals) {
   const pending = getPendingMealDeletion(userId);
 
-  if (pending && isMealDeletionConfirmation(message)) {
+  // Com a exclusão pendente (e a refeição já mostrada), um "sim"/"pode"/"ok" curto confirma.
+  const shortYes = /^(?:sim|s|pode|isso|ok|confirmo|claro|pode sim|sim pode|exclui|pode excluir)[\s,!.]*$/.test(normalizeRequestText(message).trim());
+  if (pending && (isMealDeletionConfirmation(message) || shortYes)) {
     const deleted = deleteMeal(userId, pending.details?.meal_id, { requestEventId: pending.id });
     return deleted
       ? `🗑️ Excluí a refeição ${describeMealForReply(deleted)}. O resumo do dia já desconsidera esse registro, e uma cópia ficou no histórico de eventos.`
@@ -1486,7 +1489,7 @@ function handleMealDeletion(userId, message, todayMeals) {
     meal_id: meal.id,
     details: { meal_id: meal.id }
   });
-  return `Vou excluir a refeição ${describeMealForReply(meal)}. Para confirmar, responda "sim, excluir". Para manter, responda "não".`;
+  return `🗑️ Vou excluir a refeição ${describeMealForReply(meal)}.\nResponda *sim* para excluir ou *não* para manter.`;
 }
 
 function buildInvalidMealReply(errors, prefix) {
@@ -2852,7 +2855,7 @@ const summaryIntent = classifySummaryIntent(message);
 
     // Registros e consultas frequentes vão direto, sem o modelo (economia e previsibilidade).
     const weightKg = detectWeightReport(message);
-    const simpleWorkout = weightKg ? null : detectSimpleWorkout(message);
+    const simpleWorkout = weightKg ? null : detectSimpleWorkout(message) || detectStrengthWorkout(message);
     if (weightKg || simpleWorkout) {
       return processMessage(userId, message, {
         ...internal,
@@ -3179,7 +3182,7 @@ const summaryIntent = classifySummaryIntent(message);
     const registry =
       createAgentToolRegistry({
         // ESP-04: plano de treino personalizado (corrida, musculação e outras modalidades).
-        createTrainingPlan: (args) => createTrainingPlanFromRequest(userId, args, dailySummary.date),
+        createTrainingPlan: (args) => createTrainingPlanFromRequest(userId, args, dailySummary.date, message),
         executeAction: (
           action,
           data,
@@ -3571,7 +3574,7 @@ const summaryIntent = classifySummaryIntent(message);
     ) {
       return dailySummary.calorie_target_invalid
         ? invalidCalorieTargetNotice(dailySummary.calorie_target_invalid)
-        : "Ainda não tenho uma meta diária de calorias para calcular um orçamento seguro para a sugestão. Complete seu perfil ou informe sua meta.";
+        : buildGoalsReply(getUser(userId)).replace("Para calcular suas metas de calorias e macros, me conta:", "Para montar opções no tamanho certo para você, preciso das suas metas. Me conta:");
     }
 
     const remainingMealPeriods =

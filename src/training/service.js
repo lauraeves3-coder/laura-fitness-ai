@@ -29,10 +29,10 @@ const mondayOf = (date) => addDays(date, -((weekdayOf(date) + 6) % 7));
 
 // Pedido vindo do agente (ferramenta create_training_plan). Retorna o texto da resposta:
 // as perguntas que faltam ou o plano criado.
-export function createTrainingPlanFromRequest(userId, newRequest, today) {
+export function createTrainingPlanFromRequest(userId, newRequest, today, message = "") {
   // Junta com o pedido anterior ainda incompleto: a resposta às perguntas chega em outra
   // mensagem, e o que já foi dito (objetivo, dias…) não pode se perder.
-  const merged = mergeRequests(getPendingTrainingRequest(userId), newRequest);
+  const merged = keepOtherModalities(userId, mergeRequests(getPendingTrainingRequest(userId), fillFromMessage(newRequest, message)), message);
   const { request, note } = withRunningHistory(userId, merged, today);
   const reply = buildPlanFromRequest(userId, request, today);
   setPendingTrainingRequest(userId, reply.created ? null : merged);
@@ -58,6 +58,67 @@ function withRunningHistory(userId, request, today) {
     request: filled,
     note: `📈 Usei suas corridas das últimas 4 semanas: ~${weeklyKm} km/semana, maior corrida ${String(Math.round(longest * 10) / 10).replace(".", ",")} km${medianPace ? `, pace médio ${formatPace(medianPace)}/km` : ""}.`
   };
+}
+
+// O que a pessoa escreveu e o modelo não separou: tempo de corrida, km por semana, tempo
+// recente, meta de tempo e dias por semana. Só preenche campos vazios.
+function fillFromMessage(request, message) {
+  const text = normalize(message);
+  if (!text) return request;
+  const filled = { ...request };
+  const time = "(\\d{1,2}:\\d{2}(?::\\d{2})?|\\d{1,3}\\s*(?:min|minutos?)(?:\\s*e\\s*\\d{1,2}\\s*(?:s|seg|segundos?))?)";
+  const target = text.match(new RegExp(`\\b(?:abaixo de|menos de|sub[- ]?|baixar (?:para|pra)|chegar a|meta (?:e |eh |de )?(?:fazer |correr )?(?:(?:os |o )?\\d+(?:[.,]\\d+)?\\s*km\\s*)?(?:em |abaixo de |em menos de )?)\\s*${time}`));
+  if (target && !filled.target_time && !filled.target_pace) filled.target_time = target[1];
+  const reference = text.match(new RegExp(`\\b(?:faco|fiz|corro|consigo|consegui|meu tempo (?:e |nos |no )?|hoje faco)[^.]*?(\\d+(?:[.,]\\d+)?)\\s*(?:km|k)\\s*em\\s*${time}`));
+  if (reference && !filled.reference_time) {
+    filled.reference_distance_km = Number(reference[1].replace(",", "."));
+    filled.reference_time = reference[2];
+  }
+  const weekly = text.match(/(\d+(?:[.,]\d+)?)\s*km\s*(?:por|na|\/|a)\s*semana/);
+  if (weekly && filled.current_weekly_km == null) filled.current_weekly_km = Number(weekly[1].replace(",", "."));
+  const days = text.match(/\b(\d)\s*(?:dias|vezes|x)\s*(?:por|na|\/|a)\s*semana/);
+  if (days && filled.running_goal && filled.running_days_per_week == null && !/musculac|academia/.test(text)) filled.running_days_per_week = Number(days[1]);
+  if (!filled.running_level) {
+    const since = text.match(/\b(?:ha|faz|tem)\s+(?:uns |umas |cerca de |quase |mais de )?(\d+)\s*(mes|meses|ano|anos)\b/);
+    const months = since ? Number(since[1]) * (/^ano/.test(since[2]) ? 12 : 1) : /\b(?:comecei agora|nunca corri|to comecando|estou comecando)\b/.test(text) ? 0 : null;
+    const km = filled.current_weekly_km;
+    if (months !== null || km != null) {
+      filled.running_level = (months !== null && months < 6) || (km != null && km < 15) ? "iniciante"
+        : (months === null || months >= 24) && km != null && km >= 35 ? "avancado" : "intermediario";
+    }
+  }
+  return filled;
+}
+
+const DAY_NAMES = ["dom", "seg", "ter", "qua", "qui", "sex", "sab"];
+
+// "Quero adicionar musculação" mantém a corrida do plano atual (e vice-versa); "só
+// musculação" / "parar de correr" troca de verdade.
+function keepOtherModalities(userId, request, message) {
+  const plan = getActiveTrainingPlan(userId);
+  if (!plan?.goals?.length) return request;
+  const text = normalize(message);
+  const filled = { ...request };
+  const running = plan.goals.find((goal) => goal.modality === "corrida");
+  const strength = plan.goals.find((goal) => goal.modality === "musculacao");
+  const onlyNew = /\b(?:so|apenas|somente)\b|\b(?:sem|parar de|nao quero mais)\s+(?:correr|corrida|musculacao|academia)\b/.test(text);
+  if (onlyNew) return request;
+  if (!filled.running_goal && running && (filled.strength_goal || filled.strength_days_per_week || filled.other_modality)) {
+    Object.assign(filled, {
+      running_goal: running.goal, running_level: running.level, running_days_per_week: running.daysPerWeek,
+      available_days: (running.availableDays || []).map((day) => DAY_NAMES[day]),
+      current_weekly_km: running.currentWeeklyKm, longest_run_km: running.longestRunKm,
+      reference_distance_km: running.fiveKSeconds ? 5 : null, reference_time: running.fiveKSeconds ? formatDuration(running.fiveKSeconds) : null,
+      target_time: running.targetSeconds ? formatDuration(running.targetSeconds) : null, event_date: running.eventDate
+    });
+  }
+  if (!filled.strength_goal && !filled.strength_days_per_week && strength && filled.running_goal && !request.strength_goal) {
+    Object.assign(filled, {
+      strength_goal: strength.goal, strength_level: strength.level, strength_days_per_week: strength.daysPerWeek,
+      equipment: strength.equipment, limitations: strength.limitations || []
+    });
+  }
+  return filled;
 }
 
 function mergeRequests(previous, next) {

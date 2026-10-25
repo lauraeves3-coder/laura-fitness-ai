@@ -116,7 +116,7 @@ test("NUT-11: exclusão pede confirmação e só apaga depois de 'sim, excluir'"
   const [meal] = db.getTodayMeals(userId);
 
   const ask = await send(userId, `apague a refeição #${meal.id}`);
-  assert.match(ask, /Para confirmar, responda "sim, excluir"/);
+  assert.match(ask, /Responda \*sim\* para excluir ou \*não\* para manter/);
   assert.ok(db.getMeal(userId, meal.id));
 
   const done = await send(userId, "sim, excluir");
@@ -685,7 +685,8 @@ test("MUS-01: treino registra cada exercício com séries, repetições e carga,
     ] }),
     finalText("ok")
   ]));
-  assert.match(reply, /Registrei o treino: musculação — 50 min/);
+  // Séries × repetições no texto: registra direto (duração opcional), sem o modelo.
+  assert.match(reply, /Registrei o treino: Musculação\n/);
   assert.match(reply, /supino: 4 × 8 com 50 kg/);
   assert.match(reply, /Volume total: 3\.760 kg/);
   const [workout] = db.getWorkoutsBetween(userId, today(userId), today(userId));

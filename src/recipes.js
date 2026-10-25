@@ -310,6 +310,14 @@ export function buildRecipeList(results, filters) {
   ].join("\n");
 }
 
+function swapHint(ingredients) {
+  const swappable = ingredients.find(([id]) => id && SUBSTITUTES[id] && byId(SUBSTITUTES[id][0]));
+  const example = swappable
+    ? `*trocar ${byId(swappable[0]).name.toLocaleLowerCase("pt-BR")} por ${byId(SUBSTITUTES[swappable[0]][0]).name.toLocaleLowerCase("pt-BR")}*, `
+    : "";
+  return `_Comeu? Mande *comi a receita* (ou *comi 2 porções*). Também dá para ${example}*favoritar*._`;
+}
+
 export function buildRecipeCard(recipe, { ingredients = recipe.ingredients, note = null } = {}) {
   const shown = { ...recipe, ingredients };
   const nutrition = recipeNutrition(shown);
@@ -327,7 +335,7 @@ export function buildRecipeCard(recipe, { ingredients = recipe.ingredients, note
     "",
     `*Por porção:* ${nutritionLine(nutrition)}`,
     "",
-    "_Comeu? Mande *comi a receita* (ou *comi 2 porções*). Também dá para *trocar o requeijão por cottage* ou *favoritar*._"
+    swapHint(ingredients)
   ].filter((line) => line !== null).join("\n");
 }
 
@@ -420,7 +428,7 @@ export function handleRecipeMessage(userId, message, { today, budgetKcal = null,
   }
   const whey = getWheyProfile(userId);
   const flavorInText = /\bwhey\b/.test(text) && text.match(/\bwhey\b.*?\b(?:de|sabor)\s+([a-z ]+)$/)?.[1];
-  const wheyGroup = flavorInText ? flavorGroup(flavorInText.trim()) : filters.foods.includes("whey") ? whey?.group || null : null;
+  const wheyGroup = flavorInText ? flavorGroup(flavorInText.trim()) : whey?.group || null;
   const results = searchRecipes(filters, { pantryNames, budgetKcal: filters.fitBudget ? budgetKcal : null, wheyGroup });
   save({ list: results.map(({ recipe }) => recipe.id) });
   return buildRecipeList(results, filters);

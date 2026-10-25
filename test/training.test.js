@@ -358,3 +358,21 @@ test("ESP-05: pouco tempo, sem equipamento e remarcar o treino", () => {
   assert.equal(db.getPlannedSessions(userId, "2026-10-29", "2026-10-29").some((session) => session.id === today.id), true);
   if (thursdayBefore.length) assert.match(moved, /🔁 .* de qui 29\/10 veio para hoje/);
 });
+
+test("Conversa real: resposta em texto livre completa o plano; adicionar musculação mantém a corrida", () => {
+  const userId = "svc-consumer";
+  const empty = { running_goal: null, running_level: null, running_days_per_week: null, available_days: [], current_weekly_km: null, longest_run_km: null,
+    reference_distance_km: null, reference_time: null, easy_pace: null, event_date: null, target_time: null, target_pace: null, strength_goal: null,
+    strength_level: null, strength_days_per_week: null, equipment: null, limitations: [], other_modality: null, other_level: null, other_days_per_week: null };
+  const first = "monte um treino para eu melhorar meu pace nos 5km, minha meta é 5 km abaixo de 25 minutos, posso correr 3 dias por semana";
+  const ask = service.createTrainingPlanFromRequest(userId, { ...empty, running_goal: "5k" }, TUESDAY, first);
+  assert.match(ask, /há quanto tempo você corre/);
+  assert.match(db.getPendingTrainingRequest(userId).target_time, /^25 min/);
+  // O modelo não separou nada da resposta: o texto basta.
+  const plan = service.createTrainingPlanFromRequest(userId, empty, TUESDAY, "corro há uns 6 meses, uns 15 km por semana, faço 5 km em 29 minutos");
+  assert.match(plan, /Plano de treino criado[\s\S]*5 km em 25:00 · intermediário · 3×\/semana/);
+  assert.match(plan, /Hoje: 5 km em ~29:00/);
+  // Adicionar musculação não apaga a corrida.
+  const both = service.createTrainingPlanFromRequest(userId, { ...empty, strength_goal: "hipertrofia", strength_days_per_week: 2, equipment: "academia" }, TUESDAY, "quero adicionar musculação para hipertrofia 2 vezes por semana na academia");
+  assert.match(both, /🏃 Corrida: 5 km em 25:00[\s\S]*🏋️ Musculação: hipertrofia · 2×\/semana/);
+});
