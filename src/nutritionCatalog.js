@@ -30,7 +30,7 @@ export const FOOD_CATALOG = [
   // =========================================================
   // CEREAIS / PÃES / MASSAS
   // =========================================================
-  F("arroz-branco-cozido", "Arroz branco cozido", ["arroz", "arroz branco", "aros"], 138, 2.41, 29.2, 1.6, 100, "100 g", "tbca_verified", "TBCA BRC0208A, polido, cozido c/ óleo, cebola e alho (consulta 23/10/2026)"),
+  F("arroz-branco-cozido", "Arroz branco cozido", ["arroz", "arroz branco"], 138, 2.41, 29.2, 1.6, 100, "100 g", "tbca_verified", "TBCA BRC0208A, polido, cozido c/ óleo, cebola e alho (consulta 23/10/2026)"),
   F("arroz-integral-cozido", "Arroz integral cozido", ["arroz integral"], 108, 2.44, 23.5, 0.87, 100, "100 g", "tbca_verified", "TBCA BRC0016A, cozido s/ óleo (consulta 23/10/2026)"),
   F("arroz-japones-cozido", "Arroz japonês para sushi", ["arroz para sushi", "arroz sushi", "shari"], 131, 2.34, 30.2, 0.4, 100, "100 g", "tbca_verified", "TBCA BRC0711A, shari: arroz para sushi c/ vinagre, açúcar e sal (consulta 23/10/2026)"),
   F("arroz-a-grega", "Arroz à grega", ["arroz a grega"], 150, 3.0, 29.5, 2.0, 100, "100 g", "curated_estimate"),
@@ -802,6 +802,9 @@ function editDistance(a, b, max) {
   return rows[a.length][b.length];
 }
 
+// Erros comuns em palavras curtas demais para a distância de edição (4 letras).
+const SHORT_TYPOS = { aros: "arroz", aroz: "arroz", arrz: "arroz", ovu: "ovo", ovus: "ovos", pao: "pão", leiti: "leite" };
+
 function fuzzyOccurrences(text, exact, index) {
   const known = new Set(index.map(({ norm }) => norm));
   const found = [];
@@ -809,6 +812,11 @@ function fuzzyOccurrences(text, exact, index) {
     const word = match[0];
     const start = match.index;
     const end = start + word.length;
+    const shortFix = SHORT_TYPOS[word] && !known.has(word) && index.find(({ norm }) => norm === normalizeText(SHORT_TYPOS[word]));
+    if (shortFix && !exact.some((other) => start < other.end && end > other.index)) {
+      found.push({ key: shortFix.key, index: start, end, fuzzy: { typed: word, understood: shortFix.original } });
+      continue;
+    }
     if (word.length < 5 || FUZZY_STOPWORDS.has(word) || known.has(word)) continue;
     if (exact.some((other) => start < other.end && end > other.index)) continue;
     const max = word.length >= 8 ? 2 : 1;

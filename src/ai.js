@@ -965,6 +965,28 @@ function buildMealProjectionReply(
   return lines.join("\n");
 }
 
+const LIGHT_OPTIONS = [
+  ["Omelete de 2 ovos com salada", "comi 2 ovos, 100 g de folhas e 1 tomate"],
+  ["Frango grelhado com legumes", "comi 100 g de peito de frango grelhado e 150 g de legumes cozidos"],
+  ["Iogurte natural com morango", "comi 1 iogurte natural e 100 g de morango"]
+];
+
+function buildOverBudgetSuggestion(summary) {
+  const over = Math.round(Math.abs(Number(summary.calorie_remaining) || 0));
+  const lines = [
+    "🍽️ *Você já chegou na meta de hoje*",
+    over > 50 ? `Passou cerca de ${over.toLocaleString("pt-BR")} kcal — tudo bem, um dia não define o resultado.` : "Tudo bem, dá para fechar o dia leve.",
+    "Se bater fome, vá de algo *leve e com proteína*:"
+  ];
+  LIGHT_OPTIONS.forEach(([name, text], index) => {
+    const estimate = estimateMealFromText(text, { acceptDefaultQuantities: true });
+    lines.push("", `*Opção ${index + 1}* — ${name}`);
+    if (estimate) lines.push(`🔥 ~${Math.round(estimate.calories)} kcal · 🥩 P ${Math.round(estimate.protein_g)} g`);
+  });
+  lines.push("", "_Se não estiver com fome, pode pular sem culpa. Amanhã seguimos o plano normal._");
+  return lines.join("\n");
+}
+
 function buildMealSuggestionReply(options, budgetAnalysis) {
   const lines = [];
 
@@ -1538,11 +1560,19 @@ function saveAction(
   }
 
   if (result.action === "profile") {
+    const previousWeight = Number(getUser(userId)?.weight_kg) || null;
     let updatedUser =
       updateUserProfile(
         userId,
         result.data
       );
+
+    // Peso dito no perfil entra no histórico de pesagens (evolução do peso).
+    const profileWeight = Number(result.data?.weight_kg);
+    if (profileWeight > 0 && profileWeight !== previousWeight) {
+      saveWeight(userId, profileWeight);
+      updatedUser = getUser(userId);
+    }
 
     // "Treino 4 vezes por semana" já define o nível de atividade para o cálculo.
     const trainingDays = Number(updatedUser?.training_days_per_week);
@@ -4069,6 +4099,12 @@ const summaryIntent = classifySummaryIntent(message);
             ? true
             : false
       });
+
+    // Meta do dia já estourada: em vez de "nenhuma opção", orientação de nutricionista com
+    // opções leves e ricas em proteína (valores do catálogo), sem culpa.
+    if (!options.length && Number(dailySummary.calorie_remaining) <= 50) {
+      return buildOverBudgetSuggestion(dailySummary);
+    }
 
     if (
       !options.length

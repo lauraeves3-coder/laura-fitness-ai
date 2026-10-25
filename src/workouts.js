@@ -50,7 +50,9 @@ export function workoutVolume(exercises = []) {
 
 export function buildWorkoutReply(workout) {
   const exercises = Array.isArray(workout.exercises) ? workout.exercises : [];
-  const header = [`🏋️ Registrei o treino: ${workout.workout_type}`];
+  const type = String(workout.workout_type || "");
+  const icon = /corr/i.test(type) ? "🏃" : /caminh/i.test(type) ? "🚶" : /cicl|bike|pedal/i.test(type) ? "🚴" : /nata/i.test(type) ? "🏊" : "🏋️";
+  const header = [`${icon} Registrei o treino: ${workout.workout_type}`];
   if (Number(workout.duration_min) > 0) header.push(`${formatNumber(workout.duration_min)} min`);
   const lines = [header.join(" — ")];
   for (const exercise of exercises) {

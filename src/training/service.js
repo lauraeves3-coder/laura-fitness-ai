@@ -330,7 +330,18 @@ export function handleTrainingMessage(userId, message, today) {
   }
   if (intent.type === "move") return moveSessions(userId, intent, today);
   const todaySessions = getPlannedSessions(userId, today, today).filter((session) => session.status === "planejado");
-  if (!todaySessions.length) return null;
+  if (!todaySessions.length) {
+    // Pouco tempo / sem equipamento num dia sem treino: avisa o descanso e o próximo treino.
+    if (intent.type === "adapt" && ["tempo", "casa"].includes(intent.reason)) {
+      const next = getPlannedSessions(userId, addDays(today, 1), addDays(today, 14)).find((session) => session.status === "planejado");
+      return [
+        "😴 Hoje é *dia de descanso* no seu plano, então não precisa encaixar treino.",
+        intent.reason === "tempo" && intent.minutes ? `Se quiser se mexer nesses ${intent.minutes} min, uma caminhada ou trote bem leve já ajuda na recuperação.` : null,
+        next ? `Próximo treino: *${next.title}* — ${formatDay(next.date)}.` : null
+      ].filter(Boolean).join("\n");
+    }
+    return null;
+  }
   if (intent.type === "skip") {
     for (const session of todaySessions) updatePlannedSession(session.id, { status: "pulado" });
     const next = getPlannedSessions(userId, addDays(today, 1), addDays(today, 14))[0];

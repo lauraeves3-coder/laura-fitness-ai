@@ -376,3 +376,14 @@ test("Conversa real: resposta em texto livre completa o plano; adicionar muscula
   const both = service.createTrainingPlanFromRequest(userId, { ...empty, strength_goal: "hipertrofia", strength_days_per_week: 2, equipment: "academia" }, TUESDAY, "quero adicionar musculação para hipertrofia 2 vezes por semana na academia");
   assert.match(both, /🏃 Corrida: 5 km em 25:00[\s\S]*🏋️ Musculação: hipertrofia · 2×\/semana/);
 });
+
+test("ESP-05: pouco tempo num dia de descanso avisa o descanso e o próximo treino", () => {
+  const userId = "svc-rest-day";
+  service.createTrainingPlanFromRequest(userId, request, TUESDAY);
+  const sunday = "2026-11-01";
+  assert.equal(db.getPlannedSessions(userId, sunday, sunday).filter((session) => session.modality === "musculacao").length, 0);
+  const restDay = db.getPlannedSessions(userId, "2026-10-28", "2026-11-03").map((session) => session.date);
+  const free = ["2026-10-28", "2026-10-29", "2026-10-30", "2026-10-31", "2026-11-01", "2026-11-02", "2026-11-03"].find((date) => !restDay.includes(date));
+  const reply = service.handleTrainingMessage(userId, "hoje só tenho 30 min", free);
+  assert.match(reply, /😴 Hoje é \*dia de descanso\* no seu plano[\s\S]*Próximo treino: \*/);
+});

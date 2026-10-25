@@ -1109,7 +1109,7 @@ test("NUT-27: refeição acima da sua fatia do dia redistribui o saldo, sem culp
   // Meta 2000: almoço previsto ~600; almoço de 950 → resta para lanche, jantar e ceia.
   const lines = planDayAdjustment({ summary: { calorie_target: 2000, calories: 1350, calorie_remaining: 650, protein_remaining: 60 }, period: "almoço", mealCalories: 950 });
   const text = lines.join("\n");
-  assert.match(text, /🔄 \*Ajuste do dia\*\nEsse almoço ficou ~350 kcal acima do previsto \(~600\)/);
+  assert.match(text, /🔄 \*Ajuste do dia\*\nEssa refeição \(almoço\) ficou ~350 kcal acima do previsto \(~600\)/);
   assert.match(text, /Redistribuí os 650 kcal que restam:\n• Lanche da tarde: ~195 kcal\n• Jantar: ~325 kcal\n• Ceia: ~130 kcal/);
   assert.match(text, /faltam 60 g de proteína/);
   assert.doesNotMatch(text, /culpa|errou|exagerou/);
@@ -1436,4 +1436,29 @@ test("Opções de refeição: responder só o número escolhe a opção (mesmo c
   assert.match(reply, /👉 Comeu\? Mande \*comi essa opção\* que eu registro/);
   assert.ok((await send(userId, "quero a 2")).startsWith(`✅ *${secondName}*`));
   assert.match(await send(userId, "comi essa opção"), /Refeição registrada|registr/i);
+});
+
+test("Consumidora: perfil completo calcula metas, metas estouradas viram orientação leve e descrição corrige 'aros'", async () => {
+  const userId = newUser();
+  const profile = await send(userId, "quero emagrecer. tenho 30 anos, sou mulher, 165 cm, 68 kg e treino 4 vezes por semana", fakeModel([
+    toolCall("update_user_profile", { name: null, age_years: 30, sex: "female", height_cm: 165, weight_kg: 68, goal: "emagrecer", activity_level: null, training_days_per_week: null, dietary_preferences: null, food_dislikes: null }),
+    finalText("ok")
+  ]));
+  assert.match(profile, /👤 \*Perfil salvo\*\n30 anos · feminino · 165 cm · 68 kg\n🎯 Objetivo: emagrecer · treina 4×\/semana \(atividade moderada\)/);
+  assert.match(profile, /📊 \*Suas metas diárias\*\n🔥 \*[\d.]+ kcal\*/);
+  assert.ok(db.getUser(userId).daily_calorie_target > 0);
+  assert.match(await send(userId, "quais são minhas metas?"), /📊 \*Suas metas diárias\*/);
+  assert.equal(db.getWeightsBetween(userId, "2000-01-01", "2100-01-01").length, 1, "peso do perfil entra no histórico");
+
+  await send(userId, "comi uma pizza inteira de calabresa");
+  const over = await send(userId, "me mande opções para o jantar", fakeModel([toolCall("suggest_meals", {
+    meal_period: "jantar", desired_food: null, requested_servings: null, available_foods: [], required_foods: [],
+    explicit_excluded_foods: [], explicit_excluded_compositions: []
+  }), finalText("ok")]));
+  assert.match(over, /🍽️ \*Você já chegou na meta de hoje\*[\s\S]*\*Opção 1\* — Omelete de 2 ovos com salada\n🔥 ~\d+ kcal/);
+  assert.doesNotMatch(over, /Restam -/);
+
+  await send(userId, "comi aros e feijão com frango");
+  const saved = await send(userId, "100 g de arroz, 1 concha de feijão e 150 g de frango");
+  assert.match(saved, /🍽️ 100 g de arroz e 1 concha de feijão com 150 g de frango/);
 });

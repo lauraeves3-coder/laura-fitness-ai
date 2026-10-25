@@ -426,7 +426,7 @@ export function planDayAdjustment({ summary = {}, period, mealCalories }) {
   const left = n(summary.calorie_remaining) ?? target - (n(summary.calories) ?? 0);
   const proteinLeft = n(summary.protein_remaining);
   const later = ORDER.slice(ORDER.indexOf(period) + 1);
-  const lines = ["", "🔄 *Ajuste do dia*", `Esse ${period} ficou ~${fmt(meal - share)} kcal acima do previsto (~${fmt(share)}). Tudo bem, acontece!`];
+  const lines = ["", "🔄 *Ajuste do dia*", `Essa refeição (${period}) ficou ~${fmt(meal - share)} kcal acima do previsto (~${fmt(share)}). Tudo bem, acontece!`];
   if (left <= 0) {
     lines.push(
       `Você já chegou na meta de hoje${left < 0 ? ` (passou ~${fmt(-left)} kcal)` : ""}. Se bater fome, vá de algo leve e com proteína: iogurte natural, ovos, salada com frango. Amanhã segue o plano normal.`
