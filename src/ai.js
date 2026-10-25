@@ -52,10 +52,12 @@ import {
   getDailyCaloriesBetween,
   setGoalReviewAt,
   setReplyStyle,
-  getRecentStrengthEfforts
+  getRecentStrengthEfforts,
+  getPantry
 } from "./db.js";
 import { reviewTargets, describeTargetReview } from "./goalReview.js";
 import { handleBodyMessage } from "./body.js";
+import { handlePantryMessage, consumeFromPantry } from "./pantry.js";
 import { handleCheckinMessage, CHECKIN_QUESTION } from "./checkin.js";
 import { detectReplyStyle, STYLE_INSTRUCTIONS, buildReplyStyleConfirmation } from "./replyStyle.js";
 import {
@@ -2734,6 +2736,10 @@ const summaryIntent = classifySummaryIntent(message);
     const bodyReply = handleBodyMessage(userId, message, dailySummary.date);
     if (bodyReply) return bodyReply;
 
+    // DSP-01: despensa ("comprei…", "minha despensa", "acabou o leite").
+    const pantryReply = handlePantryMessage(userId, message, dailySummary.date);
+    if (pantryReply) return pantryReply;
+
     // Registros e consultas frequentes vão direto, sem o modelo (economia e previsibilidade).
     const weightKg = detectWeightReport(message);
     const simpleWorkout = weightKg ? null : detectSimpleWorkout(message);
@@ -2932,6 +2938,11 @@ const summaryIntent = classifySummaryIntent(message);
       known: pendingTraining,
       instruction: "Há um plano de treino em configuração. Se a mensagem responder às perguntas feitas, chame create_training_plan com os novos dados; os já conhecidos são mantidos."
     };
+  }
+  // DSP-02: estoque confirmado da despensa, para sugestões com o que há em casa.
+  const pantry = getPantry(userId);
+  if (pantry.length) {
+    context.pantry = pantry.map((item) => ({ name: item.name, quantity: item.quantity, unit: item.unit, expires_on: item.expires_on }));
   }
   const activeTraining = getActiveTrainingPlan(userId);
   if (activeTraining) {
@@ -4756,6 +4767,8 @@ const summaryIntent = classifySummaryIntent(message);
         ? `📊 Hoje: ${Math.round(today.calories).toLocaleString("pt-BR")} de ${Math.round(today.calorie_target).toLocaleString("pt-BR")} kcal · ${formatRemainingStatus(today.calorie_target - today.calories, "kcal").toLocaleLowerCase("pt-BR")}`
         : null,
       pastNote ? `📅${pastNote}` : null,
+      // DSP-01: baixa na despensa dos itens desta refeição.
+      ...(today ? consumeFromPantry(userId, estimateMealFromText(saved.description)?.matched_items || []) : []),
       ...(today ? planDayAdjustment({ summary: today, period: saved.meal_period || getMealPeriod(), mealCalories: saved.calories }) : [])
     ].filter((line) => line !== null).join("\n");
   }

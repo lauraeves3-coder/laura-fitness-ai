@@ -123,8 +123,8 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
-| DSP-01 | Inventário com quantidade, unidade, local, validade | P2 | NÃO IMPLEMENTADO | — | só disponibilidade temporária de alimentos (`set_food_availability`) |
-| DSP-02 | Estoque confirmado ≠ alimento mencionado/desejado | P2 | PARCIAL | DSP-01 | disponível/desejado já são distintos na conversa |
+| DSP-01 | Inventário com quantidade, unidade, local, validade | P2 | IMPLEMENTADO E TESTADO | — | src/pantry.js + tabela pantry_items: 'comprei 1 kg de frango, 2 dúzias de ovos…' (kg/g/L/ml/dúzia/unidade/pacote/lata…), local (geladeira/freezer/armário) e validade ('vence 30/10', 'vence em 3 dias'); 'minha despensa'/'o que tenho em casa' agrupado por local com alerta de vencimento; 'o que está para vencer'; 'acabou o leite'; refeição registrada dá baixa (g/ml pelo peso, unidades pela porção do catálogo). test/e2e.test.js |
+| DSP-02 | Estoque confirmado ≠ alimento mencionado/desejado | P2 | IMPLEMENTADO E TESTADO | DSP-01 | Estoque só entra com verbo de compra/guarda ('comprei', 'coloquei'); 'comprei um açaí e comi' é refeição. A despensa vai no contexto do agente como estoque confirmado, usado em available_foods só quando a pessoa pede sugestão com o que tem em casa. test/e2e.test.js |
 | DSP-03 | Receitas com o que há em casa e vencimento | P3 | NÃO IMPLEMENTADO | DSP-01, REC-03 | — |
 | DSP-04 | Lista de compras a partir do cardápio, descontando estoque | P3 | NÃO IMPLEMENTADO | DSP-01 | — |
 | DSP-05 | Orçamento semanal/mensal e alternativas econômicas; preços com fonte | P3 | NÃO IMPLEMENTADO | DSP-04 | — |
@@ -303,3 +303,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 25/10/2026 | CONV-12: preferência de respostas curtas/detalhadas. Totais: 56 testados, 1 não testado, 43 parciais, 23 não implementados, 1 bloqueados. |
 | 25/10/2026 | SUP-02 (parcial): categorias de suplementos além do whey. Totais: 56 testados, 1 não testado, 44 parciais, 22 não implementados, 1 bloqueados. |
 | 25/10/2026 | MUS-02: RPE/RIR, esforço da sessão, progressão de carga e alerta de fadiga. Totais: 57 testados, 1 não testado, 43 parciais, 22 não implementados, 1 bloqueados. |
+| 25/10/2026 | DSP-01/02: despensa com quantidade, local, validade, baixa automática e uso nas sugestões. Totais: 59 testados, 1 não testado, 42 parciais, 21 não implementados, 1 bloqueados. |

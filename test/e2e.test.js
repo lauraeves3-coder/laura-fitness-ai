@@ -1300,3 +1300,34 @@ test("MUS-02: RPE/RIR por exercício, esforço da sessão, progressão de carga 
   assert.match(db.getRecentStrengthEfforts(userId).join(","), /9,9,10/);
   assert.match(lastReply, /😮‍💨 Suas últimas 3 sessões foram muito pesadas/);
 });
+
+// ---------- DSP-01/02: despensa ----------
+
+test("DSP-01/02: despensa com quantidade, local e validade; baixa ao registrar refeição; vai para o agente", async () => {
+  const userId = newUser();
+  const today = db.getDailySummary(userId).date;
+  assert.match(await send(userId, "minha despensa"), /Sua despensa está vazia/);
+  const added = await send(userId, "comprei 1 kg de frango, 2 dúzias de ovos e 500 g de arroz");
+  assert.match(added, /🧺 \*Despensa atualizada\*\n• Frango: 1 kg\n• Ovos: 24 un\n• Arroz: 500 g/);
+  const [year, month, day] = today.split("-").map(Number);
+  const soon = new Date(Date.UTC(year, month - 1, day + 2)).toISOString().slice(0, 10);
+  await send(userId, `coloquei 2 litros de leite na geladeira, vence ${soon.slice(8, 10)}/${soon.slice(5, 7)}`);
+  const pantry = await send(userId, "o que tenho em casa?");
+  assert.match(pantry, /\*Geladeira\*\n• Leite: 2 L — ⚠️ vence em 2 dias/);
+  assert.match(pantry, /💡 Use primeiro: leite/);
+  assert.match(await send(userId, "o que está para vencer?"), /Leite: 2 L — ⚠️ vence em 2 dias/);
+
+  // Refeição com itens da despensa dá baixa.
+  const meal = await send(userId, "comi 3 ovos");
+  assert.match(meal, /🧺 Ovos: restam 21 un/);
+  assert.match(await send(userId, "acabou o leite"), /Tirei da despensa: leite/);
+  assert.equal(db.getPantry(userId).some((item) => item.name === "Leite"), false);
+
+  // Sugestão com o que há em casa: a despensa vai no contexto do agente.
+  const model = fakeModel([finalText("ok")]);
+  await send(userId, "o que posso fazer de almoço com o que tenho em casa?", model);
+  const input = JSON.parse(model.requests[0].input);
+  assert.deepEqual(input.current_context.pantry.map((item) => item.name), ["Arroz", "Frango", "Ovos"]);
+  assert.match(await send(userId, "comprei um açaí e comi", fakeModel([finalText("ok")])), /Refeição registrada/, "comprar e comer é refeição, não estoque");
+  assert.equal(db.getPantry(userId).some((item) => /açaí/i.test(item.name)), false);
+});

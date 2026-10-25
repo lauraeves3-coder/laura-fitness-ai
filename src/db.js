@@ -1571,6 +1571,55 @@ export function updatePlannedSession(id, changes) {
   return parsePlannedSession(db.prepare(`SELECT * FROM planned_sessions WHERE id = ?`).get(id));
 }
 
+// DSP-01: despensa (estoque confirmado), com quantidade, unidade, local e validade.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS pantry_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    food_id TEXT,
+    quantity REAL,
+    unit TEXT,
+    location TEXT,
+    expires_on TEXT,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
+export function getPantry(userId) {
+  return db.prepare(`SELECT * FROM pantry_items WHERE user_id = ? ORDER BY COALESCE(expires_on, '9999-12-31'), name`).all(userId);
+}
+
+// Mesmo alimento e mesma unidade somam; validade/local novos substituem os antigos.
+export function addPantryItem(userId, { name, foodId = null, quantity = null, unit = null, location = null, expiresOn = null }) {
+  ensureUser(userId);
+  const existing = db.prepare(`
+    SELECT * FROM pantry_items WHERE user_id = ? AND (food_id = ? OR (food_id IS NULL AND lower(name) = lower(?))) AND COALESCE(unit, '') = COALESCE(?, '')
+  `).get(userId, foodId, name, unit);
+  if (existing) {
+    const total = quantity == null ? existing.quantity : (existing.quantity || 0) + quantity;
+    db.prepare(`UPDATE pantry_items SET quantity = ?, location = COALESCE(?, location), expires_on = COALESCE(?, expires_on), updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
+      .run(total, location, expiresOn, existing.id);
+    return db.prepare(`SELECT * FROM pantry_items WHERE id = ?`).get(existing.id);
+  }
+  const id = db.prepare(`INSERT INTO pantry_items (user_id, name, food_id, quantity, unit, location, expires_on) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+    .run(userId, name, foodId, quantity, unit, location, expiresOn).lastInsertRowid;
+  return db.prepare(`SELECT * FROM pantry_items WHERE id = ?`).get(id);
+}
+
+export function updatePantryItem(id, { quantity }) {
+  if (quantity != null && quantity <= 0) {
+    db.prepare(`DELETE FROM pantry_items WHERE id = ?`).run(id);
+    return null;
+  }
+  db.prepare(`UPDATE pantry_items SET quantity = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(quantity, id);
+  return db.prepare(`SELECT * FROM pantry_items WHERE id = ?`).get(id);
+}
+
+export function removePantryItem(id) {
+  db.prepare(`DELETE FROM pantry_items WHERE id = ?`).run(id);
+}
+
 // ACO-01: check-in diário (sono, energia 1–5, dor).
 db.exec(`
   CREATE TABLE IF NOT EXISTS daily_checkins (
