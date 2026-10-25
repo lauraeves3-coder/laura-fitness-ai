@@ -1551,10 +1551,10 @@ export function getPlannedSessions(userId, startDate, endDate) {
 }
 
 export function updatePlannedSession(id, changes) {
-  const allowed = ["status", "workout_id", "note", "title", "description", "distance_km", "duration_min", "target_pace", "intensity", "session_type"];
+  const allowed = ["status", "workout_id", "note", "title", "description", "distance_km", "duration_min", "target_pace", "intensity", "session_type", "date", "details"];
   const entries = Object.entries(changes).filter(([key]) => allowed.includes(key));
   if (!entries.length) return null;
-  const values = entries.map(([key, value]) => key === "target_pace" && value ? JSON.stringify(value) : value);
+  const values = entries.map(([key, value]) => (key === "target_pace" || key === "details") && value ? JSON.stringify(value) : value);
   db.prepare(`UPDATE planned_sessions SET ${entries.map(([key]) => `${key} = ?`).join(", ")} WHERE id = ?`).run(...values, id);
   return parsePlannedSession(db.prepare(`SELECT * FROM planned_sessions WHERE id = ?`).get(id));
 }

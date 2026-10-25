@@ -156,7 +156,9 @@ export function buildLastWorkoutReply({ workout, today, running = false, energyL
 }
 
 // Cansaço, sono ruim ou dor: ajusta a sessão de hoje. Dor = descanso e orientação.
-export function adaptSession(session, reason) {
+export function adaptSession(session, reason, options = {}) {
+  if (reason === "tempo") return adaptForTime(session, options.minutes || 30);
+  if (reason === "casa") return adaptForHome(session, options.homeExercises || null);
   if (reason === "dor") {
     return {
       changes: { status: "ajustado", title: "Descanso (dor)", description: "Descanso hoje. Se a dor for forte, persistir por mais de 2–3 dias ou piorar ao correr, procure avaliação de um profissional de saúde.", distance_km: null, duration_min: null, target_pace: null, intensity: "descanso", session_type: "descanso" },
@@ -182,6 +184,54 @@ export function adaptSession(session, reason) {
       intensity: "leve"
     },
     message: `🔄 Ajustei o treino de hoje para *${hard ? "rodagem leve" : "uma versão mais curta"}*${session.distance_km ? ` de ${km(reduce(session.distance_km))} km` : ""}, em ritmo confortável. Se não estiver bem, pode descansar.`
+  };
+}
+
+// ESP-05: pouco tempo. Corrida contínua vira a distância que cabe no tempo; treino de
+// qualidade mantém o estímulo com metade da parte principal; musculação fica com os
+// exercícios principais em circuito.
+function adaptForTime(session, minutes) {
+  if (session.duration_min && session.duration_min <= minutes) {
+    return { changes: {}, message: `👍 O treino de hoje (${session.title}) já cabe em ${minutes} min: dá para fazer como está.` };
+  }
+  const hard = ["intervalado", "limiar", "ritmo_prova", "fartlek", "teste"].includes(session.session_type);
+  if (session.modality === "corrida") {
+    const pace = session.target_pace?.[1] || 400;
+    const distance = Math.max(2, Math.round(minutes * 60 / (hard ? pace * 1.15 : pace) * 2) / 2);
+    const description = hard
+      ? `Versão de ${minutes} min: 10 min de aquecimento leve, metade da parte principal no mesmo ritmo, 5 min de trote.`
+      : `Versão de ${minutes} min no mesmo ritmo confortável.`;
+    return {
+      changes: { status: "ajustado", title: `${session.title} (versão curta)`, description, distance_km: distance, duration_min: minutes },
+      message: `⏱️ Ajustei para caber em *${minutes} min*: ${session.title.toLocaleLowerCase("pt-BR")} com ~${km(distance)} km.\n${description}`
+    };
+  }
+  if (session.modality === "musculacao" && session.details?.exercises?.length) {
+    const count = minutes >= 40 ? 5 : minutes >= 25 ? 4 : 3;
+    const exercises = session.details.exercises.slice(0, count).map((exercise) => ({ ...exercise, sets: Math.min(Number(exercise.sets) || 3, 3), rest_s: 60 }));
+    return {
+      changes: { status: "ajustado", title: `${session.title} (versão curta)`, details: { exercises }, duration_min: minutes, description: `Em ${minutes} min: só os ${count} exercícios principais, em circuito ou bi-set, descanso de 60 s.` },
+      message: [`⏱️ Ajustei a musculação para *${minutes} min*: os ${count} exercícios principais, em circuito, descanso de 60 s.`, ...exercises.map((exercise) => `• ${exercise.name} — ${exercise.sets} × ${exercise.reps}`)].join("\n")
+    };
+  }
+  return {
+    changes: { status: "ajustado", duration_min: minutes, description: `Versão de ${minutes} min, mesma intensidade.` },
+    message: `⏱️ Ajustei ${session.title.toLocaleLowerCase("pt-BR")} para *${minutes} min*, na mesma intensidade.`
+  };
+}
+
+// ESP-05: sem academia/equipamento. Musculação troca pelos exercícios em casa (peso do
+// corpo) do mesmo grupo; corrida e outras modalidades seguem iguais.
+function adaptForHome(session, homeExercises) {
+  if (session.modality !== "musculacao") {
+    return { changes: {}, message: `👍 ${session.title} não precisa de equipamento: segue como está.` };
+  }
+  if (!homeExercises?.length) {
+    return { changes: {}, message: "Não encontrei uma versão em casa para esse treino; faça os exercícios com o peso do corpo e mais repetições." };
+  }
+  return {
+    changes: { status: "ajustado", title: `${session.title.replace(/ \(em casa\)$/, "")} (em casa)`, details: { exercises: homeExercises }, description: "Versão em casa, com o peso do corpo." },
+    message: [`🏠 Troquei a musculação de hoje por uma *versão em casa*, sem equipamento:`, ...homeExercises.map((exercise) => `• ${exercise.name} — ${exercise.sets} × ${exercise.reps}`)].join("\n")
   };
 }
 

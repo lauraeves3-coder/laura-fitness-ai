@@ -6,10 +6,10 @@ import {
   linkWorkoutToSession, getRunsBetween, updateTrainingPlan, getUser, getWorkoutsBetween
 } from "../db.js";
 import { describeWorkoutCalories } from "./energy.js";
-import { addDays, weekdayOf } from "../dates.js";
+import { addDays, formatDay, weekdayOf } from "../dates.js";
 import { buildTrainingPlan } from "./plan.js";
 import { RUNNING_GOALS, describePaces, describeTargetAnalysis, expectedFiveK, paceForSession } from "./running.js";
-import { STRENGTH_GOALS } from "./strength.js";
+import { STRENGTH_GOALS, generateStrengthPlan } from "./strength.js";
 import { ENDURANCE_MODALITIES } from "./endurance.js";
 import { fiveKFromReference, formatDuration, formatPace, parseDuration, trainingPaces } from "./paces.js";
 import {
@@ -174,6 +174,16 @@ export function detectTrainingIntent(message) {
   if (last && (/\bultim[ao]\b/.test(text) || /\b(?:qual|como) foi\b/.test(text)) && !/\b(?:corri|registr|anot|pulei|faltei)\b/.test(text)) {
     return { type: "last", running: last[1] === "corrida" };
   }
+  // ESP-05: remarcar ("passa o treino de hoje para quinta"), pouco tempo e sem equipamento.
+  const move = text.match(/\b(?:passa|passar|mude|muda|mudar|troca|trocar|move|mover|remarca|remarcar|adia|adiar|joga|jogar|deixa|deixar)\b[^.?!]*\btreinos?\b[^.?!]*\b(?:para|pra|pro)\s+(?:a |o )?(amanha|segunda|terca|quarta|quinta|sexta|sabado|domingo)\b/);
+  if (move) return { type: "move", to: move[1], from: /\btreino de amanha\b/.test(text) ? 1 : 0 };
+  const minutes = text.match(/\b(?:so|apenas|somente) (?:tenho|tem|vou ter|terei|da|consigo|posso)(?: uns| tipo| umas?)? (\d{1,3}) ?(?:min|minutos)\b|\b(?:tenho|terei) (?:so|apenas|somente) (\d{1,3}) ?(?:min|minutos)\b/);
+  if (minutes || /\b(?:sem tempo|pouco tempo|dia corrido|to corrid[oa]|estou corrid[oa])\b/.test(text)) {
+    return { type: "adapt", reason: "tempo", minutes: Number(minutes?.[1] || minutes?.[2]) || 30 };
+  }
+  if (/\bsem (?:academia|equipamentos?|aparelhos?|halteres?|pesos?)\b|\bacademia (?:(?:esta|ta|tava|estava) )?(?:fechada|lotada)\b|\b(?:treinar|treino|treinando) em casa\b|\bnao (?:vou|consigo|da pra|vai dar pra) (?:ir|chegar) (?:na|a|pra|para a) academia\b/.test(text)) {
+    return { type: "adapt", reason: "casa" };
+  }
   if (/\b(?:progresso|evolucao|desempenho|resultado)\b.*\b(?:corrida|correr|corridas|treinos?)\b|\bcomo (?:esta|anda|vai) (?:a )?minha corrida\b/.test(text)) return { type: "progress" };
   if (/\btreinos?\b.*\bamanha\b|\bamanha\b.*\btreino\b/.test(text)) return { type: "day", offset: 1 };
   if (/\btreinos? da semana\b|\bplano da semana\b|\bsemana de treinos?\b|\bmeu plano de treino\b|\bmeus treinos\b/.test(text)) return { type: "week" };
@@ -257,6 +267,7 @@ export function handleTrainingMessage(userId, message, today) {
     if (upcoming) sessions = getPlannedSessions(userId, addDays(monday, 7), addDays(monday, 13));
     return buildWeekReply({ sessions, today, plan, weekNumber: sessions[0]?.week, adaptationNote: note, upcoming });
   }
+  if (intent.type === "move") return moveSessions(userId, intent, today);
   const todaySessions = getPlannedSessions(userId, today, today).filter((session) => session.status === "planejado");
   if (!todaySessions.length) return null;
   if (intent.type === "skip") {
@@ -268,11 +279,49 @@ export function handleTrainingMessage(userId, message, today) {
     ].filter(Boolean).join("\n");
   }
   const messages = todaySessions.map((session) => {
-    const { changes, message: reply } = adaptSession(session, intent.reason);
+    const options = intent.reason === "casa" ? { homeExercises: homeVersion(plan, session) } : { minutes: intent.minutes };
+    const { changes, message: reply } = adaptSession(session, intent.reason, options);
     updatePlannedSession(session.id, changes);
     return reply;
   });
   return messages.join("\n\n");
+}
+
+// ESP-05: mesma sessão de musculação gerada com equipamento "casa".
+function homeVersion(plan, session) {
+  if (session.modality !== "musculacao") return null;
+  const goal = plan.goals?.find((item) => item.modality === "musculacao");
+  if (!goal) return null;
+  const home = generateStrengthPlan({ ...goal, equipment: "casa" });
+  const label = session.title.replace(/ \((?:em casa|versão curta)\)$/, "");
+  return (home.sessions.find((item) => item.label === label) || home.sessions[0])?.exercises || null;
+}
+
+const HARD_SESSIONS = new Set(["intervalado", "limiar", "ritmo_prova", "longao", "teste", "prova"]);
+
+// ESP-05: "passa o treino de hoje para quinta". Se o dia de destino já tem treino, os dois
+// trocam de lugar; avisa quando dois treinos fortes ficam em dias seguidos.
+function moveSessions(userId, { from, to }, today) {
+  const source = addDays(today, from);
+  const target = to === "amanha"
+    ? addDays(today, 1)
+    : Array.from({ length: 7 }, (_, index) => addDays(source, index + 1)).find((date) => weekdayOf(date) === WEEKDAY_NUMBERS[to.slice(0, 3)]);
+  if (!target || target === source) return "Não entendi para qual dia passar o treino. Diga, por exemplo: *passa o treino de hoje para quinta*.";
+  const open = (session) => ["planejado", "ajustado"].includes(session.status);
+  const moving = getPlannedSessions(userId, source, source).filter(open);
+  if (!moving.length) return `Não há treino pendente ${from ? "amanhã" : "hoje"} para remarcar.`;
+  const swapped = getPlannedSessions(userId, target, target).filter(open);
+  for (const session of moving) updatePlannedSession(session.id, { date: target });
+  for (const session of swapped) updatePlannedSession(session.id, { date: source });
+  const hardNear = moving.some((session) => HARD_SESSIONS.has(session.session_type))
+    && getPlannedSessions(userId, addDays(target, -1), addDays(target, 1))
+      .some((session) => session.date !== target && HARD_SESSIONS.has(session.session_type) && session.status === "planejado");
+  const names = (list) => list.map((session) => `*${session.title}*`).join(" e ");
+  return [
+    `📅 Pronto: ${names(moving)} ${moving.length > 1 ? "passaram" : "passou"} para ${formatDay(target)}.`,
+    swapped.length ? `🔁 ${names(swapped)} de ${formatDay(target)} veio para ${from ? "amanhã" : "hoje"}.` : null,
+    hardNear ? "⚠️ Ficaram dois treinos fortes em dias seguidos: faça o segundo mais leve se sentir as pernas pesadas." : null
+  ].filter(Boolean).join("\n");
 }
 
 // Depois de gravar um treino: liga ao plano e devolve linhas extras para a resposta.

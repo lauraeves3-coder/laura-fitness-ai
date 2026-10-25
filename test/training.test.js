@@ -323,3 +323,38 @@ test("COR-05: 'qual foi minha última corrida' traz distância, tempo, pace e ga
   assert.match(reply, /📏 5 km   ⏱️ 32:00\n⚡ Pace médio: \*6:24 \/km\*\n🔥 Gasto estimado: ~350 kcal/);
   assert.match(service.handleTrainingMessage(userId, "qual foi meu último treino", today), /\*Seu último treino\* — hoje[\s\S]*\*Musculação\*\n⏱️ 50:00\n🔥 Gasto estimado: ~292 kcal/);
 });
+
+test("ESP-05: pouco tempo, sem equipamento e remarcar o treino", () => {
+  assert.deepEqual(detectTrainingIntent("hoje só tenho 30 min"), { type: "adapt", reason: "tempo", minutes: 30 });
+  assert.deepEqual(detectTrainingIntent("to sem tempo hoje"), { type: "adapt", reason: "tempo", minutes: 30 });
+  assert.deepEqual(detectTrainingIntent("a academia está fechada"), { type: "adapt", reason: "casa" });
+  assert.deepEqual(detectTrainingIntent("vou treinar em casa hoje"), { type: "adapt", reason: "casa" });
+  assert.deepEqual(detectTrainingIntent("passa o treino de hoje para quinta"), { type: "move", to: "quinta", from: 0 });
+  assert.deepEqual(detectTrainingIntent("troca o treino de amanhã pra sábado"), { type: "move", to: "sabado", from: 1 });
+
+  // Plano de 10 km + musculação: terça 27/10 tem treino de corrida.
+  const userId = "svc-esp05";
+  service.createTrainingPlanFromRequest(userId, request, TUESDAY);
+  const today = db.getPlannedSessions(userId, TUESDAY, TUESDAY)[0];
+  assert.ok(today, "há treino na terça");
+  const short = service.handleTrainingMessage(userId, "hoje só tenho 20 minutos", TUESDAY);
+  assert.match(short, /⏱️ Ajustei para caber em \*20 min\*/);
+  const adjusted = db.getPlannedSessions(userId, TUESDAY, TUESDAY)[0];
+  assert.equal(adjusted.duration_min, 20);
+  assert.ok(adjusted.distance_km < today.distance_km);
+
+  // Musculação em casa: troca os exercícios pelos de peso do corpo.
+  const strengthDay = db.getPlannedSessions(userId, "2026-10-26", "2026-11-08").find((session) => session.modality === "musculacao");
+  const home = service.handleTrainingMessage(userId, "a academia está fechada", strengthDay.date);
+  assert.match(home, /🏠 Troquei a musculação de hoje por uma \*versão em casa\*/);
+  const homeSession = db.getPlannedSessions(userId, strengthDay.date, strengthDay.date).find((session) => session.modality === "musculacao");
+  assert.match(homeSession.title, /\(em casa\)$/);
+  assert.notDeepEqual(homeSession.details.exercises, strengthDay.details.exercises);
+
+  // Remarcar: quinta 29/10 tem treino → os dois trocam de lugar.
+  const thursdayBefore = db.getPlannedSessions(userId, "2026-10-29", "2026-10-29").filter((session) => session.status === "planejado");
+  const moved = service.handleTrainingMessage(userId, "passa o treino de hoje para quinta", TUESDAY);
+  assert.match(moved, /📅 Pronto: \*.+\* passou para qui 29\/10\./);
+  assert.equal(db.getPlannedSessions(userId, "2026-10-29", "2026-10-29").some((session) => session.id === today.id), true);
+  if (thursdayBefore.length) assert.match(moved, /🔁 .* de qui 29\/10 veio para hoje/);
+});
