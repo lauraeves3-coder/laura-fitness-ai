@@ -287,6 +287,19 @@ export function handleTrainingMessage(userId, message, today) {
   return messages.join("\n\n");
 }
 
+// ACO-01: ajuste do treino de hoje pedido pelo check-in ("dor" ou "cansaco"). null quando
+// não há plano ou treino pendente hoje.
+export function adaptTodayTraining(userId, reason, today) {
+  if (!getActiveTrainingPlan(userId)) return null;
+  const sessions = getPlannedSessions(userId, today, today).filter((session) => session.status === "planejado");
+  if (!sessions.length) return null;
+  return sessions.map((session) => {
+    const { changes, message } = adaptSession(session, reason);
+    updatePlannedSession(session.id, changes);
+    return message;
+  }).join("\n\n");
+}
+
 // ESP-05: mesma sessão de musculação gerada com equipamento "casa".
 function homeVersion(plan, session) {
   if (session.modality !== "musculacao") return null;

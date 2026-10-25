@@ -1559,6 +1559,29 @@ export function updatePlannedSession(id, changes) {
   return parsePlannedSession(db.prepare(`SELECT * FROM planned_sessions WHERE id = ?`).get(id));
 }
 
+// ACO-01: check-in diário (sono, energia 1–5, dor).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS daily_checkins (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    date TEXT NOT NULL,
+    sleep_hours REAL,
+    energy INTEGER,
+    pain TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+ensureColumn("users", "reminder_checkin_time", "TEXT");
+
+export function saveCheckin(userId, { date, sleepHours = null, energy = null, pain = null }) {
+  ensureUser(userId);
+  db.prepare(`INSERT INTO daily_checkins (user_id, date, sleep_hours, energy, pain) VALUES (?, ?, ?, ?, ?)`).run(userId, date, sleepHours, energy, pain);
+}
+
+export function getCheckinsBetween(userId, startDate, endDate) {
+  return db.prepare(`SELECT * FROM daily_checkins WHERE user_id = ? AND date BETWEEN ? AND ? ORDER BY date, id`).all(userId, startDate, endDate);
+}
+
 // CRP-03: medidas corporais (cm) e percentual de gordura (%), com histórico.
 db.exec(`
   CREATE TABLE IF NOT EXISTS body_measurements (
@@ -1621,18 +1644,19 @@ export function getRunsBetween(userId, startDate, endDate) {
    LEMBRETES (CONV-11 / ARQ-04)
 ========================================================= */
 
-export function setReminder(userId, { water, summaryTime, trainingTime }) {
+export function setReminder(userId, { water, summaryTime, trainingTime, checkinTime }) {
   ensureUser(userId);
   if (water !== undefined) db.prepare(`UPDATE users SET reminder_water = ? WHERE id = ?`).run(water ? 1 : 0, userId);
   if (summaryTime !== undefined) db.prepare(`UPDATE users SET reminder_summary_time = ? WHERE id = ?`).run(summaryTime, userId);
   if (trainingTime !== undefined) db.prepare(`UPDATE users SET reminder_training_time = ? WHERE id = ?`).run(trainingTime, userId);
+  if (checkinTime !== undefined) db.prepare(`UPDATE users SET reminder_checkin_time = ? WHERE id = ?`).run(checkinTime, userId);
   return getUser(userId);
 }
 
 export function getReminderUsers() {
   return db.prepare(`
     SELECT * FROM users
-    WHERE reminder_water = 1 OR reminder_summary_time IS NOT NULL OR reminder_training_time IS NOT NULL
+    WHERE reminder_water = 1 OR reminder_summary_time IS NOT NULL OR reminder_training_time IS NOT NULL OR reminder_checkin_time IS NOT NULL
   `).all();
 }
 

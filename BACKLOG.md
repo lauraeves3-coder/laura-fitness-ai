@@ -191,7 +191,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
-| ACO-01 | Check-in diário opcional | P2 | NÃO IMPLEMENTADO | CRP-05, HID-02 | — |
+| ACO-01 | Check-in diário opcional | P2 | IMPLEMENTADO E TESTADO | CRP-05, HID-02 | src/checkin.js + tabela daily_checkins: 'check-in' pergunta sono, energia 1–5 e dor; a resposta ('dormi 6h, energia 2, sem dor') registra (sono também em sleep_logs) e ajusta o treino de hoje (dor → descanso; energia ≤2 ou sono <6 h → versão leve; senão mostra o treino). Lembrete opcional 'me lembre do check-in às 7h'. test/e2e.test.js |
 | ACO-02 | Fechamento diário (macros, água, treino, passos, sono, metas) | P2 | PARCIAL | — | "resumo do dia" / "como estou hoje?" sai sem chamar o modelo, com calorias, macros, treinos, peso e água do dia (`test/e2e.test.js`). Faltam passos e sono (sem módulo ainda) |
 | ACO-03 | Resumo semanal e análise multimodal | P2 | PARCIAL | — | "resumo da semana" / "últimos 7 dias" mostra a nutrição por dia e um bloco "Outras áreas" com treinos (quantidade e minutos), peso (início → fim), média de água e de sono (`getActivityBetween`, `test/e2e.test.js`). Falta análise cruzada e comparação com a semana anterior |
 | ACO-04 | Detectar metas desatualizadas e sugerir revisão (nunca em silêncio) | P2 | IMPLEMENTADO E TESTADO | ACO-03 | src/goalReview.js: no resumo do dia (no máximo 1×/semana, users.goal_review_at) aponta metas calculadas com peso que mudou 2 kg+ (users.targets_weight_kg), platô ou peso indo contra o objetivo em 3+ semanas, média de 2 semanas 15% acima ou 25% abaixo da meta e plano com 4+ treinos/semana com atividade sedentária/leve. Só sugere; nada é recalculado. test/e2e.test.js |
@@ -299,3 +299,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 25/10/2026 | ACO-04: revisão de metas desatualizadas no resumo do dia. Também: última corrida/treino com km, pace, FC e gasto; histórico do agente com km e pace. Totais: 52 testados, 1 não testado, 44 parciais, 26 não implementados, 1 bloqueados. |
 | 25/10/2026 | CRP-03: medidas corporais e tendência do peso; README com os comandos novos. Totais: 53 testados, 1 não testado, 44 parciais, 25 não implementados, 1 bloqueados. |
 | 25/10/2026 | ESP-05: adaptação por pouco tempo, sem equipamento e remarcação do treino. Totais: 54 testados, 1 não testado, 43 parciais, 25 não implementados, 1 bloqueados. |
+| 25/10/2026 | ACO-01: check-in diário que ajusta o treino do dia, com lembrete opcional. Totais: 55 testados, 1 não testado, 43 parciais, 24 não implementados, 1 bloqueados. |

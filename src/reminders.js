@@ -16,6 +16,11 @@ export function parseReminderCommand(message) {
   // Treino do dia: padrão 7h, ou o horário citado.
   // "me manda o treino de hoje" é consulta; "mande" só vira lembrete com horário ou "todo dia".
   const asksDaily = /\b(?:mand\w*|envi\w*)\b/.test(text) && (parseTime(text) || /\btodo(?:s os)? dias?\b|\bdiariamente\b/.test(text));
+  // ACO-01: "me lembre do check-in às 7h" (padrão 7h).
+  if (/\bcheck[- ]?in\b/.test(text) && (/\b(?:lembr\w*|avis\w*|notific\w*)/.test(text) || asksDaily)) {
+    if (off) return { kind: "checkin", time: null };
+    return { kind: "checkin", time: parseTime(text) || "07:00" };
+  }
   if (/\btreinos?\b/.test(text) && (/\b(?:lembr\w*|avis\w*|notific\w*)/.test(text) || asksDaily)) {
     if (off) return { kind: "training", time: null };
     return { kind: "training", time: parseTime(text) || "07:00" };
@@ -47,6 +52,11 @@ export function buildReminderCommandReply(command) {
     return command.enabled
       ? `💧 Lembretes de água ativados: aviso às 10h, 12h, 14h, 16h, 18h e 20h, só quando você estiver abaixo do ritmo da meta. ${window}`
       : "💧 Lembretes de água desativados.";
+  }
+  if (command.kind === "checkin") {
+    return command.time
+      ? `☀️ Vou mandar o check-in todos os dias às ${command.time} (sono, energia e dor, para ajustar o treino do dia). ${window}`
+      : "☀️ Check-in diário desativado.";
   }
   if (command.kind === "training") {
     return command.time
@@ -83,6 +93,13 @@ export function dueReminders(users, now, sent) {
       const key = `training:${date}`;
       if (hour * 60 + minute >= targetHour * 60 + targetMinute && !sent(user.id, key)) {
         due.push({ userId: user.id, key, kind: "training", date });
+      }
+    }
+    if (user.reminder_checkin_time) {
+      const [targetHour, targetMinute] = user.reminder_checkin_time.split(":").map(Number);
+      const key = `checkin:${date}`;
+      if (hour * 60 + minute >= targetHour * 60 + targetMinute && !sent(user.id, key)) {
+        due.push({ userId: user.id, key, kind: "checkin", date });
       }
     }
     if (user.reminder_summary_time) {

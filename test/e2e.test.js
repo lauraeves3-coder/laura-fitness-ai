@@ -1200,3 +1200,44 @@ test("CRP-03: medidas pela conversa, evolução e tendência do peso", async () 
   assert.match(trend, /✅ No ritmo certo para emagrecer/);
   assert.match(await send(userId, "evolução do peso"), /Preciso de pelo menos 2 pesagens/);
 });
+
+// ---------- ACO-01: check-in diário ----------
+
+test("ACO-01: check-in pergunta, registra e ajusta o treino do dia", async () => {
+  const { parseCheckinAnswer } = await import("../src/checkin.js");
+  const { parseReminderCommand, dueReminders } = await import("../src/reminders.js");
+  const service = await import("../src/training/service.js");
+  assert.deepEqual(parseCheckinAnswer("dormi 7h, energia 4, sem dor"), { sleepHours: 7, sleepQuality: null, energy: 4, pain: null });
+  assert.equal(parseCheckinAnswer("energia baixa, dor no joelho").pain, "joelho");
+  assert.equal(parseCheckinAnswer("energia baixa, dor no joelho").energy, 2);
+  assert.equal(parseCheckinAnswer("dormi 7h"), null, "sem energia não é check-in");
+
+  const userId = newUser();
+  assert.match(await send(userId, "check-in"), /☀️ \*Check-in de hoje\*[\s\S]*Energia de 1 a 5/);
+  const today = db.getDailySummary(userId).date;
+  // Plano com treino hoje: cria e força uma sessão forte para hoje.
+  service.createTrainingPlanFromRequest(userId, {
+    running_goal: "10k", running_level: "intermediario", running_days_per_week: 6, available_days: [], current_weekly_km: 25,
+    longest_run_km: 10, reference_distance_km: 5, reference_time: "27:00", easy_pace: null, event_date: null, strength_goal: null,
+    strength_level: null, strength_days_per_week: null, equipment: null, limitations: [], other_modality: null, other_level: null, other_days_per_week: null
+  }, today);
+  const todaySession = db.getPlannedSessions(userId, today, today)[0];
+  const tired = await send(userId, "dormi 5h, energia 2, sem dor");
+  assert.match(tired, /✅ \*Check-in registrado\*\n😴 Sono: 5 h · ⚡ Energia: 2\/5 · 🩹 Dor: nenhuma/);
+  if (todaySession) {
+    assert.match(tired, /🔄 Ajustei/);
+    assert.equal(db.getPlannedSessions(userId, today, today)[0].status, "ajustado");
+  } else {
+    assert.match(tired, /energia baixa/);
+  }
+  assert.equal(db.getSleepOn(userId, today).hours, 5, "sono vai para o registro de sono");
+
+  const fine = newUser();
+  assert.match(await send(fine, "dormi 8h, energia 5, sem dor"), /💪 Energia boa, bora!/);
+
+  // Lembrete do check-in.
+  assert.deepEqual(parseReminderCommand("me lembre do check-in às 7h"), { kind: "checkin", time: "07:00" });
+  assert.match(await send(fine, "me lembre do check-in às 6h30"), /☀️ Vou mandar o check-in todos os dias às 06:30/);
+  const due = dueReminders([{ id: fine, reminder_checkin_time: "06:30" }], new Date("2026-10-27T10:00:00Z"), () => false);
+  assert.deepEqual(due.map((item) => item.kind), ["checkin"]);
+});

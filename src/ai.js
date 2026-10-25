@@ -54,6 +54,7 @@ import {
 } from "./db.js";
 import { reviewTargets, describeTargetReview } from "./goalReview.js";
 import { handleBodyMessage } from "./body.js";
+import { handleCheckinMessage, CHECKIN_QUESTION } from "./checkin.js";
 import {
   calculateNutritionBalance,
   analyzeRemainingNutritionBudget,
@@ -2489,7 +2490,9 @@ export async function runReminders({ now = new Date(), send }) {
     }
     const text = reminder.kind === "water"
       ? buildWaterReminder(user.waterMl, user.goalMl)
-      : reminder.kind === "training"
+      : reminder.kind === "checkin"
+        ? CHECKIN_QUESTION
+        : reminder.kind === "training"
         ? handleTrainingMessage(user.id, "qual meu treino de hoje?", reminder.date)
         : buildSummaryReply(getDailySummary(user.id), user, user.waterMl, getSleepOn(user.id, getDailySummary(user.id).date));
     try {
@@ -2676,9 +2679,15 @@ const summaryIntent = classifySummaryIntent(message);
         ? { water: reminderCommand.enabled }
         : reminderCommand.kind === "training"
           ? { trainingTime: reminderCommand.time }
-          : { summaryTime: reminderCommand.time });
+          : reminderCommand.kind === "checkin"
+            ? { checkinTime: reminderCommand.time }
+            : { summaryTime: reminderCommand.time });
       return buildReminderCommandReply(reminderCommand);
     }
+
+    // ACO-01: "check-in" e a resposta (sono, energia, dor) ajustam o treino do dia.
+    const checkinReply = handleCheckinMessage(userId, message, dailySummary.date);
+    if (checkinReply) return checkinReply;
 
     // CRP-05 / MUS-03 / HID-02: sono, recorde e correção de água, sem o modelo.
     const sleep = detectSleepReport(message);
