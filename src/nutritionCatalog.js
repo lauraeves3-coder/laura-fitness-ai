@@ -30,7 +30,7 @@ export const FOOD_CATALOG = [
   // =========================================================
   // CEREAIS / PÃES / MASSAS
   // =========================================================
-  F("arroz-branco-cozido", "Arroz branco cozido", ["arroz", "arroz branco"], 138, 2.41, 29.2, 1.6, 100, "100 g", "tbca_verified", "TBCA BRC0208A, polido, cozido c/ óleo, cebola e alho (consulta 23/10/2026)"),
+  F("arroz-branco-cozido", "Arroz branco cozido", ["arroz", "arroz branco", "aros"], 138, 2.41, 29.2, 1.6, 100, "100 g", "tbca_verified", "TBCA BRC0208A, polido, cozido c/ óleo, cebola e alho (consulta 23/10/2026)"),
   F("arroz-integral-cozido", "Arroz integral cozido", ["arroz integral"], 108, 2.44, 23.5, 0.87, 100, "100 g", "tbca_verified", "TBCA BRC0016A, cozido s/ óleo (consulta 23/10/2026)"),
   F("arroz-japones-cozido", "Arroz japonês para sushi", ["arroz para sushi", "arroz sushi", "shari"], 131, 2.34, 30.2, 0.4, 100, "100 g", "tbca_verified", "TBCA BRC0711A, shari: arroz para sushi c/ vinagre, açúcar e sal (consulta 23/10/2026)"),
   F("arroz-a-grega", "Arroz à grega", ["arroz a grega"], 150, 3.0, 29.5, 2.0, 100, "100 g", "curated_estimate"),
@@ -705,6 +705,8 @@ export function normalizeText(value) {
     .toLocaleLowerCase("pt-BR")
     .replace(/\s+/g, " ")
     .replace(WHOLE_BEFORE_FLAVOR, "$1 de $4 $2$3")
+    .replace(/\bcafe da manha\b/g, "desjejum")
+    .replace(/\b(no|pro|pra|ao|para o|antes do|depois do)\s+cafe\b(?!\s+(?:com|preto|puro|sem|com leite|coado|expresso|gelado))/g, "$1 desjejum")
     .trim();
 }
 
@@ -1195,11 +1197,21 @@ export function applyQuantityAnswer(originalMessage, items, reply, extraFoods = 
     if (phrase && target) inserts.push({ index: target.index, text: `${phrase} de ` });
   }
 
-  if (!inserts.length) return null;
+  const known = new Set([...items.map((item) => item.id), ...originalOccurrences.map((occurrence) => occurrence.item?.id)]);
+  const extras = replyOccurrences
+    .filter((occurrence) => occurrence.item && !known.has(occurrence.item.id))
+    .map((occurrence) => {
+      const amount = quantityPhrase(replyText.slice(0, occurrence.index).match(new RegExp(`(${QUANTITY_PATTERN})${unit}\\s*(?:de|do|da)?\\s*$`)), occurrence.item);
+      const name = replyText.slice(occurrence.index, occurrence.end ?? occurrence.index + occurrence.item.name.length);
+      return amount ? `${amount} de ${name}` : null;
+    })
+    .filter(Boolean);
+  if (!inserts.length && !extras.length) return null;
   let message = original;
   for (const { index, text } of inserts.sort((left, right) => right.index - left.index)) {
     message = message.slice(0, index) + text + message.slice(index);
   }
+  if (extras.length) message = `${message.trim().replace(/[.!]+$/, "")}, ${extras.join(", ")}`;
   return { message, acceptDefaults: false };
 }
 

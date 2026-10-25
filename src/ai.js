@@ -1378,7 +1378,9 @@ async function handlePendingMealClarification(userId, message, internal) {
     if (findFoodCandidates(message).length) {
       clearPendingMealClarification(userId);
       const sides = message.trim().replace(/^(?:sim|teve|tinha|comi)[,!.\s]+/i, "").replace(/^(?:com|tinha|teve)\s+/i, "");
-      return processMessage(userId, `${pending.original_message.trim().replace(/[.!]+$/, "")} com ${sides}`, { ...internal, skipMealSides: true });
+      // Acompanhamento sem quantidade ("arroz e farofa"): porção padrão, mostrada na resposta.
+      const sidesWithoutAmount = !/\d|\b(?:uma?|duas?|meia|meio|colher|concha|escumadeira|porcao)\b/.test(normalizeRequestText(sides));
+      return processMessage(userId, `${pending.original_message.trim().replace(/[.!]+$/, "")} com ${sides}`, { ...internal, skipMealSides: true, acceptDefaultQuantities: sidesWithoutAmount || internal.acceptDefaultQuantities, portionNote: sidesWithoutAmount });
     }
   } else if (pending.type === "missing_quantity") {
     const answer = applyQuantityAnswer(pending.original_message, pending.items || [], message, getUserFoods(userId));
@@ -1418,6 +1420,12 @@ async function handlePendingMealClarification(userId, message, internal) {
   }
   clearPendingMealClarification(userId);
   return null;
+}
+
+// Porções usadas no registro (acompanhamento sem quantidade fica na porção padrão).
+function portionLines(description) {
+  const items = estimateMealFromText(description)?.matched_items || [];
+  return items.length ? [`📏 Considerei: ${items.map((item) => `${item.name.toLocaleLowerCase("pt-BR")} ${Math.round(item.grams)} g`).join(" · ")}. Se foi diferente, me diga que eu corrijo.`] : [];
 }
 
 // NUT-26: tamanho padrão usado (pizza inteira, pacote, prato) aparece na resposta.
@@ -1527,11 +1535,18 @@ function saveAction(
   }
 
   if (result.action === "profile") {
-    const updatedUser =
+    let updatedUser =
       updateUserProfile(
         userId,
         result.data
       );
+
+    // "Treino 4 vezes por semana" já define o nível de atividade para o cálculo.
+    const trainingDays = Number(updatedUser?.training_days_per_week);
+    if (!updatedUser?.activity_level && Number.isFinite(trainingDays) && updatedUser?.training_days_per_week !== null) {
+      const activity = trainingDays <= 0 ? "sedentary" : trainingDays <= 2 ? "light" : trainingDays <= 5 ? "moderate" : "high";
+      updatedUser = updateUserProfile(userId, { activity_level: activity });
+    }
 
     const requiredFields = [
       "age_years",
@@ -1806,10 +1821,56 @@ function progressBar(fraction) {
    RESPOSTA DO PERFIL COMPLETO
 ========================================================= */
 
+const PROFILE_FIELDS = [
+  ["age_years", "sua idade"], ["sex", "seu sexo"], ["height_cm", "sua altura"], ["weight_kg", "seu peso"],
+  ["goal", "seu objetivo (emagrecer, manter ou ganhar massa)"], ["activity_level", "quantos dias por semana você treina"]
+];
+const SEX_LABEL = { female: "feminino", feminino: "feminino", male: "masculino", masculino: "masculino" };
+const ACTIVITY_LABEL = { sedentary: "sedentária", light: "leve", moderate: "moderada", high: "alta", very_high: "muito alta" };
+
+// Painel de metas: "quais são minhas metas?" e confirmação do perfil. Sem tudo o que o
+// cálculo precisa, lista só o que falta.
+function buildGoalsReply(user, { saved = false } = {}) {
+  const fmt = (value) => Math.round(Number(value)).toLocaleString("pt-BR");
+  const missing = PROFILE_FIELDS.filter(([field]) => user?.[field] === null || user?.[field] === undefined || user?.[field] === "");
+  const about = [
+    user?.age_years ? `${user.age_years} anos` : null,
+    SEX_LABEL[String(user?.sex || "").toLowerCase()] || null,
+    user?.height_cm ? `${fmt(user.height_cm)} cm` : null,
+    user?.weight_kg ? `${Number(user.weight_kg).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kg` : null
+  ].filter(Boolean).join(" · ");
+  const lines = [saved ? "👤 *Perfil salvo*" : "👤 *Seu perfil*"];
+  if (about) lines.push(about);
+  if (user?.goal || user?.activity_level) {
+    lines.push(`🎯 Objetivo: ${user?.goal || "—"}${user?.training_days_per_week != null ? ` · treina ${user.training_days_per_week}×/semana` : ""}${user?.activity_level ? ` (atividade ${ACTIVITY_LABEL[user.activity_level] || user.activity_level})` : ""}`);
+  }
+  const target = Number(user?.daily_calorie_target);
+  if (target > 0 && target <= 10000) {
+    lines.push(
+      "",
+      "📊 *Suas metas diárias*",
+      `🔥 *${fmt(target)} kcal*`,
+      `🥩 Proteína: ${fmt(user.daily_protein_target)} g`,
+      `🍚 Carboidratos: ${fmt(user.daily_carbs_target)} g`,
+      `🥑 Gorduras: ${fmt(user.daily_fat_target)} g`,
+      `💧 Água: ${(waterGoalFor(user) / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} L`
+    );
+    const how = user.calorie_target_mode === "custom"
+      ? "meta personalizada por você"
+      : [user.maintenance_calories ? `manutenção de ~${fmt(user.maintenance_calories)} kcal` : null, user.calorie_deficit_percent ? `déficit de ${user.calorie_deficit_percent}% para emagrecer com segurança` : null].filter(Boolean).join(", ");
+    if (how) lines.push("", `_Como calculei: ${how}._`);
+    lines.push("_Para mudar, diga por exemplo *minha meta é 1700 kcal*._");
+  } else if (missing.length) {
+    lines.push("", "Para calcular suas metas de calorias e macros, me conta:", ...missing.map(([, label]) => `• ${label}`), "", "_Pode responder tudo numa mensagem só._");
+  }
+  return lines.join("\n");
+}
+
 function buildProfileReply(
   updatedUser,
   targets
 ) {
+  if (targets) return buildGoalsReply(updatedUser, { saved: true });
   const lines = [];
 
   lines.push("👤 Perfil atualizado:");
@@ -2800,6 +2861,13 @@ const summaryIntent = classifySummaryIntent(message);
           : { action: "workout", data: simpleWorkout, reply: "" }
       });
     }
+    // "Quais são minhas metas?" / "meu perfil": painel de metas (ou o que falta para calcular).
+    const goalsText = normalizeRequestText(message);
+    if (!/\d/.test(goalsText) && /\b(?:(?:quais|qual)\s+(?:sao|e|eh)?\s*(?:as\s+|a\s+)?minhas?\s+metas?|minhas\s+metas|minha\s+meta\s+(?:de\s+hoje|diaria)|meu\s+perfil|ver\s+(?:minhas\s+)?metas)\b/.test(goalsText)
+      && !/\b(?:mude|muda|mudar|altere|alterar|troque|trocar|restaure|recalcul\w*|quero|defin\w*)\b/.test(goalsText)) {
+      return buildGoalsReply(getUser(userId));
+    }
+
     // Só o resumo de hoje: períodos ("últimos 7 dias", "ontem") ficam com o NUT-14.
     const asksPeriod = /\b(?:semana|dias|mes|mês|ontem|anteontem)\b/i.test(message);
     if (!asksPeriod && classifySummaryIntent(message)?.type === "full" || /\bcomo (?:estou|to|tô|esta|está) (?:hoje|meu dia)\b/i.test(message)) {
@@ -4636,6 +4704,14 @@ const summaryIntent = classifySummaryIntent(message);
     }
   }
 
+  // Perfil: "treino 4 vezes por semana" / "não treino" viram treinos por semana.
+  if (result.action === "profile" && result.data && result.data.training_days_per_week == null) {
+    const profileText = normalizeRequestText(message);
+    const days = profileText.match(/\b(?:treino|treinar|malho|corro|pratico exercicio)\w*\s+(?:uns\s+|umas\s+)?(\d)\s*(?:x|vezes|dias)\b/)?.[1];
+    if (days) result.data.training_days_per_week = Number(days);
+    else if (/\b(?:nao treino|nao faco (?:exercicio|atividade)|sou sedentari[oa]|sedentari[oa])\b/.test(profileText)) result.data.training_days_per_week = 0;
+  }
+
   // MUS-02: RPE/RIR e esforço citados no texto ("rpe 8", "esforço 9/10").
   if (result.action === "workout") result.data = applyEffortFromText(result.data, message);
 
@@ -4668,7 +4744,7 @@ const summaryIntent = classifySummaryIntent(message);
   if (result.action === "weight") {
     if (!saved) return "Não registrei o peso: informe um valor válido em kg.";
     const format = (value) => Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 1 });
-    const reply = `⚖️ Registrei seu peso: ${format(saved.weight_kg)} kg\n_Perfil atualizado; as metas automáticas não foram recalculadas._`;
+    const reply = `⚖️ Registrei seu peso: *${format(saved.weight_kg)} kg*`;
     // CRP-02 (DEC-07): mudança de 2 kg ou mais só sugere revisar as metas.
     const previous = Number(user?.weight_kg);
     const change = Number(saved.weight_kg) - previous;
@@ -4811,6 +4887,7 @@ const summaryIntent = classifySummaryIntent(message);
       `🍽️ ${food.charAt(0).toLocaleUpperCase("pt-BR")}${food.slice(1)}`,
       "",
       ...assumedPortionLines(saved.description),
+      ...(internal.portionNote ? portionLines(saved.description) : []),
       `🔥 ${Math.round(saved.calories).toLocaleString("pt-BR")} kcal · 🥩 P ${formatKg(saved.protein_g)} g · 🍚 C ${formatKg(saved.carbs_g)} g · 🥑 G ${formatKg(saved.fat_g)} g`,
       today?.calorie_target
         ? `📊 Hoje: ${Math.round(today.calories).toLocaleString("pt-BR")} de ${Math.round(today.calorie_target).toLocaleString("pt-BR")} kcal · ${formatRemainingStatus(today.calorie_target - today.calories, "kcal").toLocaleLowerCase("pt-BR")}`
@@ -4909,6 +4986,10 @@ const summaryIntent = classifySummaryIntent(message);
     }
 
     return reply;
+  }
+
+  if (result.action === "profile" && saved?.user && !saved?.targets) {
+    return buildGoalsReply(saved.user, { saved: true });
   }
 
   if (

@@ -718,7 +718,7 @@ test("MUS-01: treino sem exercícios (cardio) também confirma", async () => {
 
 test("CRP-01: peso confirma; valor implausível é recusado e não altera o perfil", async () => {
   const userId = newUser();
-  assert.match(await send(userId, "pesei 72,5 kg", fakeModel([toolCall("record_weight", { weight_kg: 72.5 }), finalText("ok")])), /Registrei seu peso: 72,5 kg/);
+  assert.match(await send(userId, "pesei 72,5 kg", fakeModel([toolCall("record_weight", { weight_kg: 72.5 }), finalText("ok")])), /Registrei seu peso: \*72,5 kg\*/);
   const reply = await send(userId, "pesei 7250 kg", fakeModel([toolCall("record_weight", { weight_kg: 7250 }), finalText("ok")]));
   assert.match(reply, /Não registrei o peso/);
   assert.equal(db.getUser(userId).weight_kg, 72.5);
@@ -800,8 +800,8 @@ test("HID-01: sem meta definida, a meta de água é estimada pelo peso (35 ml/kg
 
 test("CRP-01 / MUS-01: peso e treino simples registram sem chamar o modelo", async () => {
   const userId = newUser();
-  assert.match(await send(userId, "pesei 72,5 kg"), /Registrei seu peso: 72,5 kg/);
-  assert.match(await send(userId, "meu peso hoje é 72 kg"), /Registrei seu peso: 72 kg/);
+  assert.match(await send(userId, "pesei 72,5 kg"), /Registrei seu peso: \*72,5 kg\*/);
+  assert.match(await send(userId, "meu peso hoje é 72 kg"), /Registrei seu peso: \*72 kg\*/);
   assert.match(await send(userId, "corri 5 km em 30 minutos"), /Registrei o treino: Corrida — 30 min/);
   assert.match(await send(userId, "fiz 1h de musculação"), /Registrei o treino: Musculação — 60 min/);
   assert.equal(db.getUser(userId).weight_kg, 72);
