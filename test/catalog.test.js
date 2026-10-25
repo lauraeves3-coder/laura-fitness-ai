@@ -508,3 +508,21 @@ test("SUP-03: sabor sem tabela própria informa que usa a do sabor de referênci
   assert.match(item.reference, /sabor chocolate sem tabela própria: usa a do sabor natural/);
   assert.match(FOOD_CATALOG.find((food) => food.id === "whey-dux-concentrado-neutro").reference, /rótulo oficial por sabor/);
 });
+
+test("NUT-26: sabor depois de 'inteira', tamanho antes de 'inteira' e pacotes pedem a quantidade", async () => {
+  const { getMissingMealQuantities: missing, applyQuantityAnswer: answer, estimateMealFromText: estimate } = await import("../src/nutritionCatalog.js");
+  const cases = [
+    ["comi uma pizza inteira de calabresa", "Pizza de calabresa", "8", 1800],
+    ["comi um pacote de biscoito recheado", "Biscoito recheado de chocolate", "130 g", 550],
+    ["comi um bolo inteiro de chocolate", "Bolo de chocolate", "10 fatias", 1200]
+  ];
+  for (const [message, name, reply, minKcal] of cases) {
+    const items = missing(message);
+    assert.deepEqual(items.map((item) => item.name), [name], message);
+    const result = estimate(answer(message, items, reply).message);
+    assert.ok(result.calories > minKcal, `${message}: ${result.calories}`);
+    assert.equal(result.matched_items.length, 1, "sem calabresa avulsa");
+  }
+  assert.equal(missing("comi uma pizza grande inteira").length, 1);
+  assert.deepEqual(missing("comi 2 fatias de pizza de calabresa"), []);
+});

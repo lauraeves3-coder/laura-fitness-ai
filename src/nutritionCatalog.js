@@ -704,8 +704,13 @@ export function normalizeText(value) {
     .replace(/[\u0300-\u036f]/g, "")
     .toLocaleLowerCase("pt-BR")
     .replace(/\s+/g, " ")
+    .replace(WHOLE_BEFORE_FLAVOR, "$1 de $4 $2$3")
     .trim();
 }
+
+// NUT-26: "pizza inteira de calabresa" → "pizza de calabresa inteira" (sabor junto do prato).
+// Também aplicado ao texto original na resposta de quantidade, para os índices baterem.
+const WHOLE_BEFORE_FLAVOR = /\b(pizza|bolo|torta|lasanha|quiche|esfiha|empad[aã]o)\s+((?:grande|m[eé]dia|pequena|broto|fam[ií]lia)\s+)?(inteir[ao]s?)\s+de\s+([a-zà-ú]+(?:\s+(?:com|e)\s+[a-zà-ú]+)?)/gi;
 
 // Termos genéricos que não definem preparo ou corte. Um nome mais específico na mesma
 // posição vence ("batata frita", "bife acebolado"); sozinhos, pedem esclarecimento em
@@ -972,7 +977,9 @@ function extractQuantityDetails(text, item, fromIndex = 0, { endIndex = null } =
   }
 
   // NUT-26: "pizza inteira", "bolo inteiro" sem medida: quantidade desconhecida, perguntar.
-  if (/^\s*inteir[ao]s?\b/.test(after)) return { grams: 0, measure: null, whole: true };
+  if (/^\s*(?:(?:grande|media|pequena|broto|familia)\s+)?inteir[ao]s?\b/.test(after)) return { grams: 0, measure: null, whole: true };
+  // "um pacote de biscoito", "uma caixa de bombom": tamanho varia, perguntar.
+  if (/\b(?:pacotes?|caixas?|potes?|latas? de leite condensado)\s+(?:inteir[ao]s?\s+)?(?:de|do|da)\s*$/.test(before)) return { grams: 0, measure: null, whole: true };
 
   // Contagem direta antes/depois do alimento: "2 bananas", "meia banana", "1/2 mamão".
   const directBefore = before.match(new RegExp(`(${QUANTITY_PATTERN})\\s*$`));
@@ -1111,7 +1118,7 @@ export function applyQuantityAnswer(originalMessage, items, reply, extraFoods = 
     return amount >= 10 ? `${match[1]} g` : null;
   };
   const unit = `(?:\\s*(${UNIT_PATTERN})(?![a-z]))?`;
-  const original = String(originalMessage || "").normalize("NFC");
+  const original = String(originalMessage || "").normalize("NFC").replace(WHOLE_BEFORE_FLAVOR, "$1 de $4 $2$3");
   const originalOccurrences = findFoodOccurrences(normalizeFoodText(original), extraFoods);
   const replyOccurrences = findFoodOccurrences(replyText, extraFoods);
   const inserts = [];
