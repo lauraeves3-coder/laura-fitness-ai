@@ -1331,3 +1331,39 @@ test("DSP-01/02: despensa com quantidade, local e validade; baixa ao registrar r
   assert.match(await send(userId, "comprei um açaí e comi", fakeModel([finalText("ok")])), /Refeição registrada/, "comprar e comer é refeição, não estoque");
   assert.equal(db.getPantry(userId).some((item) => /açaí/i.test(item.name)), false);
 });
+
+// ---------- REC: receitas ----------
+
+test("REC: busca com filtros, ficha, troca de ingrediente, favoritas e registro por porção", async () => {
+  const { allRecipes, recipeNutrition, parseRecipeQuery, searchRecipes } = await import("../src/recipes.js");
+  const { FOOD_CATALOG, estimateMealFromText } = await import("../src/nutritionCatalog.js");
+  const ids = new Set(FOOD_CATALOG.map((food) => food.id));
+  assert.ok(allRecipes().length >= 40);
+  assert.deepEqual(allRecipes().flatMap((recipe) => recipe.ingredients.filter(([id]) => id && !ids.has(id)).map(([id]) => `${recipe.id}:${id}`)), [], "todo ingrediente existe no catálogo");
+  // REC-07: o mesmo cálculo do registro de refeições.
+  const pf = allRecipes().find((recipe) => recipe.id === "ovos-cozidos-fruta");
+  assert.equal(Math.round(recipeNutrition(pf).calories), Math.round(estimateMealFromText("comi 2 ovos e 1 maçã").calories));
+  // REC-04: filtros.
+  const names = (query, options) => searchRecipes(parseRecipeQuery(query), options).map(({ recipe }) => recipe.name);
+  assert.ok(names("receita rápida com frango").every((name) => /frango/i.test(name)));
+  assert.ok(names("receitas vegetarianas de almoço").length >= 2);
+  assert.ok(names("receita na airfryer").includes("Tilápia na airfryer com legumes"));
+  assert.ok(names("receita de café da manhã com ovo").length >= 3);
+  // DSP-03/REC-03: despensa ordena.
+  const fromPantry = searchRecipes(parseRecipeQuery("receita com o que tenho em casa"), { pantryNames: ["Frango", "Batata-doce", "Brócolis"] });
+  assert.equal(fromPantry[0].recipe.name, "Frango com batata-doce e brócolis");
+
+  const userId = newUser();
+  const list = await send(userId, "me dá uma receita rápida com frango");
+  assert.match(list, /🍳 \*Receitas para você\*\n\n1\. \*.*frango.*\* — \d+ min · \d+ kcal · P \d+ g/i);
+  const card = await send(userId, "1");
+  assert.match(card, /\*Ingredientes\*[\s\S]*\*Modo de preparo\*\n1\. [\s\S]*\*Por porção:\* 🔥 \d+ kcal/);
+  const swapped = await send(userId, "troca o requeijão por cottage");
+  assert.match(swapped, /🔁 Troquei requeijão cremoso por queijo cottage|🔁 Troquei .*requeij.* por .*cottage/i);
+  assert.match(await send(userId, "favoritar"), /⭐ \*.+\* salva nas favoritas/);
+  const meal = await send(userId, "comi 2 porções");
+  assert.match(meal, /✅ \*Refeição registrada\*[\s\S]*· 2 porções/);
+  assert.equal(db.getTodayMeals(userId).length, 1);
+  assert.match(await send(userId, "minhas receitas favoritas"), /⭐ \*Suas receitas favoritas\*\n\n1\. \*/);
+  assert.match(await send(userId, "receita de strogonoff"), /🍳 \*Strogonoff fit de frango\*/);
+});

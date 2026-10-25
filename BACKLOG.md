@@ -111,13 +111,13 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
-| REC-01 | Biblioteca com centenas de receitas realmente variadas | P2 | NÃO IMPLEMENTADO | CAT-08 | — |
-| REC-02 | Ficha completa por receita (ingredientes, passos, rendimento, macros, tempos, equipamento, tags) | P2 | NÃO IMPLEMENTADO | REC-01 | — |
-| REC-03 | Gerar/adaptar por objetivo, macros, tempo, equipamento, estoque, orçamento | P2 | NÃO IMPLEMENTADO | REC-01, DSP-01 | — |
-| REC-04 | Filtros por tempo, dificuldade, equipamento, poucos ingredientes | P2 | NÃO IMPLEMENTADO | REC-02 | — |
-| REC-05 | Substituição por função culinária com recálculo | P2 | NÃO IMPLEMENTADO | REC-02 | — |
-| REC-06 | Receitas pessoais, favoritas e recorrentes; registro por porção | P2 | NÃO IMPLEMENTADO | REC-02 | — |
-| REC-07 | Um único cálculo nutricional compartilhado (sem motor paralelo) | P2 | NÃO IMPLEMENTADO | ARQ-01 | — |
+| REC-01 | Biblioteca com centenas de receitas realmente variadas | P2 | PARCIAL | — | 40 receitas variadas (café, almoço/jantar, lanche, pós-treino, sobremesa; vegetarianas e sem lactose) em src/recipes.js com ingredientes do catálogo. Falta chegar a centenas. |
+| REC-02 | Ficha completa por receita (ingredientes, passos, rendimento, macros, tempos, equipamento, tags) | P2 | IMPLEMENTADO E TESTADO | REC-01 | Ficha com tempo, dificuldade, equipamento, rendimento, refeições, tags, ingredientes com medida caseira, modo de preparo numerado e macros por porção. test/e2e.test.js |
+| REC-03 | Gerar/adaptar por objetivo, macros, tempo, equipamento, estoque, orçamento | P2 | PARCIAL | REC-01 | Busca considera despensa (prioriza o que há em casa), saldo do dia ('que caiba na minha meta') e tempo/equipamento; não gera receita nova do zero. |
+| REC-04 | Filtros por tempo, dificuldade, equipamento, poucos ingredientes | P2 | IMPLEMENTADO E TESTADO | REC-01 | Filtros por refeição, tempo ('rápida', 'até 15 min'), equipamento (airfryer, forno, micro-ondas, liquidificador, sem fogão), ingrediente, vegetariana/vegana, sem lactose, rica em proteína, low carb, poucos ingredientes. test/e2e.test.js |
+| REC-05 | Substituição por função culinária com recálculo | P2 | IMPLEMENTADO E TESTADO | REC-02 | 'troca o requeijão por cottage' ou 'sem leite' (troca pela função culinária) na receita aberta, com macros recalculados. test/e2e.test.js |
+| REC-06 | Receitas pessoais, favoritas e recorrentes; registro por porção | P2 | PARCIAL | REC-02 | Favoritas ('favoritar', 'minhas receitas favoritas') e registro por porção ('comi a receita', 'comi 2 porções'). Falta cadastrar receita própria. |
+| REC-07 | Um único cálculo nutricional compartilhado (sem motor paralelo) | P2 | IMPLEMENTADO E TESTADO | — | Macros das receitas saem do mesmo catálogo/cálculo do registro de refeições (teste compara receita x registro). test/e2e.test.js |
 
 ## DSP — Despensa, compras e orçamento
 
@@ -125,7 +125,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 |---|---|---|---|---|---|
 | DSP-01 | Inventário com quantidade, unidade, local, validade | P2 | IMPLEMENTADO E TESTADO | — | src/pantry.js + tabela pantry_items: 'comprei 1 kg de frango, 2 dúzias de ovos…' (kg/g/L/ml/dúzia/unidade/pacote/lata…), local (geladeira/freezer/armário) e validade ('vence 30/10', 'vence em 3 dias'); 'minha despensa'/'o que tenho em casa' agrupado por local com alerta de vencimento; 'o que está para vencer'; 'acabou o leite'; refeição registrada dá baixa (g/ml pelo peso, unidades pela porção do catálogo). test/e2e.test.js |
 | DSP-02 | Estoque confirmado ≠ alimento mencionado/desejado | P2 | IMPLEMENTADO E TESTADO | DSP-01 | Estoque só entra com verbo de compra/guarda ('comprei', 'coloquei'); 'comprei um açaí e comi' é refeição. A despensa vai no contexto do agente como estoque confirmado, usado em available_foods só quando a pessoa pede sugestão com o que tem em casa. test/e2e.test.js |
-| DSP-03 | Receitas com o que há em casa e vencimento | P3 | NÃO IMPLEMENTADO | DSP-01, REC-03 | — |
+| DSP-03 | Receitas com o que há em casa e vencimento | P3 | PARCIAL | DSP-01, REC-03 | 'receita com o que tenho em casa' usa a despensa; falta priorizar o que vence. |
 | DSP-04 | Lista de compras a partir do cardápio, descontando estoque | P3 | NÃO IMPLEMENTADO | DSP-01 | — |
 | DSP-05 | Orçamento semanal/mensal e alternativas econômicas; preços com fonte | P3 | NÃO IMPLEMENTADO | DSP-04 | — |
 
@@ -304,3 +304,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 25/10/2026 | SUP-02 (parcial): categorias de suplementos além do whey. Totais: 56 testados, 1 não testado, 44 parciais, 22 não implementados, 1 bloqueados. |
 | 25/10/2026 | MUS-02: RPE/RIR, esforço da sessão, progressão de carga e alerta de fadiga. Totais: 57 testados, 1 não testado, 43 parciais, 22 não implementados, 1 bloqueados. |
 | 25/10/2026 | DSP-01/02: despensa com quantidade, local, validade, baixa automática e uso nas sugestões. Totais: 59 testados, 1 não testado, 42 parciais, 21 não implementados, 1 bloqueados. |
+| 25/10/2026 | REC: 40 receitas com ficha, filtros, troca de ingrediente, favoritas e registro por porção; despensa nas receitas. Totais: 63 testados, 1 não testado, 46 parciais, 13 não implementados, 1 bloqueados. |

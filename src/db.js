@@ -212,6 +212,8 @@ ensureColumn("users", "targets_weight_kg", "REAL");
 ensureColumn("users", "goal_review_at", "TEXT");
 // CONV-12: estilo de resposta preferido ("curta" | "detalhada" | null = normal).
 ensureColumn("users", "reply_style", "TEXT");
+// REC: última lista, receita aberta (com trocas) e favoritas, em JSON.
+ensureColumn("users", "recipe_state", "TEXT");
 // MUS-02: esforço por exercício (RPE/RIR) e da sessão (0–10).
 ensureColumn("exercises", "rpe", "REAL");
 ensureColumn("exercises", "rir", "REAL");
@@ -1686,6 +1688,11 @@ export function getDailyCaloriesBetween(userId, startDate, endDate) {
     SELECT date(consumed_at) AS date, SUM(calories) AS calories FROM meals
     WHERE user_id = ? AND date(consumed_at) BETWEEN ? AND ? GROUP BY date(consumed_at) ORDER BY date
   `).all(userId, startDate, endDate);
+}
+
+export function setRecipeState(userId, state) {
+  ensureUser(userId);
+  db.prepare(`UPDATE users SET recipe_state = ? WHERE id = ?`).run(state, userId);
 }
 
 export function setReplyStyle(userId, style) {

@@ -58,6 +58,7 @@ import {
 import { reviewTargets, describeTargetReview } from "./goalReview.js";
 import { handleBodyMessage } from "./body.js";
 import { handlePantryMessage, consumeFromPantry } from "./pantry.js";
+import { handleRecipeMessage } from "./recipes.js";
 import { handleCheckinMessage, CHECKIN_QUESTION } from "./checkin.js";
 import { detectReplyStyle, STYLE_INSTRUCTIONS, buildReplyStyleConfirmation } from "./replyStyle.js";
 import {
@@ -2739,6 +2740,14 @@ const summaryIntent = classifySummaryIntent(message);
     // DSP-01: despensa ("comprei…", "minha despensa", "acabou o leite").
     const pantryReply = handlePantryMessage(userId, message, dailySummary.date);
     if (pantryReply) return pantryReply;
+
+    // REC: receitas (busca com filtros, ficha, troca de ingrediente, favoritas, registro).
+    const recipeReply = handleRecipeMessage(userId, message, {
+      today: dailySummary.date,
+      mealPeriod: getMealPeriod(),
+      budgetKcal: getMealBudget(dailySummary, getMealPeriod()).calories
+    });
+    if (recipeReply) return recipeReply;
 
     // Registros e consultas frequentes vão direto, sem o modelo (economia e previsibilidade).
     const weightKg = detectWeightReport(message);
