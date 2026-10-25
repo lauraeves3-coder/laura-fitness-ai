@@ -300,10 +300,13 @@ export function buildRecipeList(results, filters) {
   return [
     title,
     "",
-    ...results.map(({ recipe, nutrition, fromPantry }, index) =>
-      `${index + 1}. *${recipe.name}* — ${recipe.minutes} min · ${fmt(nutrition.calories)} kcal · P ${fmt(nutrition.protein_g)} g${fromPantry.length && filters.pantry ? ` · usa da despensa: ${fromPantry.length}` : ""}`),
-    "",
-    "_Mande o número para ver a receita completa._"
+    // Uma receita por bloco, com linha em branco entre elas.
+    ...results.flatMap(({ recipe, nutrition, fromPantry }, index) => [
+      `*${index + 1}. ${recipe.name}*`,
+      `⏱️ ${recipe.minutes} min · 🔥 ${fmt(nutrition.calories)} kcal · 🥩 ${fmt(nutrition.protein_g)} g de proteína${fromPantry.length && filters.pantry ? `\n🧺 Usa ${fromPantry.length} ${fromPantry.length === 1 ? "item" : "itens"} da sua despensa` : ""}`,
+      ""
+    ]),
+    "👉 Mande o *número* para ver a receita completa."
   ].join("\n");
 }
 
@@ -367,7 +370,7 @@ export function handleRecipeMessage(userId, message, { today, budgetKcal = null,
     const favorites = (state.favorites || []).map(getRecipe).filter(Boolean);
     if (!favorites.length) return "⭐ Você ainda não tem receitas favoritas. Abra uma receita e mande *favoritar*.";
     save({ list: favorites.map((recipe) => recipe.id) });
-    return ["⭐ *Suas receitas favoritas*", "", ...favorites.map((recipe, index) => `${index + 1}. *${recipe.name}* — ${recipe.minutes} min · ${fmt(recipeNutrition(recipe).calories)} kcal`), "", "_Mande o número para ver a receita._"].join("\n");
+    return ["⭐ *Suas receitas favoritas*", "", ...favorites.flatMap((recipe, index) => [`*${index + 1}. ${recipe.name}*`, `⏱️ ${recipe.minutes} min · 🔥 ${fmt(recipeNutrition(recipe).calories)} kcal`, ""]), "👉 Mande o *número* para ver a receita."].join("\n");
   }
   if (open && recent(180)) {
     if (/^(?:favoritar|favorita|salvar (?:a |essa )?receita|salva (?:a |essa )?receita|adicionar (?:as|aos) favoritos)\b/.test(text)) {

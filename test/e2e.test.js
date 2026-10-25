@@ -1355,7 +1355,7 @@ test("REC: busca com filtros, ficha, troca de ingrediente, favoritas e registro 
 
   const userId = newUser();
   const list = await send(userId, "me dá uma receita rápida com frango");
-  assert.match(list, /🍳 \*Receitas para você\*\n\n1\. \*.*frango.*\* — \d+ min · \d+ kcal · P \d+ g/i);
+  assert.match(list, /🍳 \*Receitas para você\*\n\n\*1\. .*frango.*\*\n⏱️ \d+ min · 🔥 \d+ kcal · 🥩 \d+ g de proteína\n\n\*2\. /i);
   const card = await send(userId, "1");
   assert.match(card, /\*Ingredientes\*[\s\S]*\*Modo de preparo\*\n1\. [\s\S]*\*Por porção:\* 🔥 \d+ kcal/);
   const swapped = await send(userId, "troca o requeijão por cottage");
@@ -1364,7 +1364,7 @@ test("REC: busca com filtros, ficha, troca de ingrediente, favoritas e registro 
   const meal = await send(userId, "comi 2 porções");
   assert.match(meal, /✅ \*Refeição registrada\*[\s\S]*· 2 porções/);
   assert.equal(db.getTodayMeals(userId).length, 1);
-  assert.match(await send(userId, "minhas receitas favoritas"), /⭐ \*Suas receitas favoritas\*\n\n1\. \*/);
+  assert.match(await send(userId, "minhas receitas favoritas"), /⭐ \*Suas receitas favoritas\*\n\n\*1\. .+\*\n⏱️ \d+ min/);
   assert.match(await send(userId, "receita de strogonoff"), /🍳 \*Strogonoff fit de frango\*/);
 });
 
@@ -1383,8 +1383,10 @@ test("Whey: pergunta a marca, guarda o whey e sugere receitas que combinam com o
   assert.ok(db.getPantry(userId).some((item) => item.name === "Whey Growth Morango"));
   // A ficha usa o whey da pessoa.
   const list = reply.split("\n");
-  const shakeIndex = list.filter((line) => /^\d\. /.test(line)).findIndex((line) => /Shake proteico/.test(line)) + 1;
-  const card = await send(userId, String(shakeIndex || 1));
+  const shakeIndex = list.filter((line) => /^\*\d\. /.test(line)).findIndex((line) => /Shake proteico/.test(line)) + 1;
+  assert.ok(shakeIndex > 0, "shake está na lista");
+  const card = await send(userId, String(shakeIndex));
+  assert.match(card, /🍳 \*Shake proteico de frutas\*/);
   assert.match(card, /do seu whey Growth morango \(30 g\)/);
 
   // Pedido de receita com whey sem ter contado qual é: pergunta marca e sabor.

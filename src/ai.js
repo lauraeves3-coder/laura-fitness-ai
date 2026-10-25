@@ -960,29 +960,26 @@ function buildMealProjectionReply(
 function buildMealSuggestionReply(options, budgetAnalysis) {
   const lines = [];
 
-  if (options.length < 3) {
-    lines.push(
-      `Encontrei ${options.length} ${options.length === 1 ? "opção válida" : "opções válidas"} para esta refeição. Não vou completar com opções que falhem na validação.`
-    );
+  // Cada opção num bloco próprio, separado por linha em branco (leitura fácil no WhatsApp).
+  if (options.length) {
+    lines.push(`🍽️ *${options.length === 1 ? "1 opção" : `${options.length} opções`} para esta refeição*`);
   } else {
-    lines.push("Encontrei três opções válidas para esta refeição:");
+    lines.push("🍽️ *Nenhuma opção válida para esta refeição*");
+  }
+  if (options.length && options.length < 3) {
+    lines.push("_Só mostro opções que cabem no seu saldo e nas suas restrições._");
   }
 
   options.forEach((option, index) => {
     const quick = option.is_quick === true;
-
-    lines.push(
-      `${quick ? "⚡" : "🍽️"} Opção ${index + 1} — ${quick ? "Preparo rápido" : option.category || "Refeição completa"}`
-    );
-
-    lines.push(option.name);
-
+    lines.push("");
+    lines.push(`*Opção ${index + 1}* — ${option.name}`);
+    lines.push(`_${quick ? "⚡ Preparo rápido" : option.category || "Refeição completa"}_`);
     for (const food of option.foods || []) {
       lines.push(`• ${food}`);
     }
-
     lines.push(
-      `🔥 ${Math.round(option.calories)} kcal · 🥩 ${Math.round(option.protein_g)} g proteína · 🍚 ${Math.round(option.carbs_g)} g carboidratos · 🥑 ${Math.round(option.fat_g)} g gorduras`
+      `🔥 ${Math.round(option.calories)} kcal · 🥩 P ${Math.round(option.protein_g)} g · 🍚 C ${Math.round(option.carbs_g)} g · 🥑 G ${Math.round(option.fat_g)} g`
     );
   });
 
@@ -1002,7 +999,7 @@ function buildMealSuggestionReply(options, budgetAnalysis) {
 
   if (options.length) {
     lines.push(
-      "\nEscolha uma opção pelo número para ver a projeção. A escolha não registra consumo; confirme depois que comeu para registrar."
+      "\n👉 Mande o *número* da opção para ver como fica o seu dia. Só registro quando você disser que comeu."
     );
   } else {
     lines.push(
@@ -1211,9 +1208,9 @@ function buildDesiredFoodReply(options, desiredFood, budget, budgetAnalysis, { a
   const availableCalories = Number(budgetAnalysis?.calorie_remaining ?? budget);
   lines.push(`Referência atual: cerca de ${Math.round(availableCalories)} kcal restantes no dia. As porções abaixo são plausíveis; não reduzi a unidade para forçar o encaixe.`);
   options.forEach((option, index) => {
-    lines.push(`\n🍽️ Opção ${index + 1} — ${option.name}`);
+    lines.push(`\n*Opção ${index + 1}* — ${option.name}`);
     for (const food of option.foods) lines.push(`• ${food}`);
-    lines.push(`🔥 ${option.calories} kcal · 🥩 ${option.protein_g} g proteína · 🍚 ${option.carbs_g} g carboidratos · 🥑 ${option.fat_g} g gorduras`);
+    lines.push(`🔥 ${Math.round(option.calories)} kcal · 🥩 P ${Math.round(option.protein_g)} g · 🍚 C ${Math.round(option.carbs_g)} g · 🥑 G ${Math.round(option.fat_g)} g`);
     const dailyOver = Math.round(option.daily_calorie_overage || 0);
     if (dailyOver > 0) lines.push(`⚠️ Excederia o saldo diário em aproximadamente ${dailyOver} kcal.`);
     const excess = option.macro_overages || {};
