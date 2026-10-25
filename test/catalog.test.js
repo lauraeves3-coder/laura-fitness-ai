@@ -554,3 +554,13 @@ test("SUP-02: suplementos além do whey, por dose, sem perguntar quantidade", as
     assert.equal(item.source, "curated_estimate");
   }
 });
+
+test("Pizza/bolo: 'meia pizza' é metade da pizza inteira; 'fatias' continuam fatias", async () => {
+  const { estimateMealFromText: estimate } = await import("../src/nutritionCatalog.js");
+  const half = estimate("comi meia pizza de calabresa").matched_items[0];
+  assert.equal(half.grams, 360);
+  assert.match(half.assumed, /metade de uma pizza grande inteira de 8 fatias/);
+  assert.equal(estimate("comi uma pizza de calabresa").matched_items[0].grams, 720);
+  assert.equal(estimate("comi 2 fatias de pizza de calabresa").matched_items[0].grams, 180);
+  assert.match(estimate("comi meio bolo de cenoura").matched_items[0].assumed, /metade de um bolo inteiro/);
+});

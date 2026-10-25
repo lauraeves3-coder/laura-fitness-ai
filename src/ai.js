@@ -1236,7 +1236,13 @@ function buildDesiredFoodReply(options, desiredFood, budget, budgetAnalysis, { a
     return lines.join("\n");
   }
   const availableCalories = Number(budgetAnalysis?.calorie_remaining ?? budget);
-  lines.push(`Referência atual: cerca de ${Math.round(availableCalories)} kcal restantes no dia. As porções abaixo são plausíveis; não reduzi a unidade para forçar o encaixe.`);
+  const smallest = Math.min(...options.map((option) => Number(option.calories) || Infinity));
+  const food = names[desiredFood] || desiredFood;
+  lines.length = 0;
+  lines.push(availableCalories >= smallest
+    ? `✅ *Cabe sim!* Você ainda tem cerca de ${Math.round(availableCalories).toLocaleString("pt-BR")} kcal hoje.`
+    : `⚠️ Hoje sobram cerca de ${Math.max(0, Math.round(availableCalories)).toLocaleString("pt-BR")} kcal, então ${food} passaria um pouco da meta. Dá para comer sem culpa e compensar nos próximos dias.`);
+  lines.push(`Algumas porções de ${food} e quanto pesam no seu dia:`);
   options.forEach((option, index) => {
     lines.push(`\n*Opção ${index + 1}* — ${option.name}`);
     for (const food of option.foods) lines.push(`• ${food}`);
@@ -1275,7 +1281,7 @@ function buildDesiredFoodReply(options, desiredFood, budget, budgetAnalysis, { a
   if (budgetAnalysis?.incompatible) {
     lines.push(`\nAs metas pendentes exigiriam aproximadamente ${Math.round(budgetAnalysis.macro_calorie_requirement_kcal)} kcal, acima das ${Math.round(budgetAnalysis.calorie_remaining)} kcal restantes. Mantive calorias como limite e priorizei proteína nas opções compatíveis.`);
   }
-  lines.push("\nEscolher uma opção só mostra a projeção. O consumo só será registrado após sua confirmação explícita.");
+  lines.push("\n👉 Mande o *número* da opção para ver como fica o seu dia. Só registro quando você disser que comeu.");
   return lines.join("\n");
 }
 
@@ -1858,7 +1864,7 @@ const PROFILE_FIELDS = [
   ["age_years", "sua idade"], ["sex", "seu sexo"], ["height_cm", "sua altura"], ["weight_kg", "seu peso"],
   ["goal", "seu objetivo (emagrecer, manter ou ganhar massa)"], ["activity_level", "quantos dias por semana você treina"]
 ];
-const SEX_LABEL = { female: "feminino", feminino: "feminino", male: "masculino", masculino: "masculino" };
+const SEX_LABEL = { female: "feminino", feminino: "feminino", mulher: "feminino", f: "feminino", male: "masculino", masculino: "masculino", homem: "masculino", m: "masculino" };
 const ACTIVITY_LABEL = { sedentary: "sedentária", light: "leve", moderate: "moderada", high: "alta", very_high: "muito alta" };
 
 // Painel de metas: "quais são minhas metas?" e confirmação do perfil. Sem tudo o que o
@@ -1890,7 +1896,8 @@ function buildGoalsReply(user, { saved = false } = {}) {
     );
     const how = user.calorie_target_mode === "custom"
       ? "meta personalizada por você"
-      : [user.maintenance_calories ? `manutenção de ~${fmt(user.maintenance_calories)} kcal` : null, user.calorie_deficit_percent ? `déficit de ${user.calorie_deficit_percent}% para emagrecer com segurança` : null].filter(Boolean).join(", ");
+      : [user.maintenance_calories ? `manutenção de ~${fmt(user.maintenance_calories)} kcal` : null, user.calorie_deficit_percent ? `déficit de ${user.calorie_deficit_percent}% para emagrecer com segurança` : null,
+        user.maintenance_calories && target > Number(user.maintenance_calories) + 50 ? `superávit de ~${fmt(target - user.maintenance_calories)} kcal para ganhar massa com pouca gordura` : null].filter(Boolean).join(", ");
     if (how) lines.push("", `_Como calculei: ${how}._`);
     lines.push("_Para mudar, diga por exemplo *minha meta é 1700 kcal*._");
   } else if (missing.length) {
@@ -3231,6 +3238,16 @@ const summaryIntent = classifySummaryIntent(message);
             )
           ) {
             return "Não alterei o perfil porque a mensagem não informou uma atualização explícita.";
+          }
+
+          // O peso dito junto com o perfil já entrou no histórico: não registra (nem
+          // responde) de novo na mesma conversa.
+          if (action === "weight") {
+            const todayWeights = getWeightsBetween(userId, dailySummary.date, dailySummary.date);
+            if (todayWeights.length && Number(todayWeights.at(-1).weight_kg) === Number(data?.weight_kg)
+              && Number(getUser(userId)?.weight_kg) === Number(data?.weight_kg)) {
+              return "";
+            }
           }
 
           if (

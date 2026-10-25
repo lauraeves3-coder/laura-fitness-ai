@@ -1049,6 +1049,19 @@ function extractQuantityDetails(text, item, fromIndex = 0, { endIndex = null } =
     if (amount) return { grams: Math.round(amount * item.default_g * (plateBefore[2] ? 1.3 : 1)), measure: null, assumed: `prato de ~${Math.round(item.default_g * (plateBefore[2] ? 1.3 : 1))} g` };
   }
 
+  // "Uma pizza", "meia pizza", "2 bolos" sem "fatia": contam o inteiro (pizza grande de 8
+  // fatias, bolo de 12…), avisado na resposta.
+  const wholeCount = before.match(new RegExp(`(${QUANTITY_PATTERN})\\s*$`));
+  const wholeAmount = wholeCount && parseQuantity(wholeCount[1]);
+  if (wholeAmount && /fatia/.test(String(item.unit || ""))) {
+    const standard = standardWholeSize(item, null, null);
+    if (standard) {
+      const article = /^bolo/.test(standard.label) ? "um" : "uma";
+      const label = wholeAmount === 0.5 ? `metade de ${article} ${standard.label}` : standard.label;
+      return { grams: Math.round(wholeAmount * standard.grams), measure: null, assumed: label };
+    }
+  }
+
   // Contagem direta antes/depois do alimento: "2 bananas", "meia banana", "1/2 mamão".
   const directBefore = before.match(new RegExp(`(${QUANTITY_PATTERN})\\s*$`));
   const directAfter = after.match(new RegExp(`^\\s*(${QUANTITY_PATTERN})(?![a-z0-9])`));

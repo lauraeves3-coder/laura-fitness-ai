@@ -182,7 +182,9 @@ export async function runAgent({ message, context, registry, model = process.env
       const calls = getToolCalls(response);
       if (!calls.length) {
         const finalText = String(response.output_text || "").trim();
-        const authoritativeReply = [...new Set(toolReplies)].join("\n\n");
+        const replies = [...new Set(toolReplies)];
+        const focused = replies.length > 1 ? replies.filter((reply) => !/^📊 \*Resumo de hoje\*/.test(reply)) : replies;
+        const authoritativeReply = focused.join("\n\n");
         return lastToolFailure || authoritativeReply || finalText || "Entendi. Como posso ajudar com isso?";
       }
 
