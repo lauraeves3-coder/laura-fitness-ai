@@ -279,3 +279,13 @@ test("COR-06: novas opções de objetivo (voltar a correr, aumentar volume)", ()
   assert.ok(volume.weeks.at(-1).total_km > volume.weeks[0].total_km);
   assert.ok(Math.max(...longRuns(volume).map((session) => session.distance_km)) >= 12);
 });
+
+test("COR-06: plano pedido no sábado — 'treinos da semana' mostra a próxima; segundo teste parte do tempo exato do primeiro", () => {
+  const userId = "svc-weekend";
+  const saturday = "2026-10-31";
+  service.createTrainingPlanFromRequest(userId, { ...request, running_goal: "5k", running_level: "iniciante", running_days_per_week: 3,
+    reference_distance_km: null, reference_time: null, easy_pace: "7:17", target_time: "25:00", target_pace: null, strength_days_per_week: null, equipment: null }, saturday);
+  assert.match(service.handleTrainingMessage(userId, "treinos da semana", saturday), /primeiro treino é ter 03\/11[\s\S]*📅 \*Semana 1 de \d+\*/);
+  const first = service.handleTrainingMessage(userId, "teste 3 km em 15:30", saturday).match(/agora: \*([\d:]+)\*/)[1];
+  assert.match(service.handleTrainingMessage(userId, "teste 3 km em 18:00", saturday), new RegExp(`antes ${first}\\) — .*mais lento`));
+});

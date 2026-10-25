@@ -234,8 +234,11 @@ export function handleTrainingMessage(userId, message, today) {
   if (intent.type === "week") {
     const note = holdLoadIfBehind(userId, today, plan);
     const monday = mondayOf(today);
-    const sessions = getPlannedSessions(userId, monday, addDays(monday, 6));
-    return buildWeekReply({ sessions, today, plan, weekNumber: sessions[0]?.week, adaptationNote: note });
+    let sessions = getPlannedSessions(userId, monday, addDays(monday, 6));
+    // Plano que começa na segunda seguinte (pedido de sexta a domingo): mostra a próxima semana.
+    const upcoming = !sessions.length;
+    if (upcoming) sessions = getPlannedSessions(userId, addDays(monday, 7), addDays(monday, 13));
+    return buildWeekReply({ sessions, today, plan, weekNumber: sessions[0]?.week, adaptationNote: note, upcoming });
   }
   const todaySessions = getPlannedSessions(userId, today, today).filter((session) => session.status === "planejado");
   if (!todaySessions.length) return null;
@@ -290,7 +293,7 @@ export function recalibrateFromTest(userId, { distanceKm, seconds }, today) {
   const running = plan?.goals?.find((goal) => goal.modality === "corrida");
   const fiveK = fiveKFromReference({ distanceKm, timeSeconds: seconds });
   if (!running || !fiveK) return null;
-  const before = plan.paces?.five_k ? plan.paces.five_k * 5 : running.fiveKSeconds;
+  const before = running.fiveKSeconds || (plan.paces?.five_k ? plan.paces.five_k * 5 : null);
   const recent = getPlannedSessions(userId, addDays(today, -6), today).filter((session) => session.week);
   const future = getPlannedSessions(userId, addDays(today, 1), addDays(today, 7 * 30))
     .filter((session) => session.modality === "corrida" && session.status === "planejado");

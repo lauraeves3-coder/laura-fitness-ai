@@ -110,11 +110,12 @@ export function weekSummary(sessions) {
   return { total: sessions.length, done: done.length, planned_km: plannedKm };
 }
 
-export function buildWeekReply({ sessions, today, plan, weekNumber, adaptationNote = null }) {
+export function buildWeekReply({ sessions, today, plan, weekNumber, adaptationNote = null, upcoming = false }) {
   if (!sessions.length) return "📅 Não há treinos planejados nesta semana.";
   const summary = weekSummary(sessions);
   const phase = sessions.find((session) => session.phase)?.phase;
   return [
+    upcoming ? `Seu plano começa na próxima semana; o primeiro treino é ${formatDay(sessions[0].date)}.\n` : null,
     `📅 *Semana ${weekNumber ?? ""}${plan?.weeks ? ` de ${plan.weeks}` : ""}*${phase ? ` — fase ${phase}` : ""}`,
     summary.planned_km ? `Corrida: ${km(summary.planned_km)} km planejados` : null,
     "",
