@@ -147,7 +147,9 @@ async function executeToolCall(call, registry) {
   }
 }
 
-export async function runAgent({ message, context, registry, model = process.env.OPENAI_MODEL || "gpt-5.6", apiClient = null }) {
+export async function runAgent({ message, context, registry, model = process.env.OPENAI_MODEL || "gpt-5.6", apiClient = null, extraInstructions = "" }) {
+  // CONV-12: preferência de estilo (curta/detalhada) vem do nosso código, não do contexto.
+  const instructions = extraInstructions ? `${AGENT_INSTRUCTIONS}\n\n${extraInstructions}` : AGENT_INSTRUCTIONS;
   if (!registry || !Array.isArray(registry.definitions) || !registry.handlers) {
     return "Não consegui preparar as ferramentas do FitPulse agora. Tente novamente em instantes.";
   }
@@ -161,7 +163,7 @@ export async function runAgent({ message, context, registry, model = process.env
   try {
     response = await apiClient.responses.create({
       model,
-      instructions: AGENT_INSTRUCTIONS,
+      instructions,
       input,
       tools: registry.definitions,
       tool_choice: "auto",
@@ -190,7 +192,7 @@ export async function runAgent({ message, context, registry, model = process.env
 
       response = await apiClient.responses.create({
         model,
-        instructions: AGENT_INSTRUCTIONS,
+        instructions,
         previous_response_id: response.id,
         input: outputs,
         tools: registry.definitions,

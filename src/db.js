@@ -210,6 +210,8 @@ ensureColumn("users", "food_dislikes", "TEXT");
 // ACO-04: peso usado no último cálculo das metas e última sugestão de revisão.
 ensureColumn("users", "targets_weight_kg", "REAL");
 ensureColumn("users", "goal_review_at", "TEXT");
+// CONV-12: estilo de resposta preferido ("curta" | "detalhada" | null = normal).
+ensureColumn("users", "reply_style", "TEXT");
 
 ensureColumn(
   "users",
@@ -1616,6 +1618,11 @@ export function getDailyCaloriesBetween(userId, startDate, endDate) {
     SELECT date(consumed_at) AS date, SUM(calories) AS calories FROM meals
     WHERE user_id = ? AND date(consumed_at) BETWEEN ? AND ? GROUP BY date(consumed_at) ORDER BY date
   `).all(userId, startDate, endDate);
+}
+
+export function setReplyStyle(userId, style) {
+  ensureUser(userId);
+  db.prepare(`UPDATE users SET reply_style = ? WHERE id = ?`).run(style, userId);
 }
 
 export function setGoalReviewAt(userId, date) {

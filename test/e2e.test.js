@@ -1241,3 +1241,27 @@ test("ACO-01: check-in pergunta, registra e ajusta o treino do dia", async () =>
   const due = dueReminders([{ id: fine, reminder_checkin_time: "06:30" }], new Date("2026-10-27T10:00:00Z"), () => false);
   assert.deepEqual(due.map((item) => item.kind), ["checkin"]);
 });
+
+// ---------- CONV-12: perfil de comunicação ----------
+
+test("CONV-12: preferência por respostas curtas ou detalhadas vai para as instruções do agente", async () => {
+  const { detectReplyStyle } = await import("../src/replyStyle.js");
+  assert.equal(detectReplyStyle("prefiro respostas curtas"), "curta");
+  assert.equal(detectReplyStyle("isso ficou muito longo"), "curta");
+  assert.equal(detectReplyStyle("quero respostas mais detalhadas"), "detalhada");
+  assert.equal(detectReplyStyle("pode voltar ao normal de responder"), "normal");
+  assert.equal(detectReplyStyle("comi um pão curto"), null);
+  assert.equal(detectReplyStyle("quero um treino curto"), null);
+
+  const userId = newUser();
+  assert.match(await send(userId, "prefiro respostas curtas"), /vou responder de forma mais \*curta e direta\*/);
+  assert.equal(db.getUser(userId).reply_style, "curta");
+  const model = fakeModel([finalText("Oi!")]);
+  await send(userId, "me dá uma dica para dormir melhor", model);
+  assert.match(model.requests[0].instructions, /respostas curtas e diretas, no máximo 3 a 4 linhas/);
+
+  await send(userId, "volte ao normal de responder");
+  const normal = fakeModel([finalText("Oi!")]);
+  await send(userId, "me dá uma dica para dormir melhor", normal);
+  assert.doesNotMatch(normal.requests[0].instructions, /Preferência de estilo/);
+});

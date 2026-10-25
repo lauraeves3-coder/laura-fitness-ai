@@ -50,11 +50,13 @@ import {
   addFreeMealPreference,
   getWeightsBetween,
   getDailyCaloriesBetween,
-  setGoalReviewAt
+  setGoalReviewAt,
+  setReplyStyle
 } from "./db.js";
 import { reviewTargets, describeTargetReview } from "./goalReview.js";
 import { handleBodyMessage } from "./body.js";
 import { handleCheckinMessage, CHECKIN_QUESTION } from "./checkin.js";
+import { detectReplyStyle, STYLE_INSTRUCTIONS, buildReplyStyleConfirmation } from "./replyStyle.js";
 import {
   calculateNutritionBalance,
   analyzeRemainingNutritionBudget,
@@ -2685,6 +2687,13 @@ const summaryIntent = classifySummaryIntent(message);
       return buildReminderCommandReply(reminderCommand);
     }
 
+    // CONV-12: "prefiro respostas curtas" / "mais detalhadas" / "voltar ao normal".
+    const replyStyle = detectReplyStyle(message);
+    if (replyStyle) {
+      setReplyStyle(userId, replyStyle === "normal" ? null : replyStyle);
+      return buildReplyStyleConfirmation(replyStyle);
+    }
+
     // ACO-01: "check-in" e a resposta (sono, energia, dor) ajustam o treino do dia.
     const checkinReply = handleCheckinMessage(userId, message, dailySummary.date);
     if (checkinReply) return checkinReply;
@@ -3349,7 +3358,8 @@ const summaryIntent = classifySummaryIntent(message);
       context,
       registry,
       // Só os testes passam um cliente simulado; em produção é undefined.
-      apiClient: internal.apiClient
+      apiClient: internal.apiClient,
+      extraInstructions: STYLE_INSTRUCTIONS[getUser(userId)?.reply_style] || ""
     });
   }
 
