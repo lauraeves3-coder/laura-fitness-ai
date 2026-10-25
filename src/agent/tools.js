@@ -47,7 +47,9 @@ function formatMealHistory(memory = {}) {
     lines.push(`• Refeição (${meal.date}): ${meal.description} — ${meal.calories} kcal, P ${meal.protein_g} g, C ${meal.carbs_g} g, G ${meal.fat_g} g.`);
   }
   for (const workout of recent.workouts || []) {
-    lines.push(`• Treino (${workout.date}): ${workout.description}${workout.duration_min ? `, ${workout.duration_min} min` : ""}${workout.notes ? ` — ${workout.notes}` : ""}.`);
+    const paceSeconds = Math.round(workout.pace_s_per_km || 0);
+    const pace = paceSeconds > 0 ? `, pace ${Math.floor(paceSeconds / 60)}:${String(paceSeconds % 60).padStart(2, "0")}/km` : "";
+    lines.push(`• Treino (${workout.date}): ${workout.description}${workout.duration_min ? `, ${workout.duration_min} min` : ""}${workout.distance_km > 0 ? `, ${workout.distance_km} km` : ""}${pace}${workout.notes ? ` — ${workout.notes}` : ""}.`);
   }
   for (const weight of recent.weights || []) {
     lines.push(`• Peso (${weight.date}): ${weight.weight_kg} kg.`);

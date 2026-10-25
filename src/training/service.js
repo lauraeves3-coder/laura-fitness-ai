@@ -3,7 +3,7 @@
 // ajustes por cansaço/dor e ligação do treino feito com o plano.
 import {
   saveTrainingPlan, getActiveTrainingPlan, getPendingTrainingRequest, setPendingTrainingRequest, getPlannedSessions, updatePlannedSession,
-  linkWorkoutToSession, getRunsBetween, updateTrainingPlan, getUser
+  linkWorkoutToSession, getRunsBetween, updateTrainingPlan, getUser, getWorkoutsBetween
 } from "../db.js";
 import { describeWorkoutCalories } from "./energy.js";
 import { addDays, weekdayOf } from "../dates.js";
@@ -13,7 +13,7 @@ import { STRENGTH_GOALS } from "./strength.js";
 import { ENDURANCE_MODALITIES } from "./endurance.js";
 import { fiveKFromReference, formatDuration, formatPace, parseDuration, trainingPaces } from "./paces.js";
 import {
-  adaptSession, buildDayReply, buildPlanCreatedReply, buildProgressReply, buildWeekReply,
+  adaptSession, buildDayReply, buildLastWorkoutReply, buildPlanCreatedReply, buildProgressReply, buildWeekReply,
   compareWithPlan, matchPlannedSession, modalityOf, runningProgress, weekSummary
 } from "./tracking.js";
 
@@ -170,6 +170,10 @@ export function detectTrainingIntent(message) {
     const distanceKm = Number(text.match(/(\d+(?:[.,]\d+)?)\s*(?:km|k\b|quilometros?)/)?.[1]?.replace(",", ".") || 3);
     return { type: "test", distanceKm, seconds: parseDuration(testTime) };
   }
+  const last = text.match(/\b(?:ultim[ao]|minha|meu) (corrida|treino|atividade|pedal)\b(?! de amanha)/);
+  if (last && (/\bultim[ao]\b/.test(text) || /\b(?:qual|como) foi\b/.test(text)) && !/\b(?:corri|registr|anot|pulei|faltei)\b/.test(text)) {
+    return { type: "last", running: last[1] === "corrida" };
+  }
   if (/\b(?:progresso|evolucao|desempenho|resultado)\b.*\b(?:corrida|correr|corridas|treinos?)\b|\bcomo (?:esta|anda|vai) (?:a )?minha corrida\b/.test(text)) return { type: "progress" };
   if (/\btreinos?\b.*\bamanha\b|\bamanha\b.*\btreino\b/.test(text)) return { type: "day", offset: 1 };
   if (/\btreinos? da semana\b|\bplano da semana\b|\bsemana de treinos?\b|\bmeu plano de treino\b|\bmeus treinos\b/.test(text)) return { type: "week" };
@@ -214,6 +218,18 @@ export function handleTrainingMessage(userId, message, today) {
     const pastSessions = plan ? getPlannedSessions(userId, plan.start_date, addDays(today, -1)) : [];
     const adherence = pastSessions.length ? pastSessions.filter((session) => session.status === "feito").length / pastSessions.length : null;
     return buildProgressReply(runningProgress(runs, today), { adherence });
+  }
+  if (intent.type === "last") {
+    const workouts = getWorkoutsBetween(userId, addDays(today, -365), today)
+      .filter((workout) => !intent.running || modalityOf(workout.workout_type) === "corrida");
+    const workout = workouts.at(-1) || null;
+    const planned = workout?.planned_session_id
+      ? getPlannedSessions(userId, String(workout.trained_at).slice(0, 10), String(workout.trained_at).slice(0, 10)).find((session) => session.id === workout.planned_session_id)
+      : null;
+    return buildLastWorkoutReply({
+      workout, today, running: intent.running, plannedTitle: planned?.title || null,
+      energyLine: workout ? describeWorkoutCalories(workout, getUser(userId)?.weight_kg) : null
+    });
   }
   if (intent.type === "test") {
     const pending = getPlannedSessions(userId, addDays(today, -3), today).find((session) => session.session_type === "teste" && session.status === "planejado");

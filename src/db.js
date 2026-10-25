@@ -2170,6 +2170,8 @@ export function getRecentHistory(
         'workout' AS type,
         workout_type AS description,
         duration_min,
+        distance_km,
+        pace_s_per_km,
         notes,
         trained_at AS date
       FROM workouts

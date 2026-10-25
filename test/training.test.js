@@ -307,3 +307,19 @@ test("ESP-07: gasto energético estimado do treino, sem entrar na meta", async (
   const target = db.getUser(userId).daily_calorie_target;
   assert.equal(db.getUser(userId).daily_calorie_target, target, "meta calórica não muda");
 });
+
+test("COR-05: 'qual foi minha última corrida' traz distância, tempo, pace e gasto", () => {
+  assert.deepEqual(detectTrainingIntent("Qual foi minha última corrida"), { type: "last", running: true });
+  assert.deepEqual(detectTrainingIntent("como foi meu último treino?"), { type: "last", running: false });
+  assert.equal(detectTrainingIntent("qual meu treino de hoje")?.type, "day");
+  const userId = "svc-last-run";
+  assert.match(service.handleTrainingMessage(userId, "qual foi minha última corrida", TUESDAY), /Ainda não tenho nenhuma corrida/);
+  db.updateUserProfile(userId, { weight_kg: 70 });
+  db.saveWorkout(userId, { workout_type: "Corrida", duration_min: 32, distance_km: 5, exercises: [] });
+  db.saveWorkout(userId, { workout_type: "Musculação", duration_min: 50, exercises: [] });
+  const today = db.getDailySummary(userId).date;
+  const reply = service.handleTrainingMessage(userId, "Qual foi minha última corrida", today);
+  assert.match(reply, /🏃 \*Sua última corrida\* — hoje/);
+  assert.match(reply, /📏 5 km   ⏱️ 32:00\n⚡ Pace médio: \*6:24 \/km\*\n🔥 Gasto estimado: ~350 kcal/);
+  assert.match(service.handleTrainingMessage(userId, "qual foi meu último treino", today), /\*Seu último treino\* — hoje[\s\S]*\*Musculação\*\n⏱️ 50:00\n🔥 Gasto estimado: ~292 kcal/);
+});

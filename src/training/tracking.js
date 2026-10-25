@@ -2,7 +2,7 @@
 // com sessão planejada, comparar planejado x realizado, adaptar por cansaço/dor e montar
 // as mensagens (formato do WhatsApp).
 import { addDays, daysBetween, formatDay } from "../dates.js";
-import { formatPace, paceRange } from "./paces.js";
+import { formatDuration, formatPace, paceRange } from "./paces.js";
 
 const MODALITIES = [
   [/corr|run|trote|longao|rodagem|intervalad|tiro|fartlek/, "corrida"],
@@ -123,6 +123,35 @@ export function buildWeekReply({ sessions, today, plan, weekNumber, adaptationNo
     "",
     `Feito: ${summary.done} de ${summary.total}`,
     adaptationNote ? `\n🔄 ${adaptationNote}` : null
+  ].filter((line) => line !== null).join("\n");
+}
+
+// "Qual foi minha última corrida/treino": dados completos do treino (distância, tempo,
+// pace, FC, gasto estimado e sessão do plano que ele cumpriu).
+export function buildLastWorkoutReply({ workout, today, running = false, energyLine = null, plannedTitle = null }) {
+  if (!workout) {
+    return running
+      ? "🏃 Ainda não tenho nenhuma corrida registrada. Me conte a próxima (ex.: *corri 5 km em 30 min*) ou conecte o Strava."
+      : "🏋️ Ainda não tenho nenhum treino registrado.";
+  }
+  const date = String(workout.trained_at || "").slice(0, 10);
+  const time = String(workout.trained_at || "").slice(11, 16);
+  const when = date === today ? "hoje" : date === addDays(today, -1) ? "ontem" : formatDay(date);
+  const icon = MODALITY_ICONS[modalityOf(workout.workout_type)] || "🏅";
+  const minutes = Number(workout.duration_min) || 0;
+  const durationText = minutes ? formatDuration(minutes * 60) : null;
+  const pace = workout.pace_s_per_km || (workout.distance_km > 0 && minutes ? minutes * 60 / workout.distance_km : null);
+  const size = [workout.distance_km > 0 ? `📏 ${km(workout.distance_km)} km` : null, durationText ? `⏱️ ${durationText}` : null].filter(Boolean);
+  const extra = [workout.elevation_m ? `⛰️ ${Math.round(workout.elevation_m)} m` : null, workout.avg_hr ? `❤️ ${Math.round(workout.avg_hr)} bpm` : null].filter(Boolean);
+  return [
+    `${icon} *${running ? "Sua última corrida" : "Seu último treino"}* — ${when}${time && time !== "00:00" ? `, ${time}` : ""}`,
+    running ? null : `*${workout.workout_type}*`,
+    size.length ? size.join("   ") : null,
+    pace && /corr|caminh/i.test(workout.workout_type) ? `⚡ Pace médio: *${formatPace(pace)} /km*` : null,
+    extra.length ? extra.join("   ") : null,
+    energyLine,
+    plannedTitle ? `📋 Cumpriu o plano: *${plannedTitle}*` : null,
+    workout.source === "strava" ? "_Importada do Strava._" : null
   ].filter((line) => line !== null).join("\n");
 }
 
