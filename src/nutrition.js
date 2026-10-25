@@ -414,6 +414,38 @@ export function analyzeRemainingNutritionBudget(summary = {}) {
   };
 }
 
+// NUT-27: refeição bem acima da sua fatia do dia → redistribui o saldo pelas próximas
+// refeições (mesmos pesos do plano), sem tom de culpa. [] quando está dentro do previsto.
+export function planDayAdjustment({ summary = {}, period, mealCalories }) {
+  const target = n(summary.calorie_target);
+  const meal = n(mealCalories);
+  if (!(target > 0) || !(meal > 0) || !WEIGHTS[period]) return [];
+  const share = target * WEIGHTS[period];
+  if (meal < share * 1.2 || meal - share < 120) return [];
+  const fmt = (value) => Math.round(value).toLocaleString("pt-BR");
+  const left = n(summary.calorie_remaining) ?? target - (n(summary.calories) ?? 0);
+  const proteinLeft = n(summary.protein_remaining);
+  const later = ORDER.slice(ORDER.indexOf(period) + 1);
+  const lines = ["", "🔄 *Ajuste do dia*", `Esse ${period} ficou ~${fmt(meal - share)} kcal acima do previsto (~${fmt(share)}). Tudo bem, acontece!`];
+  if (left <= 0) {
+    lines.push(
+      `Você já chegou na meta de hoje${left < 0 ? ` (passou ~${fmt(-left)} kcal)` : ""}. Se bater fome, vá de algo leve e com proteína: iogurte natural, ovos, salada com frango. Amanhã segue o plano normal.`
+    );
+    return lines;
+  }
+  if (later.length) {
+    const total = later.reduce((sum, item) => sum + WEIGHTS[item], 0);
+    lines.push(`Redistribuí os ${fmt(left)} kcal que restam:`);
+    lines.push(...later.map((item) => `• ${item.charAt(0).toLocaleUpperCase("pt-BR")}${item.slice(1)}: ~${fmt(left * WEIGHTS[item] / total)} kcal`));
+  } else {
+    lines.push(`Restam ${fmt(left)} kcal no dia.`);
+  }
+  lines.push(proteinLeft > 20
+    ? `💡 Ainda faltam ${fmt(proteinLeft)} g de proteína: priorize carne magra, frango, ovos ou peixe com legumes e pegue mais leve no carboidrato e na gordura.`
+    : "💡 Nas próximas, priorize proteína magra e legumes e pegue mais leve no carboidrato e na gordura.");
+  return lines;
+}
+
 export function getMealBudget(summary = {}, period, remainingMeals, {
   preserveBudgetForFuture = false,
   futureMealPeriod = null

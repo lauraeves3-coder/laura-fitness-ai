@@ -1100,3 +1100,26 @@ test("ARQ-04: lembrete de treino só sai em dia com treino no plano", async () =
   await runReminders({ now: at("06:30"), send: async (to, text) => outbox.push([to, text]) });
   assert.equal(outbox.filter(([to]) => to === userId).length, 0, "sem plano: nada a enviar");
 });
+
+// ---------- NUT-27: ajuste do dia em tempo real ----------
+
+test("NUT-27: refeição acima da sua fatia do dia redistribui o saldo, sem culpa", async () => {
+  const { planDayAdjustment } = await import("../src/nutrition.js");
+  // Meta 2000: almoço previsto ~600; almoço de 950 → resta para lanche, jantar e ceia.
+  const lines = planDayAdjustment({ summary: { calorie_target: 2000, calories: 1350, calorie_remaining: 650, protein_remaining: 60 }, period: "almoço", mealCalories: 950 });
+  const text = lines.join("\n");
+  assert.match(text, /🔄 \*Ajuste do dia\*\nEsse almoço ficou ~350 kcal acima do previsto \(~600\)/);
+  assert.match(text, /Redistribuí os 650 kcal que restam:\n• Lanche da tarde: ~195 kcal\n• Jantar: ~325 kcal\n• Ceia: ~130 kcal/);
+  assert.match(text, /faltam 60 g de proteína/);
+  assert.doesNotMatch(text, /culpa|errou|exagerou/);
+  // Dentro do previsto: nada a ajustar.
+  assert.deepEqual(planDayAdjustment({ summary: { calorie_target: 2000, calorie_remaining: 1400 }, period: "almoço", mealCalories: 650 }), []);
+  // Meta já batida.
+  assert.match(planDayAdjustment({ summary: { calorie_target: 2000, calorie_remaining: -200 }, period: "jantar", mealCalories: 1100 }).join("\n"), /já chegou na meta de hoje \(passou ~200 kcal\)[\s\S]*Amanhã segue o plano normal/);
+
+  // Pela conversa: meta 600 kcal e 4 ovos (~300 kcal) passam de qualquer fatia do dia.
+  const userId = newUser();
+  db.updateUserProfile(userId, { daily_calorie_target: 600 });
+  const reply = await send(userId, "comi 4 ovos");
+  assert.match(reply, /✅ \*Refeição registrada\*[\s\S]*🔄 \*Ajuste do dia\*/);
+});

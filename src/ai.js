@@ -61,7 +61,8 @@ import {
   getMealPeriods,
   isActuallyQuickOption,
   estimateMealFromText,
-  generateFreeMealOptions
+  generateFreeMealOptions,
+  planDayAdjustment
 } from "./nutrition.js";
 import {
   findFoodNames,
@@ -4656,7 +4657,8 @@ const summaryIntent = classifySummaryIntent(message);
       today?.calorie_target
         ? `📊 Hoje: ${Math.round(today.calories).toLocaleString("pt-BR")} de ${Math.round(today.calorie_target).toLocaleString("pt-BR")} kcal · ${formatRemainingStatus(today.calorie_target - today.calories, "kcal").toLocaleLowerCase("pt-BR")}`
         : null,
-      pastNote ? `📅${pastNote}` : null
+      pastNote ? `📅${pastNote}` : null,
+      ...(today ? planDayAdjustment({ summary: today, period: saved.meal_period || getMealPeriod(), mealCalories: saved.calories }) : [])
     ].filter((line) => line !== null).join("\n");
   }
 

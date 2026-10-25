@@ -289,3 +289,21 @@ test("COR-06: plano pedido no sábado — 'treinos da semana' mostra a próxima;
   const first = service.handleTrainingMessage(userId, "teste 3 km em 15:30", saturday).match(/agora: \*([\d:]+)\*/)[1];
   assert.match(service.handleTrainingMessage(userId, "teste 3 km em 18:00", saturday), new RegExp(`antes ${first}\\) — .*mais lento`));
 });
+
+test("ESP-07: gasto energético estimado do treino, sem entrar na meta", async () => {
+  const { estimateWorkoutCalories, describeWorkoutCalories } = await import("../src/training/energy.js");
+  assert.equal(estimateWorkoutCalories({ workout_type: "Corrida", duration_min: 45, distance_km: 7 }, 60), 420, "corrida ≈ 1 kcal/kg/km");
+  assert.equal(estimateWorkoutCalories({ workout_type: "Caminhada", duration_min: 60, distance_km: 5 }, 60), 165);
+  assert.equal(estimateWorkoutCalories({ workout_type: "Musculação", duration_min: 60 }, 60), 300);
+  assert.equal(estimateWorkoutCalories({ workout_type: "Ciclismo", duration_min: 60, distance_km: 20 }, 60), 480, "20 km/h → MET 8");
+  assert.equal(estimateWorkoutCalories({ workout_type: "Yoga", duration_min: 60 }, 60), 180);
+  assert.equal(estimateWorkoutCalories({ workout_type: "Corrida", duration_min: 30, distance_km: 5 }, null), null, "sem peso não estima");
+  assert.match(describeWorkoutCalories({ workout_type: "Corrida", duration_min: 30, distance_km: 5 }, 70), /~350 kcal _\(estimativa; não somei à sua meta do dia\)_/);
+
+  const userId = "svc-energy";
+  db.updateUserProfile(userId, { weight_kg: 70 });
+  const workout = db.saveWorkout(userId, { workout_type: "Corrida", duration_min: 30, distance_km: 5, exercises: [] });
+  assert.ok(service.afterWorkoutSaved(userId, workout, TUESDAY).some((line) => /Gasto estimado: ~350 kcal/.test(line)));
+  const target = db.getUser(userId).daily_calorie_target;
+  assert.equal(db.getUser(userId).daily_calorie_target, target, "meta calórica não muda");
+});

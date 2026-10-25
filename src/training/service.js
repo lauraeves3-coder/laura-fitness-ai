@@ -3,8 +3,9 @@
 // ajustes por cansaço/dor e ligação do treino feito com o plano.
 import {
   saveTrainingPlan, getActiveTrainingPlan, getPendingTrainingRequest, setPendingTrainingRequest, getPlannedSessions, updatePlannedSession,
-  linkWorkoutToSession, getRunsBetween, updateTrainingPlan
+  linkWorkoutToSession, getRunsBetween, updateTrainingPlan, getUser
 } from "../db.js";
+import { describeWorkoutCalories } from "./energy.js";
 import { addDays, weekdayOf } from "../dates.js";
 import { buildTrainingPlan } from "./plan.js";
 import { RUNNING_GOALS, describePaces, describeTargetAnalysis, expectedFiveK, paceForSession } from "./running.js";
@@ -264,6 +265,8 @@ export function afterWorkoutSaved(userId, workout, today) {
   if (workout.distance_km > 0 && workout.duration_min > 0) {
     lines.push(`🏃 ${Number(workout.distance_km).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km · pace ${formatPace(workout.duration_min * 60 / workout.distance_km)}/km`);
   }
+  const energy = describeWorkoutCalories(workout, getUser(userId)?.weight_kg);
+  if (energy) lines.push(energy);
   const comparison = linkWorkoutToPlan(userId, workout, today);
   return comparison.length ? [...lines, "", ...comparison] : lines;
 }
