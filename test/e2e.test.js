@@ -1462,3 +1462,17 @@ test("Consumidora: perfil completo calcula metas, metas estouradas viram orienta
   const saved = await send(userId, "100 g de arroz, 1 concha de feijão e 150 g de frango");
   assert.match(saved, /🍽️ 100 g de arroz e 1 concha de feijão com 150 g de frango/);
 });
+
+test("Opções para ganho de massa não encolhem por proteína já atingida", async () => {
+  const userId = newUser();
+  db.updateUserProfile(userId, { age_years: 28, sex: "homem", height_cm: 178, weight_kg: 82, goal: "ganhar massa", activity_level: "moderate" });
+  db.calculateAndSaveNutritionTargets(userId);
+  await send(userId, "comi 400 g de peito de frango grelhado");
+  const reply = await send(userId, "me mande opções para o jantar", fakeModel([toolCall("suggest_meals", {
+    meal_period: "jantar", desired_food: null, requested_servings: null, available_foods: [], required_foods: [],
+    explicit_excluded_foods: [], explicit_excluded_compositions: []
+  }), finalText("ok")]));
+  const calories = [...reply.matchAll(/🔥 (\d[\d.]*) kcal/g)].map((match) => Number(match[1].replace(".", "")));
+  assert.ok(calories.length >= 2, reply);
+  assert.ok(calories.every((kcal) => kcal >= 450), `porções pequenas demais: ${calories.join(", ")}`);
+});

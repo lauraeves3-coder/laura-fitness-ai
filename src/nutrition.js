@@ -496,16 +496,16 @@ function makeOption(t, budget, dislikes, macroBudget = {}, macroPriority = null)
 
   let scale = budget > 0 ? Math.min(1.25, (budget / t.calories) * 0.92) : 0.75;
 
-  for (const key of ["protein_g", "carbs_g", "fat_g"]) {
-    if (macroPriority === "protein" && key !== "protein_g") continue;
+  // Calorias são o limite principal. Proteína não encolhe a refeição (passar um pouco da
+  // meta é aceitável); carboidrato e gordura limitam com 20% de folga. Macro já atingido
+  // não bloqueia a refeição: o orçamento calórico segue mandando.
+  for (const key of ["carbs_g", "fat_g"]) {
+    if (macroPriority === "protein") continue;
     const allowance = n(macroBudget[key]);
     const base = n(t[key]);
 
-    if (allowance !== null) {
-      if (allowance <= 0 && base !== null && base > 0) return null;
-      if (allowance > 0 && base !== null && base > 0) {
-        scale = Math.min(scale, allowance / base);
-      }
+    if (allowance !== null && allowance > 0 && base !== null && base > 0) {
+      scale = Math.min(scale, (allowance * 1.2) / base);
     }
   }
 
@@ -833,11 +833,13 @@ export function validateMealOption(o, budget, macroBudget = {}, options = {}) {
     return { valid: false, reason: "calorie_budget_exceeded" };
   }
 
-  for (const [index, key] of [[1, "protein_g"], [2, "carbs_g"], [3, "fat_g"]]) {
-    if (options.macroPriority === "protein" && key !== "protein_g") continue;
+  // Mesmo critério do dimensionamento (makeOption): proteína acima da fatia não reprova;
+  // carboidrato e gordura têm 20% de folga.
+  for (const [index, key] of [[2, "carbs_g"], [3, "fat_g"]]) {
+    if (options.macroPriority === "protein") continue;
 
     const allowance = n(macroBudget[key]);
-    if (allowance !== null && vals[index] > allowance + 0.5) {
+    if (allowance !== null && allowance > 0 && vals[index] > allowance * 1.2 + 0.5) {
       return { valid: false, reason: key + "_budget_exceeded" };
     }
   }
