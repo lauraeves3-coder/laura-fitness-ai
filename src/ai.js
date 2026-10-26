@@ -4602,7 +4602,18 @@ const summaryIntent = classifySummaryIntent(message);
       "in_progress"
     );
 
-    return `✅ Registrei como consumida: ${consumption.selection.details.option.name} (${consumption.selection.details.option.calories} kcal estimadas). ID da refeição: ${consumption.meal.id}.`;
+    // Mesmo formato dos outros registros: refeição, macros e como fica o dia.
+    const eaten = consumption.meal;
+    const afterMeal = getDailySummary(userId);
+    return [
+      `✅ *Refeição registrada* · #${eaten.id}`,
+      `🍽️ ${consumption.selection.details.option.name}`,
+      "",
+      `🔥 ${Math.round(eaten.calories).toLocaleString("pt-BR")} kcal · 🥩 P ${formatKg(eaten.protein_g)} g · 🍚 C ${formatKg(eaten.carbs_g)} g · 🥑 G ${formatKg(eaten.fat_g)} g`,
+      afterMeal?.calorie_target
+        ? `📊 Hoje: ${Math.round(afterMeal.calories).toLocaleString("pt-BR")} de ${Math.round(afterMeal.calorie_target).toLocaleString("pt-BR")} kcal · ${formatRemainingStatus(afterMeal.calorie_target - afterMeal.calories, "kcal").toLocaleLowerCase("pt-BR")}`
+        : null
+    ].filter((line) => line !== null).join("\n");
   }
 
   if (

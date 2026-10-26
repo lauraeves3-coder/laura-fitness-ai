@@ -346,7 +346,7 @@ test("NUT-12 / NUT-15: confirmação registra a opção escolhida e atualiza o s
   const before = db.getDailySummary(userId);
   const { option } = await chooseFirstOption(userId);
   const reply = await send(userId, "comi a opção 1");
-  assert.match(reply, /Registrei como consumida/);
+  assert.match(reply, /✅ \*Refeição registrada\* · #\d+\n🍽️ .+\n\n🔥 \d+ kcal/);
   const meals = db.getTodayMeals(userId);
   assert.equal(meals.length, 1);
   assert.equal(meals[0].calories, option.calories);
