@@ -1567,3 +1567,18 @@ test("ACO-05: sequência de registros comemora marcos e conquistas mostram o que
   assert.match(achievements, /✅ 🍽️ Primeiro registro/);
   assert.match(achievements, /▫️ 📅 7 dias seguidos registrando — faltam 4 dias seguidos/);
 });
+
+// ---------- NUT-22: fome e saciedade ----------
+
+test("NUT-22: fome registra e sugere lanches que cabem; comeu há pouco sugere água; padrão de fome", async () => {
+  const userId = userWithTargets();
+  const hungry = await send(userId, "estou morrendo de fome");
+  assert.match(hungry, /😋 Fome forte![\s\S]*\*1\.\* Iogurte natural com 1 fruta\n🔥 ~\d+ kcal · 🥩 P \d+ g/);
+  await send(userId, "comi 2 ovos");
+  assert.match(await send(userId, "estou com fome"), /🤔 Você comeu há \d+ min\. Às vezes é sede/);
+  assert.match(await send(userId, "fiquei estufada"), /Anotei que você ficou estufado/);
+  assert.match(await send(userId, "qual meu padrão de fome?"), /Ainda tenho poucos registros de fome/);
+  await send(userId, "fome 4");
+  assert.match(await send(userId, "qual meu padrão de fome?"), /📊 \*Seu padrão de fome — últimos 14 dias\*[\s\S]*Mais frequente: \*/);
+  assert.equal(db.getHungerLogs(userId, "2000-01-01").length, 4);
+});

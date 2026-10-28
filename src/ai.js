@@ -62,6 +62,7 @@ import { handlePantryMessage, consumeFromPantry } from "./pantry.js";
 import { handleRecipeMessage } from "./recipes.js";
 import { isShoppingListRequest, buildShoppingList } from "./shopping.js";
 import { isAchievementsRequest, buildAchievementsReply, streakCelebration } from "./achievements.js";
+import { handleHungerMessage } from "./hunger.js";
 import { handleWheyMessage } from "./wheyProfile.js";
 import { handleCheckinMessage, CHECKIN_QUESTION } from "./checkin.js";
 import { detectReplyStyle, STYLE_INSTRUCTIONS, buildReplyStyleConfirmation } from "./replyStyle.js";
@@ -2848,6 +2849,13 @@ const summaryIntent = classifySummaryIntent(message);
     // ajustes por cansaço/dor, sem o modelo.
     const trainingReply = handleTrainingMessage(userId, message, dailySummary.date);
     if (trainingReply) return trainingReply;
+
+    // NUT-22: "estou com fome", "fome 4", "fiquei estufada", "meu padrão de fome".
+    const hungerReply = handleHungerMessage(userId, message, {
+      today: dailySummary.date,
+      remainingCalories: dailySummary.calorie_target ? dailySummary.calorie_target - dailySummary.calories : null
+    });
+    if (hungerReply) return hungerReply;
 
     // ACO-05: "minhas conquistas", "minha sequência".
     if (isAchievementsRequest(message)) {

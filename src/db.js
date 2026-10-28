@@ -1379,6 +1379,26 @@ export function getExerciseHistory(userId) {
   `).all(userId);
 }
 
+// NUT-22: fome e saciedade (nível 1–5) com horário.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS hunger_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    level INTEGER,
+    logged_at TEXT NOT NULL
+  );
+`);
+
+export function saveHungerLog(userId, { kind, level }) {
+  ensureUser(userId);
+  db.prepare(`INSERT INTO hunger_logs (user_id, kind, level, logged_at) VALUES (?, ?, ?, ?)`).run(userId, kind, level, getBrazilDateTime());
+}
+
+export function getHungerLogs(userId, startDate) {
+  return db.prepare(`SELECT * FROM hunger_logs WHERE user_id = ? AND substr(logged_at, 1, 10) >= ? ORDER BY logged_at`).all(userId, startDate);
+}
+
 // ACO-05: dias com registro de refeição (com totais), água por dia e treinos.
 export function getProgressData(userId, startDate) {
   return {
