@@ -1712,3 +1712,17 @@ test("REC-06: cadastrar receita própria calcula a porção e registra pelo nome
   assert.ok(Math.abs(db.getTodayMeals(userId)[0].calories - perPortion) <= 2);
   assert.match(await send(userId, "minhas receitas"), /📒 \*Suas receitas\*\n\n• \*Bolo de banana fit\* — porção de \d+ g/);
 });
+
+test("DSP-03: receitas com a despensa priorizam o que vence logo", async () => {
+  const userId = newUser();
+  const today = db.getDailySummary(userId).date;
+  const { addDays: plusDays } = await import("../src/dates.js");
+  const soon = plusDays(today, 2);
+  await send(userId, "comprei 1 kg de frango e 12 ovos");
+  await send(userId, `comprei 1 kg de abobrinha, vence ${soon.slice(8, 10)}/${soon.slice(5, 7)}`);
+  const list = await send(userId, "receita com o que tenho em casa");
+  assert.match(list, /\*1\. .+\*\n⏱️ .+\n🧺 Usa \d+ ite[mn]s? da sua despensa\n⏰ Usa o que vence logo: abobrinha/);
+  const expiring = await send(userId, "receita com o que vai vencer");
+  assert.match(expiring, /⏰ Usa o que vence logo: abobrinha/);
+  assert.doesNotMatch(expiring, /Panqueca|Smoothie/);
+});

@@ -6,6 +6,7 @@
 import { FOOD_CATALOG, findFoodCandidates } from "./nutritionCatalog.js";
 import { getPantry, getUser, saveMeal, setRecipeState } from "./db.js";
 import { flavorGroup, getWheyProfile } from "./wheyProfile.js";
+import { addDays as addDaysIso } from "./dates.js";
 
 // [id, nome, refeições, minutos, dificuldade, equipamentos, ingredientes [catálogoId|null, g, texto], passos]
 const RECIPES = [
@@ -242,6 +243,8 @@ export function parseRecipeQuery(message) {
   if (/low ?carb|pouco carbo/.test(text)) filters.tags.push("low carb");
   if (/poucos ingredientes|simples/.test(text)) filters.tags.push("poucos ingredientes");
   if (/(?:o que|com o que) (?:eu )?tenho|despensa|geladeira|em casa/.test(text)) filters.pantry = true;
+  // DSP-03: "receita com o que vai vencer".
+  if (/\b(?:vai vencer|vence(?:ndo)?|vencimento|antes de estragar|esta para vencer)\b/.test(text)) { filters.pantry = true; filters.expiring = true; }
   if (/saldo|caiba|cabe na (?:minha )?meta|minha meta|meus macros/.test(text)) filters.fitBudget = true;
   // Ingrediente pedido ("com frango", "de atum"): guarda a palavra do alimento, que casa
   // com qualquer preparo dele nas receitas (frango grelhado, desfiado…).
@@ -264,8 +267,10 @@ export function parseRecipeQuery(message) {
 
 // Pontua e devolve até `limit` receitas. Ingrediente pedido é obrigatório; despensa e
 // saldo do dia ordenam. pantryNames: nomes dos itens da despensa ("Frango", "Ovos").
-export function searchRecipes(filters, { pantryNames = [], budgetKcal = null, limit = 5, wheyGroup = null } = {}) {
-  const pantryWords = pantryNames.map((name) => normalize(name).split(/\s+/)[0].replace(/s$/, "")).filter((word) => word.length >= 3);
+export function searchRecipes(filters, { pantryNames = [], expiringNames = [], budgetKcal = null, limit = 5, wheyGroup = null, minPantry = 2 } = {}) {
+  const firstWord = (name) => normalize(name).split(/\s+/)[0].replace(/s$/, "");
+  const pantryWords = pantryNames.map(firstWord).filter((word) => word.length >= 3);
+  const expiringWords = expiringNames.map(firstWord).filter((word) => word.length >= 3);
   return RECIPES
     .map((recipe) => {
       const ids = recipe.ingredients.map(([id]) => id).filter(Boolean);
@@ -279,10 +284,14 @@ export function searchRecipes(filters, { pantryNames = [], budgetKcal = null, li
       if (recipe.whey && wheyGroup && !recipe.whey.includes(wheyGroup)) return null;
       if (filters.foods.length && !filters.foods.every((word) => texts.some((text) => text.includes(word)))) return null;
       const fromPantry = texts.filter((text) => pantryWords.some((word) => text.includes(word)));
-      if (filters.pantry && pantryWords.length && fromPantry.length < Math.min(2, ids.length)) return null;
+      // DSP-03: o que vence em até 3 dias pesa mais (e é obrigatório em "o que vai vencer").
+      const expiring = expiringWords.filter((word) => texts.some((text) => text.includes(word)));
+      if (filters.expiring && !expiring.length) return null;
+      if (filters.pantry && !filters.expiring && pantryWords.length && fromPantry.length < Math.min(expiring.length ? 1 : minPantry, ids.length)) return null;
       if (filters.fitBudget && budgetKcal != null && nutrition.calories > budgetKcal) return null;
-      const score = fromPantry.length * 3 + (tags.includes("rica em proteína") ? 1 : 0) - recipe.minutes / 60;
-      return { recipe, nutrition, tags, fromPantry, score };
+      const score = fromPantry.length * 3 + expiring.length * 5 + (tags.includes("rica em proteína") ? 1 : 0) - recipe.minutes / 60;
+      const expiringLabels = expiringNames.filter((name) => expiring.includes(firstWord(name)));
+      return { recipe, nutrition, tags, fromPantry, expiring: expiringLabels, score };
     })
     .filter(Boolean)
     .sort((a, b) => b.score - a.score)
@@ -301,9 +310,9 @@ export function buildRecipeList(results, filters) {
     title,
     "",
     // Uma receita por bloco, com linha em branco entre elas.
-    ...results.flatMap(({ recipe, nutrition, fromPantry }, index) => [
+    ...results.flatMap(({ recipe, nutrition, fromPantry, expiring = [] }, index) => [
       `*${index + 1}. ${recipe.name}*`,
-      `⏱️ ${recipe.minutes} min · 🔥 ${fmt(nutrition.calories)} kcal · 🥩 ${fmt(nutrition.protein_g)} g de proteína${fromPantry.length && filters.pantry ? `\n🧺 Usa ${fromPantry.length} ${fromPantry.length === 1 ? "item" : "itens"} da sua despensa` : ""}`,
+      `⏱️ ${recipe.minutes} min · 🔥 ${fmt(nutrition.calories)} kcal · 🥩 ${fmt(nutrition.protein_g)} g de proteína${fromPantry.length && filters.pantry ? `\n🧺 Usa ${fromPantry.length} ${fromPantry.length === 1 ? "item" : "itens"} da sua despensa` : ""}${expiring.length ? `\n⏰ Usa o que vence logo: ${expiring.join(", ").toLocaleLowerCase("pt-BR")}` : ""}`,
       ""
     ]),
     "👉 Mande o *número* para ver a receita completa."
@@ -422,14 +431,24 @@ export function handleRecipeMessage(userId, message, { today, budgetKcal = null,
   if (!filters.meal && mealPeriod && !filters.foods.length && !filters.pantry) {
     filters.meal = { "café da manhã": "cafe", almoço: "almoco", "lanche da tarde": "lanche", jantar: "jantar", ceia: "lanche" }[mealPeriod] || null;
   }
-  const pantryNames = filters.pantry ? getPantry(userId).map((item) => item.name) : [];
+  const pantryItems = filters.pantry ? getPantry(userId) : [];
+  const pantryNames = pantryItems.map((item) => item.name);
+  const expiringNames = pantryItems
+    .filter((item) => item.expires_on && today && item.expires_on >= today && item.expires_on <= addDaysIso(today, 3))
+    .map((item) => item.name);
+  if (filters.expiring && pantryItems.length && !expiringNames.length) {
+    return "⏰ Nada da sua despensa vence nos próximos 3 dias. 👍 Peça *receita com o que tenho em casa* para ver tudo.";
+  }
   if (filters.pantry && !pantryNames.length) {
     return "🧺 Sua despensa está vazia. Me conte o que comprou (ex.: *comprei 1 kg de frango e 12 ovos*) que eu sugiro receitas com isso.";
   }
   const whey = getWheyProfile(userId);
   const flavorInText = /\bwhey\b/.test(text) && text.match(/\bwhey\b.*?\b(?:de|sabor)\s+([a-z ]+)$/)?.[1];
   const wheyGroup = flavorInText ? flavorGroup(flavorInText.trim()) : whey?.group || null;
-  const results = searchRecipes(filters, { pantryNames, budgetKcal: filters.fitBudget ? budgetKcal : null, wheyGroup });
+  const searchOptions = { pantryNames, expiringNames, budgetKcal: filters.fitBudget ? budgetKcal : null, wheyGroup };
+  let results = searchRecipes(filters, searchOptions);
+  // Despensa pequena: nenhuma receita usa 2 itens; aceita as que usam 1.
+  if (!results.length && filters.pantry) results = searchRecipes(filters, { ...searchOptions, minPantry: 1 });
   save({ list: results.map(({ recipe }) => recipe.id) });
   return buildRecipeList(results, filters);
 }
