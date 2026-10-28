@@ -63,6 +63,7 @@ import { handleRecipeMessage } from "./recipes.js";
 import { isShoppingListRequest, buildShoppingList } from "./shopping.js";
 import { isAchievementsRequest, buildAchievementsReply, streakCelebration } from "./achievements.js";
 import { handleHungerMessage } from "./hunger.js";
+import { handleSleepQuery } from "./sleep.js";
 import { handleWheyMessage } from "./wheyProfile.js";
 import { handleCheckinMessage, CHECKIN_QUESTION } from "./checkin.js";
 import { detectReplyStyle, STYLE_INSTRUCTIONS, buildReplyStyleConfirmation } from "./replyStyle.js";
@@ -2984,6 +2985,10 @@ const summaryIntent = classifySummaryIntent(message);
       remainingCalories: dailySummary.calorie_target ? dailySummary.calorie_target - dailySummary.calories : null
     });
     if (hungerReply) return hungerReply;
+
+    // CRP-05: "como está meu sono?" — média, noites curtas e o que coincidiu.
+    const sleepReport = handleSleepQuery(userId, message, dailySummary.date);
+    if (sleepReport) return sleepReport;
 
     // ACO-05: "minhas conquistas", "minha sequência".
     if (isAchievementsRequest(message)) {

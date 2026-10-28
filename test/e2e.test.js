@@ -1648,3 +1648,23 @@ test("CAT-09/NUT-02: alimento principal desconhecido com sabor conhecido não vi
   assert.match(await send(known, "comi uma fatia de bolo de chocolate"), /Refeição registrada/, "bolo existe no catálogo");
   assert.doesNotMatch(await send(known, "comi 1 copo de suco de laranja"), /Não tenho/, "medida + 'de' não conta");
 });
+
+// ---------- CRP-05: análise do sono ----------
+
+test("CRP-05: análise do sono com média, noites curtas e cruzamento sem causalidade", async () => {
+  const { buildSleepReport, isSleepQuery } = await import("../src/sleep.js");
+  assert.equal(isSleepQuery("como está meu sono?"), true);
+  assert.equal(isSleepQuery("dormi 7h"), false);
+  const report = buildSleepReport({
+    sleeps: [{ hours: 5.5, date: "2026-10-20" }, { hours: 6, date: "2026-10-21" }, { hours: 8, date: "2026-10-22" }, { hours: 7.5, date: "2026-10-23" }],
+    checkins: [{ date: "2026-10-20", energy: 2 }, { date: "2026-10-21", energy: 2 }, { date: "2026-10-22", energy: 4 }, { date: "2026-10-23", energy: 5 }],
+    calories: [{ date: "2026-10-20", calories: 2400 }, { date: "2026-10-21", calories: 2300 }, { date: "2026-10-22", calories: 1800 }, { date: "2026-10-23", calories: 1900 }]
+  });
+  assert.match(report, /• Média: \*6,8 h\* por noite \(4 noites registradas\)/);
+  assert.match(report, /• Noites com menos de 7 h: 2 de 4/);
+  assert.match(report, /energia no check-in foi em média 2\/5, contra 4,5\/5/);
+  assert.match(report, /comeu em média 500 kcal a mais/);
+  assert.match(report, /Coincidência nos seus dados, não prova de causa/);
+  const userId = newUser();
+  assert.match(await send(userId, "como está meu sono?"), /Ainda tenho poucas noites registradas/);
+});

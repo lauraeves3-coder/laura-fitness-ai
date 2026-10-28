@@ -185,7 +185,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | CRP-02 | Atualizar metas automáticas quando o peso muda | P1 | IMPLEMENTADO E TESTADO | — | DEC-07: mudança de 2 kg ou mais em relação ao peso anterior sugere revisar as metas ("restaure minhas metas automáticas"); nada é recalculado sozinho (`test/e2e.test.js`). Corrigido junto: a confirmação mostrava a primeira pesagem do mesmo segundo (`saveWeight` agora devolve a linha inserida) |
 | CRP-03 | Medidas/circunferências, gráficos e tendências | P2 | IMPLEMENTADO E TESTADO | — | src/body.js + tabela body_measurements: cintura, abdômen, quadril, peito, braço, antebraço, coxa, panturrilha, pescoço e % de gordura pela conversa (sem o modelo; ignora treino/comida/meta); 'minhas medidas' com variação desde a anterior e a primeira; 'evolução do peso' com mini gráfico, kg/semana e avaliação pelo objetivo. Gráfico em imagem fica para depois. test/e2e.test.js |
 | CRP-04 | Fotos privadas de evolução com consentimento | P3 | NÃO IMPLEMENTADO | VIS-04 | — |
-| CRP-05 | Sono (horas, qualidade), energia, fadiga; cruzar sem inferir causalidade | P2 | PARCIAL | — | "dormi 7h", "dormi 6 horas e 30 min, mal" registram horas e qualidade em `sleep_logs` sem o modelo; valores fora de 0–16 h são recusados; o resumo do dia mostra o sono (`test/e2e.test.js`). Faltam energia/fadiga e cruzamentos |
+| CRP-05 | Sono (horas, qualidade), energia, fadiga; cruzar sem inferir causalidade | P2 | IMPLEMENTADO E TESTADO | — | Sono ('dormi 7h') e energia/dor (check-in ACO-01) registrados; 'como está meu sono?' (src/sleep.js): média de 14 dias, noites < 7 h, melhor/pior, regularidade, e cruzamentos com a energia do check-in e as calorias do dia após noites curtas, sempre como coincidência ('não prova de causa'), com dica de higiene do sono. test/e2e.test.js |
 
 ## ACO — Check-ins, analytics e reavaliação
 
@@ -314,3 +314,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 28/10/2026 | CONV-04: várias ações numa mesma mensagem. Totais: 69 testados, 1 não testado, 43 parciais, 10 não implementados, 1 bloqueados. |
 | 28/10/2026 | CAT-09: alimento desconhecido pede o rótulo, cadastra e registra. Totais: 70 testados, 1 não testado, 42 parciais, 10 não implementados, 1 bloqueados. |
 | 28/10/2026 | VIS-03/SUP-06: foto do rótulo cadastra o alimento; alimento principal desconhecido com sabor conhecido ('mochi de morango') pede o rótulo. Totais: 70 testados, 1 não testado, 44 parciais, 8 não implementados, 1 bloqueados. |
+| 28/10/2026 | CRP-05: análise do sono cruzando energia e alimentação sem inferir causa. Totais: 71 testados, 1 não testado, 43 parciais, 8 não implementados, 1 bloqueados. |
