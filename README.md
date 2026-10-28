@@ -108,6 +108,19 @@ Se você já tiver registrado uma atividade à mão no mesmo dia, a importação
 | "comi uma pizza inteira" / "2 pratos de feijoada" | Usa o tamanho padrão e avisa; pergunta o acompanhamento |
 | "cintura 78 cm, quadril 98 cm" / "minhas medidas" | Registra medidas e mostra a evolução |
 | "evolução do peso" | Mini gráfico, variação por semana e se está no ritmo do objetivo |
+| "quais são minhas metas?" | Painel com calorias, macros, água e como foram calculadas |
+| "resumo da semana" | Dia a dia, outras áreas e análise (meta, proteína, fim de semana, sono, água, peso, semana anterior) |
+| "tenho whey de morango" | Pergunta marca/sabor, guarda na despensa e sugere receitas que combinam |
+| "receita rápida com frango" / "receita com o que tenho em casa" | Lista receitas; o número abre a ficha; "comi a receita" registra |
+| "comprei 1 kg de frango…" / "minha despensa" | Estoque com validade; baixa sozinha ao registrar refeição |
+| "lista de compras" | Pelo que você costuma comer (ou das receitas), descontando a despensa |
+| "check-in" | Sono, energia e dor; ajusta o treino do dia |
+| "hoje só tenho 30 min" / "academia fechada" / "passa o treino para quinta" | Adapta ou remarca o treino |
+| "treinei supino 3x10 com 40 kg, rir 2" | Registra com esforço e sugere a progressão |
+| "volume por músculo" / "evolução no supino" | Séries por grupo na semana / progresso da carga |
+| "minhas conquistas" | Sequência de registros e conquistas |
+| "estou com fome" / "meu padrão de fome" | Lanches que cabem no dia / horário em que a fome mais aparece |
+| "prefiro respostas curtas" | Ajusta o estilo das respostas |
 
 ## Estrutura
 
