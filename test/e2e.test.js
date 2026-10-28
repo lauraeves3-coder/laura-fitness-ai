@@ -1366,7 +1366,9 @@ test("REC: busca com filtros, ficha, troca de ingrediente, favoritas e registro 
   assert.match(meal, /✅ \*Refeição registrada\*[\s\S]*· 2 porções/);
   assert.equal(db.getTodayMeals(userId).length, 1);
   assert.match(await send(userId, "minhas receitas favoritas"), /⭐ \*Suas receitas favoritas\*\n\n\*1\. .+\*\n⏱️ \d+ min/);
-  assert.match(await send(userId, "receita de strogonoff"), /🍳 \*Strogonoff fit de frango\*/);
+  const both = await send(userId, "receita de strogonoff");
+  assert.match(both, /\*1\. Strogonoff fit de (?:frango|carne)\*[\s\S]*\*2\. Strogonoff fit de (?:frango|carne)\*/);
+  assert.match(await send(userId, "receita de strogonoff fit de frango"), /🍳 \*Strogonoff fit de frango\*/);
 });
 
 // ---------- Whey da pessoa e receitas pelo sabor ----------
@@ -1524,7 +1526,7 @@ test("DSP-04: lista de compras pelo que costuma comer, em cru, por categoria e d
   assert.match(list, /🧺 Já descontei o que tem na despensa: ovos/);
 
   // Receita aberta.
-  await send(userId, "receita de strogonoff");
+  await send(userId, "receita de strogonoff fit de frango");
   assert.match(await send(userId, "lista de compras da receita"), /para a receita \*Strogonoff fit de frango\*[\s\S]*☐ /);
 });
 

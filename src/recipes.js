@@ -527,12 +527,25 @@ export function handleRecipeMessage(userId, message, { today, budgetKcal = null,
   const byName = text.match(/\breceita (?:de|do|da)\s+(.+)$/);
   if (byName) {
     const wanted = byName[1].replace(/\b(?:fit|saudavel|caseir[oa])\b/g, "").trim();
-    const matches = wanted.length >= 4 ? RECIPES.filter((item) => normalize(item.name).includes(wanted)) : [];
+    // Palavra a palavra: "strogonoff de frango" acha "Strogonoff fit de frango".
+    const words = wanted.split(/\s+/).filter((word) => word.length >= 3 && !["com", "sem", "para"].includes(word));
+    const matches = wanted.length >= 4 && words.length
+      ? RECIPES.filter((item) => { const name = normalize(item.name); return words.every((word) => name.includes(word)); })
+      : [];
     const recipe = matches.length === 1 ? matches[0] : null;
     if (recipe) {
       const personal = recipe.whey ? personalizeWhey(recipe.ingredients, getWheyProfile(userId)) : null;
       save({ open: recipe.id, ingredients: personal });
       return buildRecipeCard(recipe, personal ? { ingredients: personal } : {});
+    }
+    // Mais de uma com esse nome ("strogonoff": frango e carne): lista para escolher.
+    if (matches.length > 1) {
+      const excluded = excludedTerms(user);
+      const allowed = matches.filter((item) => !excluded.length || !item.ingredients.some(([id, , label]) => violatesRestrictions(`${foodText(byId(id))} ${label}`, excluded)));
+      if (allowed.length) {
+        save({ list: allowed.slice(0, 5).map((item) => item.id) });
+        return buildRecipeList(allowed.slice(0, 5).map((item) => ({ recipe: item, nutrition: recipeNutrition(item), fromPantry: [] })), { pantry: false });
+      }
     }
   }
   const filters = parseRecipeQuery(message);
