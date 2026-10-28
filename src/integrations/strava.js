@@ -8,7 +8,7 @@ import {
 import { formatDuration, formatPace } from "../training/paces.js";
 import { estimateWorkoutCalories } from "../training/energy.js";
 import { describeHeartRate } from "../training/heartRate.js";
-import { linkWorkoutToPlan } from "../training/service.js";
+import { linkWorkoutToPlan, runRecordLines } from "../training/service.js";
 import { formatDay } from "../dates.js";
 
 const API = "https://www.strava.com";
@@ -175,7 +175,7 @@ export async function syncStrava(userId, { fetchImpl = fetch, now = new Date(), 
   return { connected: true, imported, weight_kg: user.weight_kg ?? null, age: user.age_years ?? null };
 }
 
-const linkToPlan = (userId) => (workout, date) => linkWorkoutToPlan(userId, workout, date);
+const linkToPlan = (userId) => (workout, date) => [...runRecordLines(userId, workout), ...linkWorkoutToPlan(userId, workout, date)];
 
 // Comandos na conversa. Retorna a resposta ou null (não é sobre o Strava).
 export async function handleStravaCommand(userId, message, { fetchImpl = fetch, now = new Date() } = {}) {

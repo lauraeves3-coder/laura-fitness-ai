@@ -55,6 +55,7 @@ import {
   getRecentStrengthEfforts,
   getExercisesBetween,
   getStepsOn,
+  getRunsBetween,
   getPantry
 } from "./db.js";
 import { reviewTargets, describeTargetReview } from "./goalReview.js";
@@ -68,6 +69,7 @@ import { handleHungerMessage } from "./hunger.js";
 import { handleSleepQuery } from "./sleep.js";
 import { handleStepsMessage, stepsGoalFor, stepsLine } from "./steps.js";
 import { isZonesQuery, buildZonesReply } from "./training/heartRate.js";
+import { isRecordsQuery, buildRecordsReply } from "./training/records.js";
 import { handleWheyMessage } from "./wheyProfile.js";
 import { handleCheckinMessage, CHECKIN_QUESTION } from "./checkin.js";
 import { detectReplyStyle, STYLE_INSTRUCTIONS, buildReplyStyleConfirmation } from "./replyStyle.js";
@@ -3037,6 +3039,9 @@ const summaryIntent = classifySummaryIntent(message);
       remainingCalories: dailySummary.calorie_target ? dailySummary.calorie_target - dailySummary.calories : null
     });
     if (hungerReply) return hungerReply;
+
+    // COR-05: "meus recordes de corrida".
+    if (isRecordsQuery(message)) return buildRecordsReply(getRunsBetween(userId, "2000-01-01", "2999-12-31"));
 
     // COR-02: "minhas zonas" de frequência cardíaca.
     if (isZonesQuery(message)) return buildZonesReply(user?.age_years);

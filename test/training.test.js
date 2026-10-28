@@ -420,3 +420,23 @@ test("MUS-05: musculação feita é comparada com a sessão do plano", () => {
   assert.match(lines, /➖ Faltou: /);
   assert.match(lines, /➕ A mais: rosca direta/);
 });
+
+test("COR-05: recordes de corrida e aviso de novo recorde", async () => {
+  const { buildRecordsReply, newRecordLines } = await import("../src/training/records.js");
+  const runs = [
+    { id: 1, distance_km: 5, duration_min: 30, pace_s_per_km: 360, trained_at: "2026-10-01 07:00:00" },
+    { id: 2, distance_km: 10.2, duration_min: 66, pace_s_per_km: 388, trained_at: "2026-10-05 07:00:00" }
+  ];
+  const reply = buildRecordsReply(runs);
+  assert.match(reply, /• \*5 km:\* 30:00 \(6:00\/km\) — 01\/10/);
+  assert.match(reply, /• \*10 km:\* 1:04:40 \(6:28\/km\) — 05\/10/);
+  assert.match(reply, /• \*Maior distância:\* 10,2 km/);
+  const faster = { id: 3, distance_km: 5, duration_min: 28, pace_s_per_km: 336, trained_at: "2026-10-10 07:00:00" };
+  assert.deepEqual(newRecordLines(runs, faster), ["🏆 Novo recorde: melhor 5 km (28:00), 2:00 mais rápido que antes!"]);
+  assert.deepEqual(newRecordLines(runs, { id: 4, distance_km: 4, duration_min: 30, pace_s_per_km: 450 }), []);
+
+  const userId = "svc-records";
+  db.saveWorkout(userId, { workout_type: "Corrida", duration_min: 30, distance_km: 5, exercises: [] });
+  const second = db.saveWorkout(userId, { workout_type: "Corrida", duration_min: 27, distance_km: 5, exercises: [] });
+  assert.ok(service.afterWorkoutSaved(userId, second, TUESDAY).some((line) => /Novo recorde: melhor 5 km \(27:00\)/.test(line)));
+});

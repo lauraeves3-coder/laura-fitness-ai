@@ -6,6 +6,7 @@ import {
   linkWorkoutToSession, getRunsBetween, updateTrainingPlan, getUser, getWorkoutsBetween
 } from "../db.js";
 import { describeWorkoutCalories } from "./energy.js";
+import { newRecordLines } from "./records.js";
 import { addDays, formatDay, weekdayOf } from "../dates.js";
 import { buildTrainingPlan } from "./plan.js";
 import { RUNNING_GOALS, describePaces, describeTargetAnalysis, expectedFiveK, paceForSession } from "./running.js";
@@ -417,8 +418,18 @@ export function afterWorkoutSaved(userId, workout, today) {
   }
   const energy = describeWorkoutCalories(workout, getUser(userId)?.weight_kg);
   if (energy) lines.push(energy);
+  lines.push(...runRecordLines(userId, workout));
   const comparison = linkWorkoutToPlan(userId, workout, today);
   return comparison.length ? [...lines, "", ...comparison] : lines;
+}
+
+// COR-05: recordes que esta corrida bateu (manual ou Strava).
+export function runRecordLines(userId, workout) {
+  if (modalityOf(workout.workout_type) !== "corrida") return [];
+  const runs = getRunsBetween(userId, "2000-01-01", "2999-12-31");
+  const previous = runs.filter((run) => run.id !== workout.id);
+  const current = runs.find((run) => run.id === workout.id) || workout;
+  return newRecordLines(previous, current);
 }
 
 // Liga o treino (manual ou importado do Strava) à sessão do plano daquele dia e devolve
