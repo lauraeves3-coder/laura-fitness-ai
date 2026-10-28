@@ -126,7 +126,7 @@ import {
   pastMealTimestamp
 } from "./mealIntent.js";
 import { parsePastMealDate, formatDay, addDays, daysBetween, weekdayOf } from "./dates.js";
-import { getQuantityQuestions, applyQuantityAnswer, catalogFoodNames, suggestSides, findFoodCandidates } from "./nutritionCatalog.js";
+import { getQuantityQuestions, applyQuantityAnswer, catalogFoodNames, suggestSides, findFoodCandidates, FOOD_CATALOG } from "./nutritionCatalog.js";
 import { parseFoodRegistration, buildFoodRegistrationReply } from "./userFoods.js";
 import { parseReminderCommand, buildReminderCommandReply, dueReminders, buildWaterReminder } from "./reminders.js";
 import { validateWorkoutRecord, buildWorkoutReply, applyEffortFromText, fatigueAdvice, detectStrengthQuery, buildMuscleVolumeReply, buildExerciseProgressReply } from "./workouts.js";
@@ -618,7 +618,45 @@ function unknownHeadFood(message, extraFoods) {
   return estimateMealFromText(`comi ${match[1]}`, { extraFoods }) ? null : name;
 }
 
-function buildUnknownFoodQuestion(name) {
+// NUT-02: sabor diferente do item do catálogo ("pastel de queijo" x "Pastel de carne").
+// Retorna { name, similar } quando o sabor citado não existe no catálogo.
+function flavorMismatch(message, estimate) {
+  const text = normalizeRequestText(message);
+  for (const item of estimate?.matched_items || []) {
+    const itemName = normalizeRequestText(item.name);
+    const parts = itemName.match(/^([a-z]+) de ([a-z]+)/);
+    if (!parts) continue;
+    const said = text.match(new RegExp(`\\b${parts[1]}s?\\s+(?:de|sabor)\\s+([a-z]+(?:\\s+[a-z]+)?)`));
+    if (!said || said[1].startsWith(parts[2])) continue;
+    const phrase = `${parts[1]} de ${said[1].split(/\s+/)[0]}`;
+    const known = FOOD_CATALOG.some((food) => [food.name, ...(food.aliases || [])].some((alias) => normalizeRequestText(alias).startsWith(phrase)));
+    if (!known) return { name: originalPhrase(message, `${parts[1]} de ${said[1]}`), similar: item.name };
+  }
+  return null;
+}
+
+// Trecho da mensagem original (com acentos) que corresponde ao texto normalizado.
+function originalPhrase(message, normalizedPhrase) {
+  const original = String(message || "");
+  const map = [];
+  let plain = "";
+  for (let index = 0; index < original.length; index += 1) {
+    for (const piece of original[index].normalize("NFD").replace(/[̀-ͯ]/g, "").toLocaleLowerCase("pt-BR")) {
+      plain += piece;
+      map.push(index);
+    }
+  }
+  const at = plain.indexOf(normalizedPhrase);
+  return at < 0 ? normalizedPhrase : original.slice(map[at], map[at + normalizedPhrase.length - 1] + 1).toLocaleLowerCase("pt-BR");
+}
+
+function buildUnknownFoodQuestion(name, similar = null) {
+  if (similar) {
+    return [
+      `🔎 Não tenho *${name}* no meu catálogo; o mais parecido é *${similar}*.`,
+      "Responda *usa esse* para registrar como ele, *estima* para eu estimar, ou mande os valores / foto do rótulo. Ainda não registrei nada."
+    ].join("\n");
+  }
   return [
     `🔎 Não tenho *${name}* no meu catálogo ainda.`,
     "Para registrar certinho, me mande os valores do rótulo, por exemplo:",
@@ -1475,6 +1513,13 @@ async function handlePendingMealClarification(userId, message, internal) {
 
   if (pending.type === "unknown_food") {
     const reply = normalizeRequestText(message).trim();
+    // "Usa esse": registra como o item parecido do catálogo.
+    if (pending.similar && /^(?:usa|use|usar|pode usar|pode ser|esse mesmo|sim|ok|isso)\b/.test(reply)) {
+      clearPendingMealClarification(userId);
+      const swapped = pending.original_message.replace(new RegExp(pending.food_name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), pending.similar.toLocaleLowerCase("pt-BR"));
+      const rewritten = swapped !== pending.original_message ? swapped : `comi 1 ${pending.similar.toLocaleLowerCase("pt-BR")}`;
+      return processMessage(userId, rewritten, { ...internal, allowEstimate: true });
+    }
     if (/^(?:estima|estime|pode estimar|faz uma estimativa|faca uma estimativa|nao sei|nao tenho|sem rotulo|chuta)\b/.test(reply)) {
       clearPendingMealClarification(userId);
       return processMessage(userId, pending.original_message, { ...internal, allowEstimate: true });
@@ -3161,6 +3206,14 @@ const summaryIntent = classifySummaryIntent(message);
       !hasExplicitMealCorrectionIntent(message)
     ) {
       const estimatedMeal = estimateMealFromText(message, { extraFoods: getUserFoods(userId) });
+
+      // NUT-02: sabor fora do catálogo vem antes de perguntar o tipo do recheio
+      // ("pastel de queijo" não deve perguntar qual queijo).
+      const otherFlavor = estimatedMeal && !internal.allowEstimate ? flavorMismatch(message, estimatedMeal) : null;
+      if (otherFlavor) {
+        setPendingMealClarification(userId, { type: "unknown_food", original_message: message, food_name: otherFlavor.name, similar: otherFlavor.similar, created_at: Date.now() });
+        return buildUnknownFoodQuestion(otherFlavor.name, otherFlavor.similar);
+      }
 
       if (estimatedMeal?.needs_clarification) {
         return askMealClarification(userId, message, estimatedMeal);

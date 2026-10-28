@@ -1668,3 +1668,16 @@ test("CRP-05: análise do sono com média, noites curtas e cruzamento sem causal
   const userId = newUser();
   assert.match(await send(userId, "como está meu sono?"), /Ainda tenho poucas noites registradas/);
 });
+
+test("NUT-02: sabor que não está no catálogo pergunta e oferece o parecido", async () => {
+  const userId = newUser();
+  const ask = await send(userId, "comi um pastel de queijo");
+  assert.match(ask, /🔎 Não tenho \*pastel de queijo\* no meu catálogo; o mais parecido é \*Pastel de carne\*/);
+  assert.equal(db.getTodayMeals(userId).length, 0);
+  assert.match(await send(userId, "usa esse"), /✅ \*Refeição registrada\*/);
+  assert.equal(db.getTodayMeals(userId).length, 1);
+  const other = newUser();
+  assert.match(await send(other, "comi um pastel de belém"), /Não tenho \*pastel de belém\*/);
+  assert.match(await send(newUser(), "comi uma coxinha de frango"), /Refeição registrada/, "sabor do catálogo registra direto");
+  assert.match(await send(newUser(), "comi um pastel"), /Refeição registrada/, "sem sabor usa o padrão");
+});

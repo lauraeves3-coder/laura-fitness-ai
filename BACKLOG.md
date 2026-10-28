@@ -43,7 +43,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | ID | Requisito | Prio | Status | Depende de | Arquivos / evidência |
 |---|---|---|---|---|---|
 | NUT-01 | Registro por linguagem natural com alimento, quantidade, unidade e porção | P0 | IMPLEMENTADO E TESTADO | — | `nutritionCatalog.js estimateMealFromText`; `test/catalog.test.js` |
-| NUT-02 | Identificar marca/produto, corte e preparo | P1 | PARCIAL | CAT-03, SUP-01 | termos genéricos batata/bife pedem preparo (testado); poucas marcas no catálogo |
+| NUT-02 | Identificar marca/produto, corte e preparo | P1 | PARCIAL | — | Marca/sabor de whey (SUP-01), corte e preparo (NUT-08) e, agora, sabor fora do catálogo: 'pastel de queijo'/'pastel de belém' não viram 'Pastel de carne' — pergunta e oferece o parecido ('usa esse'), 'estima' ou o rótulo; alimento principal desconhecido com sabor conhecido ('mochi de morango') também pergunta. Faltam marcas de outros produtos industrializados. test/e2e.test.js |
 | NUT-03 | Pratos compostos, marmita, PF, buffet, combos, rodízio, restaurante, delivery | P1 | PARCIAL | — | prato feito/PF/marmita/quentinha desdobra arroz 150 g, feijão 140 g e salada 50 g (porções estimadas, marcadas como aproximação) mais a proteína citada; sem proteína, pergunta (frango, patinho, ovo, tilápia) e a resposta completa o prato; conteúdo descrito ("marmita de arroz, feijão e frango") vale sozinho. Lanches da TBCA: x-burguer, x-salada, x-frango, misto quente/frio, sanduíche americano (`test/catalog.test.js`, `test/e2e.test.js`). Faltam buffet por quilo, rodízio, x-tudo/x-bacon/x-egg (sem equivalente na TBCA) |
 | NUT-04 | kcal, proteínas, carboidratos, gorduras | P0 | IMPLEMENTADO E TESTADO | — | `test/catalog.test.js` |
 | NUT-05 | Outros nutrientes (fibras, sódio, açúcares…) | P2 | NÃO IMPLEMENTADO | CAT-08 | catálogo só tem kcal/P/C/G |
@@ -315,3 +315,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 28/10/2026 | CAT-09: alimento desconhecido pede o rótulo, cadastra e registra. Totais: 70 testados, 1 não testado, 42 parciais, 10 não implementados, 1 bloqueados. |
 | 28/10/2026 | VIS-03/SUP-06: foto do rótulo cadastra o alimento; alimento principal desconhecido com sabor conhecido ('mochi de morango') pede o rótulo. Totais: 70 testados, 1 não testado, 44 parciais, 8 não implementados, 1 bloqueados. |
 | 28/10/2026 | CRP-05: análise do sono cruzando energia e alimentação sem inferir causa. Totais: 71 testados, 1 não testado, 43 parciais, 8 não implementados, 1 bloqueados. |
+| 28/10/2026 | NUT-02: sabor fora do catálogo pergunta e oferece o item parecido. Totais: 71 testados, 1 não testado, 43 parciais, 8 não implementados, 1 bloqueados. |
