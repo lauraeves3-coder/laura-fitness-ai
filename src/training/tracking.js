@@ -4,6 +4,7 @@
 import { addDays, daysBetween, formatDay } from "../dates.js";
 import { formatDuration, formatPace, paceRange } from "./paces.js";
 import { describeHeartRate, heartRateZones, zoneOf } from "./heartRate.js";
+import { muscleOf } from "../workouts.js";
 
 const MODALITIES = [
   [/corr|run|trote|longao|rodagem|intervalad|tiro|fartlek/, "corrida"],
@@ -36,6 +37,11 @@ const km = (value) => Number(value).toLocaleString("pt-BR", { maximumFractionDig
 // Linhas de comparação planejado x realizado para corrida (distância e pace).
 export function compareWithPlan(session, workout, { age = null } = {}) {
   const lines = [`📋 Plano: *${session.title}*${session.distance_km ? ` · ${km(session.distance_km)} km` : ""}${session.target_pace ? ` · ${paceRange(session.target_pace)}` : ""}`];
+  // MUS-05: musculação planejada x feita (exercício pelo nome ou pelo grupo muscular).
+  if (session.modality === "musculacao" && session.details?.exercises?.length && workout.exercises?.length) {
+    lines.push(...compareStrength(session.details.exercises, workout.exercises));
+    return lines;
+  }
   if (session.modality !== "corrida" || !(workout.distance_km > 0)) {
     lines.push("✅ Treino do plano cumprido.");
     return lines;
@@ -67,6 +73,38 @@ export function compareWithPlan(session, workout, { age = null } = {}) {
     notes.push(`FC média em Z${zone.zone}: era treino leve — na próxima, segure até ~${ceiling} bpm (Z2)`);
   }
   lines.push(`🔎 ${notes.join(" · ")}`);
+  return lines;
+}
+
+const plainName = (text) => String(text || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLocaleLowerCase("pt-BR");
+const nameWords = (text) => plainName(text).split(/[^a-z]+/).filter((word) => word.length >= 4 && !["com", "halter", "halteres", "barra", "maquina", "polia", "livre"].includes(word));
+
+export function compareStrength(planned, done) {
+  const used = new Set();
+  const matched = [];
+  const missing = [];
+  for (const exercise of planned) {
+    const words = nameWords(exercise.name);
+    const group = muscleOf(exercise.name);
+    const index = done.findIndex((item, position) => !used.has(position)
+      && (nameWords(item.name).some((word) => words.includes(word)) || (group && muscleOf(item.name) === group)));
+    if (index >= 0) {
+      used.add(index);
+      matched.push({ planned: exercise, done: done[index] });
+    } else {
+      missing.push(exercise.name);
+    }
+  }
+  const extras = done.filter((_, position) => !used.has(position)).map((item) => item.name);
+  const plannedSets = planned.reduce((sum, item) => sum + (Number(item.sets) || 0), 0);
+  const doneSets = done.reduce((sum, item) => sum + (Number(item.sets) || 0), 0);
+  const lines = [
+    `${matched.length === planned.length ? "✅" : "🟡"} ${matched.length} de ${planned.length} exercícios do plano · ${doneSets} de ${plannedSets} séries`
+  ];
+  if (missing.length) lines.push(`➖ Faltou: ${missing.join(", ").toLocaleLowerCase("pt-BR")}`);
+  if (extras.length) lines.push(`➕ A mais: ${extras.join(", ").toLocaleLowerCase("pt-BR")}`);
+  const fewer = matched.filter(({ planned: plan, done: item }) => Number(item.sets) && Number(plan.sets) && Number(item.sets) < Number(plan.sets));
+  if (fewer.length) lines.push(`📉 Menos séries que o plano em: ${fewer.map(({ planned: plan }) => plan.name.toLocaleLowerCase("pt-BR")).join(", ")}`);
   return lines;
 }
 

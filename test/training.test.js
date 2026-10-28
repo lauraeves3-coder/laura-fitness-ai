@@ -404,3 +404,19 @@ test("COR-02: zonas de FC pela idade; rodagem leve em Z4 recebe alerta", async (
   db.updateUserProfile(userId, { age_years: 30 });
   assert.match(service.handleTrainingMessage(userId, "qual foi minha última corrida", TUESDAY) || "", /Ainda não tenho nenhuma corrida/);
 });
+
+test("MUS-05: musculação feita é comparada com a sessão do plano", () => {
+  const userId = "svc-mus05";
+  service.createTrainingPlanFromRequest(userId, request, TUESDAY);
+  const session = db.getPlannedSessions(userId, "2026-10-26", "2026-11-08").find((item) => item.modality === "musculacao");
+  const planned = session.details.exercises;
+  const workout = db.saveWorkout(userId, { workout_type: "Musculação", duration_min: 40, exercises: [
+    { name: planned[0].name, sets: planned[0].sets, reps: 10, weight_kg: 40 },
+    { name: "rosca direta", sets: 3, reps: 12, weight_kg: 10 }
+  ] });
+  const lines = service.linkWorkoutToPlan(userId, workout, session.date).join("\n");
+  assert.ok(lines.startsWith(`📋 Plano: *${session.title}*`), lines);
+  assert.match(lines, new RegExp(`🟡 1 de ${planned.length} exercícios do plano`));
+  assert.match(lines, /➖ Faltou: /);
+  assert.match(lines, /➕ A mais: rosca direta/);
+});
