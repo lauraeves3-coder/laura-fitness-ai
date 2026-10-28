@@ -128,7 +128,70 @@ function activityLines(activity) {
   return lines.length ? ["", "Outras áreas:", ...lines] : [];
 }
 
-export function buildPeriodHistoryReply({ range, meals, calorieTarget = null, activity = null }) {
+// ACO-03: análise do período como nutricionista/treinador: aderência à meta, proteína,
+// fim de semana x dias úteis, treinos, sono, água e peso, e comparação com o período
+// anterior. Só aponta o que os dados mostram; não infere causa.
+export function periodInsights({ days, byDay, calorieTarget = null, proteinTarget = null, waterGoalMl = null, goal = "", activity = null, previous = null }) {
+  const lines = [];
+  const logged = days.filter((day) => byDay.get(day)?.length);
+  const daily = logged.map((day) => ({ day, ...sumMeals(byDay.get(day)) }));
+  const average = (list, key) => list.reduce((sum, item) => sum + item[key], 0) / (list.length || 1);
+  const pct = (value) => `${Math.round(value * 100)}%`;
+  if (calorieTarget && daily.length) {
+    const onTarget = daily.filter((item) => Math.abs(item.calories - calorieTarget) <= calorieTarget * 0.1).length;
+    lines.push(`🎯 Dentro da meta (±10%) em ${onTarget} de ${daily.length} ${daily.length === 1 ? "dia" : "dias"} registrados.`);
+    const weekend = daily.filter((item) => [0, 6].includes(new Date(`${item.day}T12:00:00Z`).getUTCDay()));
+    const weekdays = daily.filter((item) => !weekend.includes(item));
+    if (weekend.length && weekdays.length) {
+      const diff = average(weekend, "calories") / average(weekdays, "calories") - 1;
+      if (diff > 0.2) lines.push(`📅 No fim de semana você comeu ~${pct(diff)} a mais que nos dias úteis — é o ponto que mais pesa no resultado.`);
+    }
+  }
+  if (proteinTarget && daily.length) {
+    const protein = average(daily, "protein_g");
+    lines.push(protein >= proteinTarget * 0.9
+      ? `🥩 Proteína em dia: média de ${formatNumber(protein)} g (meta ${formatNumber(proteinTarget)} g).`
+      : `🥩 Proteína abaixo: média de ${formatNumber(protein)} g de ${formatNumber(proteinTarget)} g. Inclua uma fonte (ovos, frango, iogurte, whey) em mais uma refeição.`);
+  }
+  if (daily.length && daily.length < days.length / 2) {
+    lines.push(`📝 Só ${daily.length} de ${days.length} dias registrados: quanto mais dias, mais precisa fica a análise.`);
+  }
+  const workouts = activity?.workouts || [];
+  const sleeps = activity?.sleeps || [];
+  if (sleeps.length) {
+    const hours = sleeps.reduce((sum, item) => sum + Number(item.hours), 0) / sleeps.length;
+    if (hours < 7) lines.push(`😴 Sono médio de ${hours.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} h: abaixo de 7 h costuma atrapalhar fome, recuperação e treino.`);
+  }
+  const water = activity?.water || [];
+  if (waterGoalMl && water.length) {
+    const days2 = new Set(water.map((log) => String(log.logged_at).slice(0, 10)));
+    const liters = water.reduce((sum, log) => sum + Number(log.amount_ml), 0) / days2.size;
+    if (liters < waterGoalMl * 0.8) lines.push(`💧 Água abaixo da meta (média ${(liters / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} L de ${(waterGoalMl / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} L). Deixar uma garrafa à vista ajuda.`);
+  }
+  const weights = activity?.weights || [];
+  if (weights.length > 1) {
+    const change = Number(weights.at(-1).weight_kg) - Number(weights[0].weight_kg);
+    const losing = /emagrec|perder|defini/.test(normalizeRequestText(goal));
+    const gaining = /hipertrof|ganh|massa/.test(normalizeRequestText(goal));
+    if (losing) lines.push(change < -0.1 ? "⚖️ Peso caindo: no caminho certo." : "⚖️ Peso estável ou subindo nesta semana; uma semana sozinha oscila, observe a próxima.");
+    if (gaining) lines.push(change > 0.1 ? "⚖️ Peso subindo: no caminho do ganho." : "⚖️ Peso ainda não subiu; se seguir assim mais uma semana, vale aumentar um pouco as calorias.");
+  }
+  if (previous) {
+    const prevLogged = previous.days.filter((day) => previous.byDay.get(day)?.length).map((day) => sumMeals(previous.byDay.get(day)));
+    const compare = [];
+    if (daily.length && prevLogged.length) {
+      const now = average(daily, "calories");
+      const before = average(prevLogged, "calories");
+      compare.push(`média de ${formatNumber(now)} kcal (antes ${formatNumber(before)})`);
+    }
+    const prevWorkouts = previous.activity?.workouts?.length ?? null;
+    if (prevWorkouts !== null) compare.push(`${workouts.length} ${workouts.length === 1 ? "treino" : "treinos"} (antes ${prevWorkouts})`);
+    if (compare.length) lines.push(`↔️ Comparado ao período anterior: ${compare.join(" · ")}.`);
+  }
+  return lines.length ? ["", "🧠 *Análise*", ...lines.map((line) => `• ${line}`)] : [];
+}
+
+export function buildPeriodHistoryReply({ range, meals, calorieTarget = null, activity = null, proteinTarget = null, waterGoalMl = null, goal = "", previous = null }) {
   const days = [];
   for (let day = range.start; day <= range.end; day = addDays(day, 1)) days.push(day);
   const title = range.label === formatDay(range.start) ? formatDay(range.start) : `${range.label[0].toLocaleUpperCase("pt-BR")}${range.label.slice(1)}`;
@@ -166,6 +229,14 @@ export function buildPeriodHistoryReply({ range, meals, calorieTarget = null, ac
     }
   }
   lines.push(...activityLines(activity));
+  if (days.length >= 5) {
+    const previousByDay = previous ? new Map(previous.days.map((day) => [day, []])) : null;
+    if (previous) for (const meal of previous.meals) previousByDay.get(String(meal.consumed_at).slice(0, 10))?.push(meal);
+    lines.push(...periodInsights({
+      days, byDay, calorieTarget, proteinTarget, waterGoalMl, goal, activity,
+      previous: previous ? { days: previous.days, byDay: previousByDay, activity: previous.activity } : null
+    }));
+  }
   return lines.join("\n");
 }
 

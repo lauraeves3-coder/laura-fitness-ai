@@ -2948,7 +2948,21 @@ const summaryIntent = classifySummaryIntent(message);
           historyRange.end
         ),
         calorieTarget: dailySummary.calorie_target,
-        activity: historyRange.single ? null : getActivityBetween(userId, historyRange.start, historyRange.end)
+        activity: historyRange.single ? null : getActivityBetween(userId, historyRange.start, historyRange.end),
+        // ACO-03: análise e comparação com o período anterior de mesmo tamanho.
+        proteinTarget: dailySummary.protein_target,
+        waterGoalMl: waterGoalFor(user),
+        goal: user?.goal || "",
+        previous: historyRange.single ? null : (() => {
+          const length = daysBetween(historyRange.start, historyRange.end) + 1;
+          const start = addDays(historyRange.start, -length);
+          const end = addDays(historyRange.start, -1);
+          return {
+            days: Array.from({ length }, (_, index) => addDays(start, index)),
+            meals: getMealsBetween(userId, start, end),
+            activity: getActivityBetween(userId, start, end)
+          };
+        })()
       });
     }
   }

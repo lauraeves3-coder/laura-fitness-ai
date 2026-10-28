@@ -1476,3 +1476,25 @@ test("Opções para ganho de massa não encolhem por proteína já atingida", as
   assert.ok(calories.length >= 2, reply);
   assert.ok(calories.every((kcal) => kcal >= 450), `porções pequenas demais: ${calories.join(", ")}`);
 });
+
+test("ACO-03: resumo da semana traz análise e comparação com a semana anterior", async () => {
+  const { buildPeriodHistoryReply } = await import("../src/mealIntent.js");
+  const days = ["2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23", "2026-10-24", "2026-10-25"];
+  // Dias úteis ~1.800 kcal; sábado e domingo ~2.800 kcal; proteína baixa.
+  const meals = days.map((day, index) => ({ consumed_at: `${day} 12:00:00`, description: "x", calories: index >= 5 ? 2800 : 1800, protein_g: 70, carbs_g: 200, fat_g: 60 }));
+  const previousDays = ["2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-17", "2026-10-18"];
+  const reply = buildPeriodHistoryReply({
+    range: { start: days[0], end: days[6], label: "últimos 7 dias", single: false },
+    meals, calorieTarget: 1850, proteinTarget: 120, waterGoalMl: 2400, goal: "emagrecer",
+    activity: { workouts: [{}, {}, {}], weights: [{ weight_kg: 68 }, { weight_kg: 67.6 }], water: [{ logged_at: "2026-10-20 10:00:00", amount_ml: 1000 }], sleeps: [{ hours: 6 }, { hours: 6.5 }] },
+    previous: { days: previousDays, meals: previousDays.map((day) => ({ consumed_at: `${day} 12:00:00`, calories: 2100, protein_g: 80, carbs_g: 220, fat_g: 70 })), activity: { workouts: [{}] } }
+  });
+  assert.match(reply, /🧠 \*Análise\*/);
+  assert.match(reply, /Dentro da meta \(±10%\) em 5 de 7 dias registrados/);
+  assert.match(reply, /No fim de semana você comeu ~56% a mais que nos dias úteis/);
+  assert.match(reply, /Proteína abaixo: média de 70 g de 120 g/);
+  assert.match(reply, /Sono médio de 6,3 h/);
+  assert.match(reply, /Água abaixo da meta/);
+  assert.match(reply, /Peso caindo: no caminho certo/);
+  assert.match(reply, /Comparado ao período anterior: média de 2\.086 kcal \(antes 2\.100\) · 3 treinos \(antes 1\)/);
+});
