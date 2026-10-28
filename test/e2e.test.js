@@ -1691,3 +1691,10 @@ test("ACO-02: passos do dia, meta de passos e passos no resumo", async () => {
   assert.match(await send(userId, "dei 10 mil passos"), /✅ Meta de passos batida hoje!/);
   assert.match(await send(userId, "resumo do dia"), /👟 \*Passos:\* 10\.000 de 10\.000/);
 });
+
+test("COR-02: 'minhas zonas' mostra as faixas de bpm", async () => {
+  const userId = newUser();
+  assert.match(await send(userId, "minhas zonas de frequência cardíaca"), /preciso da sua idade/);
+  db.updateUserProfile(userId, { age_years: 30 });
+  assert.match(await send(userId, "minhas zonas"), /FC máx\. estimada: 187 bpm[\s\S]*\*Z2\* base aeróbica: 112–131 bpm/);
+});

@@ -3,6 +3,7 @@
 // as mensagens (formato do WhatsApp).
 import { addDays, daysBetween, formatDay } from "../dates.js";
 import { formatDuration, formatPace, paceRange } from "./paces.js";
+import { describeHeartRate, heartRateZones, zoneOf } from "./heartRate.js";
 
 const MODALITIES = [
   [/corr|run|trote|longao|rodagem|intervalad|tiro|fartlek/, "corrida"],
@@ -33,7 +34,7 @@ export function matchPlannedSession({ modality, date }, planned) {
 const km = (value) => Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 1 });
 
 // Linhas de comparação planejado x realizado para corrida (distância e pace).
-export function compareWithPlan(session, workout) {
+export function compareWithPlan(session, workout, { age = null } = {}) {
   const lines = [`📋 Plano: *${session.title}*${session.distance_km ? ` · ${km(session.distance_km)} km` : ""}${session.target_pace ? ` · ${paceRange(session.target_pace)}` : ""}`];
   if (session.modality !== "corrida" || !(workout.distance_km > 0)) {
     lines.push("✅ Treino do plano cumprido.");
@@ -58,6 +59,12 @@ export function compareWithPlan(session, workout) {
     } else {
       notes.push("ritmo dentro do alvo ✅");
     }
+  }
+  // COR-02: treino leve feito forte demais pela frequência cardíaca.
+  const zone = workout.avg_hr ? zoneOf(workout.avg_hr, age) : null;
+  if (zone && zone.zone >= 4 && ["rodagem", "regenerativo", "longao"].includes(session.session_type)) {
+    const ceiling = heartRateZones(age)[1].to;
+    notes.push(`FC média em Z${zone.zone}: era treino leve — na próxima, segure até ~${ceiling} bpm (Z2)`);
   }
   lines.push(`🔎 ${notes.join(" · ")}`);
   return lines;
@@ -128,7 +135,7 @@ export function buildWeekReply({ sessions, today, plan, weekNumber, adaptationNo
 
 // "Qual foi minha última corrida/treino": dados completos do treino (distância, tempo,
 // pace, FC, gasto estimado e sessão do plano que ele cumpriu).
-export function buildLastWorkoutReply({ workout, today, running = false, energyLine = null, plannedTitle = null }) {
+export function buildLastWorkoutReply({ workout, today, running = false, energyLine = null, plannedTitle = null, age = null }) {
   if (!workout) {
     return running
       ? "🏃 Ainda não tenho nenhuma corrida registrada. Me conte a próxima (ex.: *corri 5 km em 30 min*) ou conecte o Strava."
@@ -142,7 +149,7 @@ export function buildLastWorkoutReply({ workout, today, running = false, energyL
   const durationText = minutes ? formatDuration(minutes * 60) : null;
   const pace = workout.pace_s_per_km || (workout.distance_km > 0 && minutes ? minutes * 60 / workout.distance_km : null);
   const size = [workout.distance_km > 0 ? `📏 ${km(workout.distance_km)} km` : null, durationText ? `⏱️ ${durationText}` : null].filter(Boolean);
-  const extra = [workout.elevation_m ? `⛰️ ${Math.round(workout.elevation_m)} m` : null, workout.avg_hr ? `❤️ ${Math.round(workout.avg_hr)} bpm` : null].filter(Boolean);
+  const extra = [workout.elevation_m ? `⛰️ ${Math.round(workout.elevation_m)} m` : null, workout.avg_hr ? `❤️ ${describeHeartRate(workout.avg_hr, age)}` : null].filter(Boolean);
   return [
     `${icon} *${running ? "Sua última corrida" : "Seu último treino"}* — ${when}${time && time !== "00:00" ? `, ${time}` : ""}`,
     running ? null : `*${workout.workout_type}*`,

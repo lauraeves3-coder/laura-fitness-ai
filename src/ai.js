@@ -66,6 +66,7 @@ import { isAchievementsRequest, buildAchievementsReply, streakCelebration } from
 import { handleHungerMessage } from "./hunger.js";
 import { handleSleepQuery } from "./sleep.js";
 import { handleStepsMessage, stepsGoalFor, stepsLine } from "./steps.js";
+import { isZonesQuery, buildZonesReply } from "./training/heartRate.js";
 import { handleWheyMessage } from "./wheyProfile.js";
 import { handleCheckinMessage, CHECKIN_QUESTION } from "./checkin.js";
 import { detectReplyStyle, STYLE_INSTRUCTIONS, buildReplyStyleConfirmation } from "./replyStyle.js";
@@ -3035,6 +3036,9 @@ const summaryIntent = classifySummaryIntent(message);
       remainingCalories: dailySummary.calorie_target ? dailySummary.calorie_target - dailySummary.calories : null
     });
     if (hungerReply) return hungerReply;
+
+    // COR-02: "minhas zonas" de frequência cardíaca.
+    if (isZonesQuery(message)) return buildZonesReply(user?.age_years);
 
     // ACO-02: passos ("andei 8.000 passos", "minha meta de passos é 10000").
     const stepsReply = handleStepsMessage(userId, message, dailySummary.date);

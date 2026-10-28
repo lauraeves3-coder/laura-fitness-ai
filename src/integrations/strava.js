@@ -7,6 +7,7 @@ import {
 } from "../db.js";
 import { formatDuration, formatPace } from "../training/paces.js";
 import { estimateWorkoutCalories } from "../training/energy.js";
+import { describeHeartRate } from "../training/heartRate.js";
 import { linkWorkoutToPlan } from "../training/service.js";
 import { formatDay } from "../dates.js";
 
@@ -129,7 +130,7 @@ const ACTIVITY_ICONS = [[/corr/i, "🏃"], [/cicl/i, "🚴"], [/nata/i, "🏊"],
 const kmText = (value) => `${Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} km`;
 
 // Bloco de uma atividade: título com dia e hora, depois uma linha por informação.
-export function describeImported(workout, weightKg = null) {
+export function describeImported(workout, weightKg = null, age = null) {
   const icon = ACTIVITY_ICONS.find(([pattern]) => pattern.test(workout.workout_type))?.[1] || "🏅";
   const when = String(workout.trained_at || "");
   const title = when ? `${icon} *${workout.workout_type}* — ${formatDay(when.slice(0, 10))}, ${when.slice(11, 16)}` : `${icon} *${workout.workout_type}*`;
@@ -141,7 +142,7 @@ export function describeImported(workout, weightKg = null) {
   }
   // ESP-07: gasto estimado, só informativo.
   const kcal = estimateWorkoutCalories(workout, weightKg);
-  const extra = [workout.elevation_m ? `⛰️ ${Math.round(workout.elevation_m)} m` : null, workout.avg_hr ? `❤️ ${Math.round(workout.avg_hr)} bpm` : null, kcal ? `🔥 ~${kcal} kcal` : null].filter(Boolean);
+  const extra = [workout.elevation_m ? `⛰️ ${Math.round(workout.elevation_m)} m` : null, workout.avg_hr ? `❤️ ${describeHeartRate(workout.avg_hr, age)}` : null, kcal ? `🔥 ~${kcal} kcal` : null].filter(Boolean);
   if (extra.length) lines.push(extra.join("   "));
   return lines;
 }
@@ -171,7 +172,7 @@ export async function syncStrava(userId, { fetchImpl = fetch, now = new Date(), 
   const duplicates = new Set(markStravaDuplicates(userId));
   imported.splice(0, imported.length, ...imported.filter(({ workout }) => !duplicates.has(workout.id)));
   setStravaLastSync(userId, nowSeconds);
-  return { connected: true, imported, weight_kg: user.weight_kg ?? null };
+  return { connected: true, imported, weight_kg: user.weight_kg ?? null, age: user.age_years ?? null };
 }
 
 const linkToPlan = (userId) => (workout, date) => linkWorkoutToPlan(userId, workout, date);
@@ -244,7 +245,7 @@ export async function syncAllStrava({ send, fetchImpl = fetch, now = new Date() 
   return results;
 }
 
-export function buildSyncReply({ connected, imported, weight_kg: weightKg = null }) {
+export function buildSyncReply({ connected, imported, weight_kg: weightKg = null, age = null }) {
   if (!connected) return "Seu Strava ainda não está conectado. Mande *conectar strava* para receber o link.";
   if (!imported.length) return "🔄 Strava sincronizado: nenhuma atividade nova.";
   const totalKm = imported.reduce((sum, { workout }) => sum + (Number(workout.distance_km) || 0), 0);
@@ -254,7 +255,7 @@ export function buildSyncReply({ connected, imported, weight_kg: weightKg = null
     "━━━━━━━━━━━━━━",
     ...imported.flatMap(({ workout, merged, lines }) => [
       "",
-      ...describeImported(workout, weightKg),
+      ...describeImported(workout, weightKg, age),
       merged ? "_Completou o treino que você já tinha registrado._" : null,
       ...lines.filter(Boolean)
     ].filter((line) => line !== null)),

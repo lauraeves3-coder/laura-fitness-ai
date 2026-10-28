@@ -387,3 +387,20 @@ test("ESP-05: pouco tempo num dia de descanso avisa o descanso e o próximo trei
   const reply = service.handleTrainingMessage(userId, "hoje só tenho 30 min", free);
   assert.match(reply, /😴 Hoje é \*dia de descanso\* no seu plano[\s\S]*Próximo treino: \*/);
 });
+
+test("COR-02: zonas de FC pela idade; rodagem leve em Z4 recebe alerta", async () => {
+  const { heartRateZones, describeHeartRate, maxHeartRate } = await import("../src/training/heartRate.js");
+  assert.equal(maxHeartRate(30), 187);
+  assert.deepEqual(heartRateZones(30)[1], { zone: 2, label: "base aeróbica", from: 112, to: 131 });
+  assert.equal(describeHeartRate(151, 30), "151 bpm (Z4 · limiar)");
+  assert.equal(describeHeartRate(151, null), "151 bpm");
+  const lines = compareWithPlan(
+    { title: "Rodagem leve", session_type: "rodagem", modality: "corrida", distance_km: 6, target_pace: [420, 450], intensity: "leve" },
+    { distance_km: 6, pace_s_per_km: 430, avg_hr: 160 },
+    { age: 30 }
+  );
+  assert.match(lines.join("\n"), /FC média em Z4: era treino leve — na próxima, segure até ~131 bpm \(Z2\)/);
+  const userId = "svc-zones";
+  db.updateUserProfile(userId, { age_years: 30 });
+  assert.match(service.handleTrainingMessage(userId, "qual foi minha última corrida", TUESDAY) || "", /Ainda não tenho nenhuma corrida/);
+});

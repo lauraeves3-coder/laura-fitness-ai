@@ -298,7 +298,7 @@ export function handleTrainingMessage(userId, message, today) {
       ? getPlannedSessions(userId, String(workout.trained_at).slice(0, 10), String(workout.trained_at).slice(0, 10)).find((session) => session.id === workout.planned_session_id)
       : null;
     return buildLastWorkoutReply({
-      workout, today, running: intent.running, plannedTitle: planned?.title || null,
+      workout, today, running: intent.running, plannedTitle: planned?.title || null, age: getUser(userId)?.age_years ?? null,
       energyLine: workout ? describeWorkoutCalories(workout, getUser(userId)?.weight_kg) : null
     });
   }
@@ -430,7 +430,7 @@ export function linkWorkoutToPlan(userId, workout, date) {
   if (!session) return [];
   updatePlannedSession(session.id, { status: "feito", workout_id: workout.id });
   linkWorkoutToSession(workout.id, session.id);
-  const lines = compareWithPlan(session, workout);
+  const lines = compareWithPlan(session, workout, { age: getUser(userId)?.age_years ?? null });
   if (session.session_type !== "teste") return lines;
   // Teste registrado só com os 3 km: recalibra direto; com aquecimento junto, pede o tempo.
   if (workout.distance_km >= 2.8 && workout.distance_km <= 3.4 && workout.duration_min > 0) {
