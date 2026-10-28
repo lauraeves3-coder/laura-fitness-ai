@@ -7,6 +7,7 @@ import { FOOD_CATALOG, findFoodCandidates } from "./nutritionCatalog.js";
 import { getPantry, getUser, saveMeal, setRecipeState } from "./db.js";
 import { flavorGroup, getWheyProfile } from "./wheyProfile.js";
 import { addDays as addDaysIso } from "./dates.js";
+import { excludedTerms, violatesRestrictions } from "./restrictions.js";
 
 // [id, nome, refeições, minutos, dificuldade, equipamentos, ingredientes [catálogoId|null, g, texto], passos]
 const RECIPES = [
@@ -267,7 +268,7 @@ export function parseRecipeQuery(message) {
 
 // Pontua e devolve até `limit` receitas. Ingrediente pedido é obrigatório; despensa e
 // saldo do dia ordenam. pantryNames: nomes dos itens da despensa ("Frango", "Ovos").
-export function searchRecipes(filters, { pantryNames = [], expiringNames = [], budgetKcal = null, limit = 5, wheyGroup = null, minPantry = 2 } = {}) {
+export function searchRecipes(filters, { pantryNames = [], expiringNames = [], budgetKcal = null, limit = 5, wheyGroup = null, minPantry = 2, excluded = [] } = {}) {
   const firstWord = (name) => normalize(name).split(/\s+/)[0].replace(/s$/, "");
   const pantryWords = pantryNames.map(firstWord).filter((word) => word.length >= 3);
   const expiringWords = expiringNames.map(firstWord).filter((word) => word.length >= 3);
@@ -282,6 +283,8 @@ export function searchRecipes(filters, { pantryNames = [], expiringNames = [], b
       if (filters.equipment && !recipe.equipment.includes(filters.equipment)) return null;
       if (filters.tags.some((tag) => !tags.includes(tag))) return null;
       if (recipe.whey && wheyGroup && !recipe.whey.includes(wheyGroup)) return null;
+      // CONV-08: restrições do perfil (vegetariana, sem lactose, sem porco…).
+      if (excluded.length && recipe.ingredients.some(([id, , label]) => violatesRestrictions(`${foodText(byId(id))} ${label}`, excluded))) return null;
       if (filters.foods.length && !filters.foods.every((word) => texts.some((text) => text.includes(word)))) return null;
       const fromPantry = texts.filter((text) => pantryWords.some((word) => text.includes(word)));
       // DSP-03: o que vence em até 3 dias pesa mais (e é obrigatório em "o que vai vencer").
@@ -445,7 +448,7 @@ export function handleRecipeMessage(userId, message, { today, budgetKcal = null,
   const whey = getWheyProfile(userId);
   const flavorInText = /\bwhey\b/.test(text) && text.match(/\bwhey\b.*?\b(?:de|sabor)\s+([a-z ]+)$/)?.[1];
   const wheyGroup = flavorInText ? flavorGroup(flavorInText.trim()) : whey?.group || null;
-  const searchOptions = { pantryNames, expiringNames, budgetKcal: filters.fitBudget ? budgetKcal : null, wheyGroup };
+  const searchOptions = { pantryNames, expiringNames, budgetKcal: filters.fitBudget ? budgetKcal : null, wheyGroup, excluded: excludedTerms(user) };
   let results = searchRecipes(filters, searchOptions);
   // Despensa pequena: nenhuma receita usa 2 itens; aceita as que usam 1.
   if (!results.length && filters.pantry) results = searchRecipes(filters, { ...searchOptions, minPantry: 1 });

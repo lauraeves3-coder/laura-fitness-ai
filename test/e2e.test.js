@@ -1726,3 +1726,25 @@ test("DSP-03: receitas com a despensa priorizam o que vence logo", async () => {
   assert.match(expiring, /⏰ Usa o que vence logo: abobrinha/);
   assert.doesNotMatch(expiring, /Panqueca|Smoothie/);
 });
+
+// ---------- CONV-08: restrições e preferências ----------
+
+test("CONV-08: restrições pela conversa valem nas receitas; 'carne de porco' não exclui toda carne", async () => {
+  const { excludedTerms } = await import("../src/restrictions.js");
+  assert.ok(excludedTerms({ food_dislikes: "carne de porco" }).includes("bacon"));
+  assert.ok(!excludedTerms({ food_dislikes: "carne de porco" }).includes("patinho"));
+
+  const userId = newUser();
+  assert.match(await send(userId, "sou vegetariana"), /Anotei: \*vegetariano\*/);
+  const vegList = await send(userId, "receitas de almoço");
+  assert.doesNotMatch(vegList, /frango|patinho|carne|tilápia|salmão|atum/i);
+  assert.match(await send(userId, "não gosto de peixe nem camarão"), /Anotei: sem \*peixe, camarão\*/);
+  assert.match(await send(userId, "minhas restrições"), /🥗 Dieta: vegetariano\n🚫 Não come: peixe, camarão/);
+  assert.match(await send(userId, "não sou mais vegetariana"), /tirei \*vegetariano\*/);
+  assert.match(await send(userId, "voltei a comer peixe"), /\*peixe\* volta a aparecer/);
+  assert.match(await send(userId, "minhas restrições"), /🚫 Não come: camarão/);
+
+  const porkFree = newUser();
+  await send(porkFree, "não como carne de porco");
+  assert.match(await send(porkFree, "receita de jantar com carne moída"), /Carne moída|bolonhesa|Hambúrguer/i, "carne bovina continua");
+});

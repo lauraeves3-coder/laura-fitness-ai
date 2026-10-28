@@ -63,6 +63,7 @@ import { handleBodyMessage } from "./body.js";
 import { handlePantryMessage, consumeFromPantry } from "./pantry.js";
 import { handleRecipeMessage } from "./recipes.js";
 import { handleOwnRecipeMessage, buildOwnRecipesList } from "./ownRecipes.js";
+import { handlePreferenceMessage } from "./preferences.js";
 import { isShoppingListRequest, buildShoppingList } from "./shopping.js";
 import { isAchievementsRequest, buildAchievementsReply, streakCelebration } from "./achievements.js";
 import { handleHungerMessage } from "./hunger.js";
@@ -3106,6 +3107,10 @@ const summaryIntent = classifySummaryIntent(message);
         });
       }
     }
+
+    // CONV-08: "sou vegetariana", "não como carne de porco", "minhas restrições".
+    const preferenceReply = handlePreferenceMessage(userId, message);
+    if (preferenceReply) return preferenceReply;
 
     // REC-06: receita própria ("cadastrar receita: …") e "minhas receitas".
     const ownRecipeReply = handleOwnRecipeMessage(userId, message);

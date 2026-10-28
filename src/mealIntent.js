@@ -12,6 +12,7 @@ import {
   normalizeFoodText
 } from "./foodMatching.js";
 import { addDays, formatDay, parseDateReference } from "./dates.js";
+import { excludedTerms } from "./restrictions.js";
 
 // CONV-09: resposta curta a "qual batata/bife?". pending = { original_message,
 // clarifications: [{ term, options: [{ id, name }] }] }. Retorna a frase original com
@@ -735,7 +736,12 @@ export function getFoodRestrictions(user) {
     "peixe", "atum", "tomate", "leite", "maçã", "salada", "tofu", "lentilha",
     "grão-de-bico", "homus", "edamame", "amendoim"
   ];
-  rejected.push(...findFoodNames(rawDislikes, knownFoods));
+  // "carne de porco" não pode virar "carne": item com restrição específica (porco, peixe,
+  // frutos do mar…) usa só os termos dela (CONV-08).
+  const generic = rawDislikes.split(/[,;]+/)
+    .filter((item) => !/porco|suin|frutos do mar|camar|peixe|frango/.test(item.normalize("NFD").replace(/[̀-ͯ]/g, "").toLocaleLowerCase("pt-BR")))
+    .join(", ");
+  rejected.push(...findFoodNames(generic, knownFoods), ...excludedTerms(user));
   const preferences = String(user?.dietary_preferences || "").toLocaleLowerCase("pt-BR");
   if (/vegano|vegan/.test(preferences)) rejected.push("frango", "carne", "peixe", "atum", "ovo", "queijo", "iogurte", "leite", "whey");
   else if (/vegetarian|vegetar/.test(preferences)) rejected.push("frango", "carne", "peixe", "atum");
