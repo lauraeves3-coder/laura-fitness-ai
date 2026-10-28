@@ -61,6 +61,7 @@ import { reviewTargets, describeTargetReview } from "./goalReview.js";
 import { handleBodyMessage } from "./body.js";
 import { handlePantryMessage, consumeFromPantry } from "./pantry.js";
 import { handleRecipeMessage } from "./recipes.js";
+import { handleOwnRecipeMessage, buildOwnRecipesList } from "./ownRecipes.js";
 import { isShoppingListRequest, buildShoppingList } from "./shopping.js";
 import { isAchievementsRequest, buildAchievementsReply, streakCelebration } from "./achievements.js";
 import { handleHungerMessage } from "./hunger.js";
@@ -3099,6 +3100,13 @@ const summaryIntent = classifySummaryIntent(message);
           interpretedAction: { action: "meal_choice", data: { option_index: pickedOption, meal_period: offer.meal_period }, reply: "" }
         });
       }
+    }
+
+    // REC-06: receita própria ("cadastrar receita: …") e "minhas receitas".
+    const ownRecipeReply = handleOwnRecipeMessage(userId, message);
+    if (ownRecipeReply) return ownRecipeReply;
+    if (/^\s*(?:minhas receitas|ver minhas receitas|receitas que (?:eu )?cadastrei)\s*[?!.]*$/i.test(message)) {
+      return buildOwnRecipesList(userId) || "📒 Você ainda não cadastrou receitas. Mande, por exemplo: *cadastrar receita: bolo de banana fit — 2 bananas, 2 ovos e 50 g de aveia; rende 6 porções*.";
     }
 
     // REC: receitas (busca com filtros, ficha, troca de ingrediente, favoritas, registro).

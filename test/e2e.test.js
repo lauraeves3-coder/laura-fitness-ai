@@ -1698,3 +1698,17 @@ test("COR-02: 'minhas zonas' mostra as faixas de bpm", async () => {
   db.updateUserProfile(userId, { age_years: 30 });
   assert.match(await send(userId, "minhas zonas"), /FC máx\. estimada: 187 bpm[\s\S]*\*Z2\* base aeróbica: 112–131 bpm/);
 });
+
+// ---------- REC-06: receita própria ----------
+
+test("REC-06: cadastrar receita própria calcula a porção e registra pelo nome", async () => {
+  const userId = newUser();
+  const saved = await send(userId, "cadastrar receita: bolo de banana fit — 2 bananas, 2 ovos e 50 g de aveia; rende 4 porções");
+  assert.match(saved, /🍳 \*Receita salva: Bolo de banana fit\*\nRende 4 porções de ~\d+ g/);
+  assert.match(saved, /• Banana prata — 180 g\n• Ovo cozido — 100 g\n• Aveia em flocos — 50 g/);
+  assert.match(saved, /\*Por porção:\* 🔥 \d+ kcal/);
+  const perPortion = Number(saved.match(/\*Por porção:\* 🔥 (\d+) kcal/)[1]);
+  assert.match(await send(userId, "comi 1 porção de bolo de banana fit"), /✅ \*Refeição registrada\*/);
+  assert.ok(Math.abs(db.getTodayMeals(userId)[0].calories - perPortion) <= 2);
+  assert.match(await send(userId, "minhas receitas"), /📒 \*Suas receitas\*\n\n• \*Bolo de banana fit\* — porção de \d+ g/);
+});
