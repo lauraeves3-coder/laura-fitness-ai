@@ -1379,6 +1379,21 @@ export function getExerciseHistory(userId) {
   `).all(userId);
 }
 
+// ACO-05: dias com registro de refeição (com totais), água por dia e treinos.
+export function getProgressData(userId, startDate) {
+  return {
+    mealDays: db.prepare(`
+      SELECT date(consumed_at) AS date, SUM(calories) AS calories, SUM(protein_g) AS protein_g
+      FROM meals WHERE user_id = ? AND date(consumed_at) >= ? GROUP BY date(consumed_at) ORDER BY date
+    `).all(userId, startDate),
+    waterDays: db.prepare(`
+      SELECT substr(logged_at, 1, 10) AS date, SUM(amount_ml) AS ml
+      FROM water_logs WHERE user_id = ? AND substr(logged_at, 1, 10) >= ? GROUP BY substr(logged_at, 1, 10)
+    `).all(userId, startDate),
+    workouts: db.prepare(`SELECT COUNT(*) AS total FROM workouts WHERE user_id = ? AND duplicate_of IS NULL`).get(userId).total
+  };
+}
+
 // MUS-03: exercícios (com séries) num período, para volume por músculo e progressão.
 export function getExercisesBetween(userId, startDate, endDate) {
   return db.prepare(`

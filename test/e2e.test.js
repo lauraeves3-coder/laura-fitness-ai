@@ -1543,3 +1543,27 @@ test("MUS-03: volume semanal por músculo e evolução de um exercício", async 
   const progress = await send(userId, "evolução no supino");
   assert.match(progress, /📈 \*Evolução — supino\*\n\n• \d{2}\/\d{2}: 45 kg × 8 \(1RM est\. 57 kg\)/);
 });
+
+// ---------- ACO-05: sequências e conquistas ----------
+
+test("ACO-05: sequência de registros comemora marcos e conquistas mostram o que falta", async () => {
+  const { currentStreak, bestStreak } = await import("../src/achievements.js");
+  assert.equal(currentStreak(["2026-10-25", "2026-10-26", "2026-10-27"], "2026-10-28"), 3, "conta até ontem se hoje ainda não registrou");
+  assert.equal(currentStreak(["2026-10-20", "2026-10-28"], "2026-10-28"), 1);
+  assert.equal(bestStreak(["2026-10-01", "2026-10-02", "2026-10-03", "2026-10-10"]), 3);
+
+  const { addDays: plusDays } = await import("../src/dates.js");
+  const userId = newUser();
+  const today = db.getDailySummary(userId).date;
+  assert.match(await send(userId, "minhas conquistas"), /Sua sequência começa no primeiro registro/);
+  for (const offset of [1, 2]) {
+    db.saveMeal(userId, { description: "comi 2 ovos", calories: 140, protein_g: 12, carbs_g: 1, fat_g: 10, consumed_at: `${plusDays(today, -offset)} 08:00:00` });
+  }
+  const first = await send(userId, "comi 2 ovos");
+  assert.match(first, /🔥 \*3 dias seguidos registrando!\* Constância é o que dá resultado/);
+  assert.doesNotMatch(await send(userId, "comi 1 banana"), /dias seguidos/, "só no primeiro registro do dia");
+  const achievements = await send(userId, "minhas conquistas");
+  assert.match(achievements, /🔥 Sequência atual: \*3 dias\* registrando/);
+  assert.match(achievements, /✅ 🍽️ Primeiro registro/);
+  assert.match(achievements, /▫️ 📅 7 dias seguidos registrando — faltam 4 dias seguidos/);
+});

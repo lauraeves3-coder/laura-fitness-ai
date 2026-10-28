@@ -195,7 +195,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | ACO-02 | Fechamento diário (macros, água, treino, passos, sono, metas) | P2 | PARCIAL | — | "resumo do dia" / "como estou hoje?" sai sem chamar o modelo, com calorias, macros, treinos, peso e água do dia (`test/e2e.test.js`). Faltam passos e sono (sem módulo ainda) |
 | ACO-03 | Resumo semanal e análise multimodal | P2 | IMPLEMENTADO E TESTADO | — | 'resumo da semana'/'últimos 7 dias': nutrição por dia, outras áreas (treinos, peso, água, sono) e bloco 🧠 Análise: dias dentro da meta (±10%), fim de semana x dias úteis, proteína média x meta, poucos dias registrados, sono < 7 h, água abaixo da meta, peso x objetivo e comparação com o período anterior (kcal médias e treinos). test/e2e.test.js |
 | ACO-04 | Detectar metas desatualizadas e sugerir revisão (nunca em silêncio) | P2 | IMPLEMENTADO E TESTADO | ACO-03 | src/goalReview.js: no resumo do dia (no máximo 1×/semana, users.goal_review_at) aponta metas calculadas com peso que mudou 2 kg+ (users.targets_weight_kg), platô ou peso indo contra o objetivo em 3+ semanas, média de 2 semanas 15% acima ou 25% abaixo da meta e plano com 4+ treinos/semana com atividade sedentária/leve. Só sugere; nada é recalculado. test/e2e.test.js |
-| ACO-05 | Gamificação (streaks, recordes, conquistas) sem culpa | P3 | NÃO IMPLEMENTADO | ACO-03 | — |
+| ACO-05 | Gamificação (streaks, recordes, conquistas) sem culpa | P3 | IMPLEMENTADO E TESTADO | ACO-03 | src/achievements.js: sequência de dias com registro (atual e recorde) e 8 conquistas (primeiro registro, 7 dias seguidos, 30 dias, água 5 dias, proteína 5 dias, 1/10/50 treinos) com o que falta para as próximas ('minhas conquistas', 'minha sequência'); comemoração no primeiro registro do dia aos 3/7/14/21/30/60/100 dias; sequência quebrada vira 'recomeça hoje', sem culpa. test/e2e.test.js |
 
 ## WEB — Dashboard web
 
@@ -309,3 +309,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 28/10/2026 | ACO-03: análise da semana e comparação com a semana anterior. Totais: 64 testados, 1 não testado, 45 parciais, 13 não implementados, 1 bloqueados. |
 | 28/10/2026 | DSP-04: lista de compras pelo histórico e pelas receitas, descontando a despensa. Totais: 65 testados, 1 não testado, 45 parciais, 12 não implementados, 1 bloqueados. |
 | 28/10/2026 | MUS-03: volume por músculo e evolução por exercício. Totais: 66 testados, 1 não testado, 44 parciais, 12 não implementados, 1 bloqueados. |
+| 28/10/2026 | ACO-05: sequências e conquistas sem culpa. Totais: 67 testados, 1 não testado, 44 parciais, 11 não implementados, 1 bloqueados. |

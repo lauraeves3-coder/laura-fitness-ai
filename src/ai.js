@@ -61,6 +61,7 @@ import { handleBodyMessage } from "./body.js";
 import { handlePantryMessage, consumeFromPantry } from "./pantry.js";
 import { handleRecipeMessage } from "./recipes.js";
 import { isShoppingListRequest, buildShoppingList } from "./shopping.js";
+import { isAchievementsRequest, buildAchievementsReply, streakCelebration } from "./achievements.js";
 import { handleWheyMessage } from "./wheyProfile.js";
 import { handleCheckinMessage, CHECKIN_QUESTION } from "./checkin.js";
 import { detectReplyStyle, STYLE_INSTRUCTIONS, buildReplyStyleConfirmation } from "./replyStyle.js";
@@ -2848,6 +2849,11 @@ const summaryIntent = classifySummaryIntent(message);
     const trainingReply = handleTrainingMessage(userId, message, dailySummary.date);
     if (trainingReply) return trainingReply;
 
+    // ACO-05: "minhas conquistas", "minha sequência".
+    if (isAchievementsRequest(message)) {
+      return buildAchievementsReply(userId, dailySummary.date, { waterGoalMl: waterGoalFor(user), proteinTarget: dailySummary.protein_target });
+    }
+
     // MUS-03: "volume por músculo", "evolução no supino".
     const strengthQuery = detectStrengthQuery(message);
     if (strengthQuery?.type === "volume") {
@@ -4990,7 +4996,12 @@ const summaryIntent = classifySummaryIntent(message);
       pastNote ? `📅${pastNote}` : null,
       // DSP-01: baixa na despensa dos itens desta refeição.
       ...(today ? consumeFromPantry(userId, estimateMealFromText(saved.description)?.matched_items || []) : []),
-      ...(today ? planDayAdjustment({ summary: today, period: saved.meal_period || getMealPeriod(), mealCalories: saved.calories }) : [])
+      ...(today ? planDayAdjustment({ summary: today, period: saved.meal_period || getMealPeriod(), mealCalories: saved.calories }) : []),
+      // ACO-05: no primeiro registro do dia, comemora o marco da sequência (3, 7, 14… dias).
+      ...(() => {
+        const celebration = today && getTodayMeals(userId).length === 1 ? streakCelebration(userId, today.date) : null;
+        return celebration ? ["", celebration] : [];
+      })()
     ].filter((line) => line !== null).join("\n");
   }
 
