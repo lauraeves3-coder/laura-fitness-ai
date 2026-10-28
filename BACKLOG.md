@@ -135,7 +135,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 |---|---|---|---|---|---|
 | HID-01 | Meta diária individualizada (estimativa ≠ orientação profissional) | P2 | IMPLEMENTADO E TESTADO | — | meta definida pela usuária ("minha meta de água é 3 litros", ferramenta `set_water_goal`); sem meta, estimativa de 35 ml/kg arredondada a 100 ml, ou 2 L sem peso (`waterGoalFor`, `test/e2e.test.js`). É estimativa geral, não orientação profissional |
 | HID-02 | Registrar ml/L, saldo, histórico, correções ("quanto falta?") | P2 | PARCIAL | — | "bebi 500 ml de água", "tomei 2 copos d'água" registram sem o modelo (copo 200 ml, garrafa 500, xícara 150); "quanto de água falta?" mostra total, meta e saldo; "apaga a última água" remove o último registro de hoje; o agente tem `record_water`, `get_water_status` e `set_water_goal` (`test/e2e.test.js`). Falta histórico de água por dia |
-| HID-03 | Lembretes e integração com fechamento diário e painel | P3 | NÃO IMPLEMENTADO | CONV-11, ACO-02 | — |
+| HID-03 | Lembretes e integração com fechamento diário e painel | P3 | IMPLEMENTADO E TESTADO | HID-01 | Lembretes de água (CONV-11), água no fechamento do dia, na análise semanal e nos alertas de meta (ACO-03/04); treino registrado indica a reposição (~500 ml/h, mínimo 300 ml; eletrólitos acima de 75 min). Painel web fica no WEB-01. test/training.test.js |
 
 ## ESP — Motor esportivo multimodal
 
@@ -324,3 +324,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 28/10/2026 | COR-05: recordes de corrida com aviso de novo recorde. Totais: 77 testados, 1 não testado, 37 parciais, 8 não implementados, 1 bloqueados. |
 | 28/10/2026 | ESP-02: esportes coletivos, raquete e lutas no motor de treinos. Totais: 78 testados, 1 não testado, 36 parciais, 8 não implementados, 1 bloqueados. |
 | 28/10/2026 | CONV-08: restrições e preferências pela conversa valendo em opções e receitas. Totais: 78 testados, 1 não testado, 36 parciais, 8 não implementados, 1 bloqueados. |
+| 28/10/2026 | HID-03: hidratação ligada ao treino. Totais: 79 testados, 1 não testado, 36 parciais, 7 não implementados, 1 bloqueados. |

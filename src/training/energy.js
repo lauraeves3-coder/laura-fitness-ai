@@ -31,6 +31,15 @@ export function estimateWorkoutCalories(workout, weightKg) {
   return Math.round(met * weight * minutes / 60);
 }
 
+// HID-03: reposição de água após o treino (~500 ml por hora, mínimo 300 ml a partir de
+// 20 min); acima de 75 min, sugere eletrólitos.
+export function hydrationTip(workout) {
+  const minutes = Number(workout?.duration_min) || 0;
+  if (minutes < 20) return null;
+  const ml = Math.max(300, Math.round(minutes / 60 * 500 / 50) * 50);
+  return `💧 Reponha ~${ml.toLocaleString("pt-BR")} ml de água nas próximas horas${minutes > 75 ? " (treino longo: um isotônico ou água com eletrólitos ajuda)" : ""}.`;
+}
+
 export function describeWorkoutCalories(workout, weightKg) {
   const kcal = estimateWorkoutCalories(workout, weightKg);
   return kcal ? `🔥 Gasto estimado: ~${kcal.toLocaleString("pt-BR")} kcal _(estimativa; não somei à sua meta do dia)_` : null;

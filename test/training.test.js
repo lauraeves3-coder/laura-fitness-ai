@@ -458,3 +458,13 @@ test("ESP-02: esportes coletivos e lutas no plano, com ícone e treino específi
   assert.equal(modalityOf("Jiu-jitsu"), "lutas");
   assert.equal(modalityOf("Futebol"), "futebol");
 });
+
+test("HID-03: treino registrado indica a reposição de água", async () => {
+  const { hydrationTip } = await import("../src/training/energy.js");
+  assert.equal(hydrationTip({ duration_min: 15 }), null);
+  assert.equal(hydrationTip({ duration_min: 30 }), "💧 Reponha ~300 ml de água nas próximas horas.");
+  assert.match(hydrationTip({ duration_min: 90 }), /~750 ml[\s\S]*isotônico/);
+  const userId = "svc-hydration";
+  const workout = db.saveWorkout(userId, { workout_type: "Corrida", duration_min: 60, distance_km: 10, exercises: [] });
+  assert.ok(service.afterWorkoutSaved(userId, workout, TUESDAY).includes("💧 Reponha ~500 ml de água nas próximas horas."));
+});

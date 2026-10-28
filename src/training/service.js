@@ -5,7 +5,7 @@ import {
   saveTrainingPlan, getActiveTrainingPlan, getPendingTrainingRequest, setPendingTrainingRequest, getPlannedSessions, updatePlannedSession,
   linkWorkoutToSession, getRunsBetween, updateTrainingPlan, getUser, getWorkoutsBetween
 } from "../db.js";
-import { describeWorkoutCalories } from "./energy.js";
+import { describeWorkoutCalories, hydrationTip } from "./energy.js";
 import { newRecordLines } from "./records.js";
 import { addDays, formatDay, weekdayOf } from "../dates.js";
 import { buildTrainingPlan } from "./plan.js";
@@ -418,6 +418,8 @@ export function afterWorkoutSaved(userId, workout, today) {
   }
   const energy = describeWorkoutCalories(workout, getUser(userId)?.weight_kg);
   if (energy) lines.push(energy);
+  const water = hydrationTip(workout);
+  if (water) lines.push(water);
   lines.push(...runRecordLines(userId, workout));
   const comparison = linkWorkoutToPlan(userId, workout, today);
   return comparison.length ? [...lines, "", ...comparison] : lines;
