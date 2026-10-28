@@ -1498,3 +1498,32 @@ test("ACO-03: resumo da semana traz análise e comparação com a semana anterio
   assert.match(reply, /Peso caindo: no caminho certo/);
   assert.match(reply, /Comparado ao período anterior: média de 2\.086 kcal \(antes 2\.100\) · 3 treinos \(antes 1\)/);
 });
+
+// ---------- DSP-04: lista de compras ----------
+
+test("DSP-04: lista de compras pelo que costuma comer, em cru, por categoria e descontando a despensa", async () => {
+  const { addDays: plusDays } = await import("../src/dates.js");
+  const userId = newUser();
+  const today = db.getDailySummary(userId).date;
+  assert.match(await send(userId, "lista de compras"), /pouco histórico/);
+  for (const offset of [1, 2, 3]) {
+    const day = plusDays(today, -offset);
+    const { estimateMealFromText: estimate } = await import("../src/nutritionCatalog.js");
+    for (const description of ["comi 2 ovos e 1 banana", "almocei 100 g de arroz, 100 g de feijão e 150 g de peito de frango grelhado"]) {
+      const meal = estimate(description);
+      db.saveMeal(userId, { description, calories: meal.calories, protein_g: meal.protein_g, carbs_g: meal.carbs_g, fat_g: meal.fat_g, consumed_at: `${day} 12:00:00` });
+    }
+  }
+  await send(userId, "comprei 6 ovos");
+  const list = await send(userId, "monta minha lista de compras da semana");
+  assert.match(list, /🛒 \*Lista de compras\* para 7 dias, pelo que você costuma comer/);
+  assert.match(list, /\*🥩 Proteínas\*[\s\S]*☐ Peito de frango grelhado \(cru\): 1,4 kg/);
+  assert.match(list, /☐ Ovo cozido: 8 unidades/, "14 ovos menos os 6 da despensa");
+  assert.match(list, /\*🍚 Carboidratos e grãos\*[\s\S]*☐ Arroz branco cozido \(cru\): 300 g/);
+  assert.match(list, /\*🥦 Frutas, verduras e legumes\*[\s\S]*☐ Banana prata: 7 unidades/);
+  assert.match(list, /🧺 Já descontei o que tem na despensa: ovos/);
+
+  // Receita aberta.
+  await send(userId, "receita de strogonoff");
+  assert.match(await send(userId, "lista de compras da receita"), /para a receita \*Strogonoff fit de frango\*[\s\S]*☐ /);
+});

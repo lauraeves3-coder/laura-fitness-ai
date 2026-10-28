@@ -59,6 +59,7 @@ import { reviewTargets, describeTargetReview } from "./goalReview.js";
 import { handleBodyMessage } from "./body.js";
 import { handlePantryMessage, consumeFromPantry } from "./pantry.js";
 import { handleRecipeMessage } from "./recipes.js";
+import { isShoppingListRequest, buildShoppingList } from "./shopping.js";
 import { handleWheyMessage } from "./wheyProfile.js";
 import { handleCheckinMessage, CHECKIN_QUESTION } from "./checkin.js";
 import { detectReplyStyle, STYLE_INSTRUCTIONS, buildReplyStyleConfirmation } from "./replyStyle.js";
@@ -2861,6 +2862,9 @@ const summaryIntent = classifySummaryIntent(message);
       onSaved: (profile, wantsRecipe) => (wantsRecipe ? handleRecipeMessage(userId, "receitas com whey", recipeContext) : null)
     });
     if (wheyReply) return wheyReply;
+
+    // DSP-04: lista de compras (pelo que costuma comer ou pelas receitas), menos a despensa.
+    if (isShoppingListRequest(message)) return buildShoppingList(userId, message, dailySummary.date);
 
     // DSP-01: despensa ("comprei…", "minha despensa", "acabou o leite").
     const pantryReply = handlePantryMessage(userId, message, dailySummary.date);
