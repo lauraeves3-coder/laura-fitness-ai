@@ -1582,3 +1582,21 @@ test("NUT-22: fome registra e sugere lanches que cabem; comeu há pouco sugere �
   assert.match(await send(userId, "qual meu padrão de fome?"), /📊 \*Seu padrão de fome — últimos 14 dias\*[\s\S]*Mais frequente: \*/);
   assert.equal(db.getHungerLogs(userId, "2000-01-01").length, 4);
 });
+
+// ---------- CONV-04: várias ações numa mensagem ----------
+
+test("CONV-04: refeição, água, treino e peso numa mensagem só", async () => {
+  const userId = newUser();
+  const reply = await send(userId, "comi 2 ovos e 1 banana, bebi 500 ml de água, corri 5 km em 30 min e me pesei 70 kg");
+  assert.match(reply, /💧 \*\+500 ml de água\*/);
+  assert.match(reply, /🏃 Registrei o treino: Corrida — 30 min/);
+  assert.match(reply, /⚖️ Registrei seu peso: \*70 kg\*/);
+  assert.match(reply, /✅ \*Refeição registrada\*[\s\S]*2 ovos e 1 banana/);
+  assert.ok(reply.indexOf("Refeição registrada") > reply.indexOf("Registrei o treino"), "refeição por último");
+  assert.equal(db.getTodayMeals(userId).length, 1);
+  assert.equal(db.getTodayWaterTotal(userId), 500);
+  // "comi 2 ovos e 1 banana" sozinho não é dividido; "comi arroz e feijão" também não.
+  const single = newUser();
+  await send(single, "comi arroz e feijão");
+  assert.equal(db.getTodayMeals(single).length, 0, "pergunta a quantidade, não divide");
+});

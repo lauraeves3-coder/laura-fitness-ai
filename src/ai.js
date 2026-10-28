@@ -592,6 +592,30 @@ function getMealPeriod(date = new Date()) {
   return "ceia";
 }
 
+// CONV-04: divide "comi X, bebi Y e corri Z" nas partes que começam com verbo de ação.
+// Só divide quando há 2+ partes e cada uma é reconhecida sem o modelo (água, peso, sono,
+// treino ou refeição). Refeições vão para o fim. Retorna as partes ou null.
+const ACTION_VERBS = "comi|almocei|jantei|lanchei|tomei|bebi|corri|caminhei|pedalei|nadei|treinei|malhei|fiz|me pesei|pesei|dormi";
+function splitMultiActionMessage(message) {
+  const text = String(message || "").trim();
+  const pieces = text
+    .split(new RegExp(`\\s*(?:[,;]|\\.\\s|\\s+e\\s+|\\s+depois\\s+|\\s+tambem\\s+|\\s+também\\s+)\\s*(?=(?:hoje\\s+|eu\\s+|ontem\\s+)?(?:${ACTION_VERBS})\\b)`, "i"))
+    .map((piece) => piece.trim().replace(/[.!]+$/, ""))
+    .filter(Boolean);
+  if (pieces.length < 2) return null;
+  const kind = (piece) => {
+    if (detectWaterIntake(piece)) return "water";
+    if (detectWeightReport(piece)) return "weight";
+    if (detectSleepReport(piece)) return "sleep";
+    if (detectSimpleWorkout(piece) || detectStrengthWorkout(piece)) return "workout";
+    if (isExplicitMealReport(piece)) return "meal";
+    return null;
+  };
+  const kinds = pieces.map(kind);
+  if (kinds.some((value) => !value) || new Set(kinds).size < 2) return null;
+  return [...pieces.filter((_, index) => kinds[index] !== "meal"), ...pieces.filter((_, index) => kinds[index] === "meal")];
+}
+
 // "1", "a 2", "opção 3", "quero a 2", "vou de 1" → número da opção (1–5) ou null.
 function parseOptionPick(message) {
   const text = normalizeRequestText(message).trim().replace(/[.!]+$/, "");
@@ -2793,6 +2817,21 @@ const summaryIntent = classifySummaryIntent(message);
 
     if (clarificationReply) {
       return clarificationReply;
+    }
+
+    // CONV-04: várias ações numa mensagem ("comi 2 ovos, bebi 500 ml de água e corri 5 km
+    // em 30 min"): cada parte é tratada sozinha e as respostas vão juntas. A refeição vai
+    // por último, porque pode voltar com uma pergunta (quantidade, acompanhamento).
+    if (!internal.multiPart) {
+      const parts = splitMultiActionMessage(message);
+      if (parts) {
+        const replies = [];
+        for (const part of parts) {
+          const reply = await processMessage(userId, part, { ...internal, multiPart: true });
+          if (reply) replies.push(reply);
+        }
+        return replies.join("\n\n━━━━━━━━━━━━━━\n\n");
+      }
     }
 
     // CONV-11: "me lembre de beber água", "me mande o resumo às 21h".
