@@ -592,6 +592,32 @@ function getMealPeriod(date = new Date()) {
   return "ceia";
 }
 
+// CAT-09: nome do alimento numa refeição não reconhecida ("comi um pastel de belém").
+function unknownFoodName(message) {
+  // Bebida (água, garrafinha) e relato de macros ("comi 140 g de proteína") ficam com os
+  // fluxos próprios / o modelo.
+  if (/^\s*(?:hoje\s+|ontem\s+)?(?:eu\s+)?bebi\b/i.test(message)) return null;
+  if (/\b(?:prote[ií]na|carboidrato|carbo|gordura|calorias?|kcal|macros?|[aá]gua|garraf\w*|copos?)\b/i.test(message)) return null;
+  const name = String(message || "").trim().replace(/[.!?]+$/, "")
+    .replace(/^(?:hoje\s+|ontem\s+|agora\s+)?(?:eu\s+)?(?:no\s+\S+\s+)?(?:comi|almocei|jantei|lanchei|tomei|bebi|belisquei)\s+/i, "")
+    .replace(/^(?:um|uma|uns|umas|o|a|os|as|meio|meia|\d+(?:[.,]\d+)?\s*(?:g|gramas?|unidades?|fatias?|pedaços?|copos?|xícaras?)?)\s+(?:de\s+)?/i, "")
+    .trim();
+  if (!name || name.length > 50 || name.split(/\s+/).length > 7) return null;
+  if (/\b(?:mesmo|igual|aquilo|isso|tudo|nada|bem|mal|pouco|muito)\b/i.test(name)) return null;
+  return name;
+}
+
+function buildUnknownFoodQuestion(name) {
+  return [
+    `🔎 Não tenho *${name}* no meu catálogo ainda.`,
+    "Para registrar certinho, me mande os valores do rótulo, por exemplo:",
+    "_100 g: 250 kcal, 10 g de proteína, 30 g de carboidrato, 8 g de gordura_",
+    "",
+    "📸 Ou mande uma *foto da tabela nutricional* que eu leio para você.",
+    "Se não tiver o rótulo, responda *estima* que eu faço uma estimativa. Ainda não registrei nada."
+  ].join("\n");
+}
+
 // CONV-04: divide "comi X, bebi Y e corri Z" nas partes que começam com verbo de ação.
 // Só divide quando há 2+ partes e cada uma é reconhecida sem o modelo (água, peso, sono,
 // treino ou refeição). Refeições vão para o fim. Retorna as partes ou null.
@@ -1410,7 +1436,7 @@ function buildMealQuantityQuestion(items) {
 
 async function handlePendingMealClarification(userId, message, internal) {
   const pending = getPendingMealClarification(userId);
-  if (!pending || !["generic_food", "missing_quantity", "photo_meal", "meal_sides"].includes(pending.type)) return null;
+  if (!pending || !["generic_food", "missing_quantity", "photo_meal", "meal_sides", "unknown_food"].includes(pending.type)) return null;
 
   if (!(Date.now() - Number(pending.created_at) <= PENDING_CLARIFICATION_MAX_AGE_MS)) {
     clearPendingMealClarification(userId);
@@ -1426,7 +1452,23 @@ async function handlePendingMealClarification(userId, message, internal) {
       : null;
   }
 
-  if (pending.type === "meal_sides") {
+  if (pending.type === "unknown_food") {
+    const reply = normalizeRequestText(message).trim();
+    if (/^(?:estima|estime|pode estimar|faz uma estimativa|faca uma estimativa|nao sei|nao tenho|sem rotulo|chuta)\b/.test(reply)) {
+      clearPendingMealClarification(userId);
+      return processMessage(userId, pending.original_message, { ...internal, allowEstimate: true });
+    }
+    if (/\d/.test(reply) && /kcal|calori|prote|carbo|gordura/.test(reply)) {
+      const registration = parseFoodRegistration(`cadastrar alimento: ${pending.food_name}, ${message}`);
+      if (registration?.food) {
+        saveUserFood(userId, registration.food);
+        clearPendingMealClarification(userId);
+        const meal = await processMessage(userId, pending.original_message, { ...internal, allowEstimate: true, acceptDefaultQuantities: true });
+        return `${buildFoodRegistrationReply(registration)}\n\n${meal}`;
+      }
+      return buildFoodRegistrationReply(registration || { missing: ["calorias (kcal)", "proteína", "carboidrato", "gordura"] });
+    }
+  } else if (pending.type === "meal_sides") {
     const reply = normalizeRequestText(message).trim();
     if (/^(?:nao|n|nada|so|somente|apenas|sem|nenhum|pura|puro)\b/.test(reply)) {
       clearPendingMealClarification(userId);
@@ -3070,6 +3112,14 @@ const summaryIntent = classifySummaryIntent(message);
 
       if (estimatedMeal?.needs_clarification) {
         return askMealClarification(userId, message, estimatedMeal);
+      }
+
+      // CAT-09: nenhum alimento reconhecido e sem valores na mensagem: oferece cadastrar
+      // pelo rótulo (texto ou foto) ou estimar, em vez de inventar em silêncio.
+      const unknownFood = !estimatedMeal && !internal.allowEstimate && !/\d+\s*(?:kcal|calorias)/i.test(message) ? unknownFoodName(message) : null;
+      if (unknownFood) {
+        setPendingMealClarification(userId, { type: "unknown_food", original_message: message, food_name: unknownFood, created_at: Date.now() });
+        return buildUnknownFoodQuestion(unknownFood);
       }
 
       const sidesSuggestion = estimatedMeal && !internal.skipMealSides && !internal.acceptDefaultQuantities ? suggestSides(message, getUserFoods(userId)) : null;

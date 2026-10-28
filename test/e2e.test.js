@@ -1600,3 +1600,22 @@ test("CONV-04: refeição, água, treino e peso numa mensagem só", async () => 
   await send(single, "comi arroz e feijão");
   assert.equal(db.getTodayMeals(single).length, 0, "pergunta a quantidade, não divide");
 });
+
+// ---------- CAT-09: alimento desconhecido ----------
+
+test("CAT-09: alimento fora do catálogo pede o rótulo, cadastra e registra; 'estima' segue para o modelo", async () => {
+  const userId = newUser();
+  const ask = await send(userId, "comi um mochi");
+  assert.match(ask, /🔎 Não tenho \*mochi\* no meu catálogo ainda\.[\s\S]*foto da tabela nutricional[\s\S]*responda \*estima\*/);
+  assert.equal(db.getTodayMeals(userId).length, 0);
+  const saved = await send(userId, "1 unidade de 60 g tem 180 kcal, 3 g de proteína, 22 g de carboidrato e 9 g de gordura");
+  assert.match(saved, /✅ Cadastrei Mochi[\s\S]*✅ \*Refeição registrada\*/);
+  assert.equal(Math.round(db.getTodayMeals(userId)[0].calories), 180);
+  // Depois de cadastrado, é reconhecido direto.
+  assert.match(await send(userId, "comi de novo um mochi"), /✅ \*Refeição registrada\*/);
+
+  const other = newUser();
+  await send(other, "comi um onigiri");
+  const estimate = await send(other, "estima", fakeModel([finalText("Estimei cerca de 120 kcal.")]));
+  assert.match(estimate, /Estimei cerca de 120 kcal/);
+});
