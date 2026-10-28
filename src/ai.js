@@ -54,6 +54,7 @@ import {
   setReplyStyle,
   getRecentStrengthEfforts,
   getExercisesBetween,
+  getStepsOn,
   getPantry
 } from "./db.js";
 import { reviewTargets, describeTargetReview } from "./goalReview.js";
@@ -64,6 +65,7 @@ import { isShoppingListRequest, buildShoppingList } from "./shopping.js";
 import { isAchievementsRequest, buildAchievementsReply, streakCelebration } from "./achievements.js";
 import { handleHungerMessage } from "./hunger.js";
 import { handleSleepQuery } from "./sleep.js";
+import { handleStepsMessage, stepsGoalFor, stepsLine } from "./steps.js";
 import { handleWheyMessage } from "./wheyProfile.js";
 import { handleCheckinMessage, CHECKIN_QUESTION } from "./checkin.js";
 import { detectReplyStyle, STYLE_INSTRUCTIONS, buildReplyStyleConfirmation } from "./replyStyle.js";
@@ -1938,6 +1940,9 @@ function buildSummaryReply(
   if (sleep) {
     lines.push(`😴 *Sono:* ${formatHours(sleep.hours)}${sleep.quality ? ` (${sleep.quality})` : ""}`);
   }
+  // ACO-02: passos do dia no fechamento.
+  const todaySteps = user?.id ? getStepsOn(user.id, summary.date) : null;
+  if (todaySteps != null) lines.push(stepsLine(todaySteps, stepsGoalFor(user)));
   if (user?.weight_kg) {
     lines.push(`⚖️ *Peso:* ${formatKg(user.weight_kg)} kg`);
   }
@@ -3030,6 +3035,10 @@ const summaryIntent = classifySummaryIntent(message);
       remainingCalories: dailySummary.calorie_target ? dailySummary.calorie_target - dailySummary.calories : null
     });
     if (hungerReply) return hungerReply;
+
+    // ACO-02: passos ("andei 8.000 passos", "minha meta de passos é 10000").
+    const stepsReply = handleStepsMessage(userId, message, dailySummary.date);
+    if (stepsReply) return stepsReply;
 
     // CRP-05: "como está meu sono?" — média, noites curtas e o que coincidiu.
     const sleepReport = handleSleepQuery(userId, message, dailySummary.date);

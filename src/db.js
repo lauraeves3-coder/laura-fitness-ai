@@ -1379,6 +1379,31 @@ export function getExerciseHistory(userId) {
   `).all(userId);
 }
 
+// ACO-02: passos do dia (vale o último número informado) e meta de passos.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS steps_logs (
+    user_id TEXT NOT NULL,
+    date TEXT NOT NULL,
+    steps INTEGER NOT NULL,
+    PRIMARY KEY (user_id, date)
+  );
+`);
+ensureColumn("users", "steps_goal", "INTEGER");
+
+export function saveSteps(userId, date, steps) {
+  ensureUser(userId);
+  db.prepare(`INSERT INTO steps_logs (user_id, date, steps) VALUES (?, ?, ?) ON CONFLICT(user_id, date) DO UPDATE SET steps = excluded.steps`).run(userId, date, steps);
+}
+
+export function getStepsOn(userId, date) {
+  return db.prepare(`SELECT steps FROM steps_logs WHERE user_id = ? AND date = ?`).get(userId, date)?.steps ?? null;
+}
+
+export function setStepsGoal(userId, goal) {
+  ensureUser(userId);
+  db.prepare(`UPDATE users SET steps_goal = ? WHERE id = ?`).run(goal, userId);
+}
+
 // NUT-22: fome e saciedade (nível 1–5) com horário.
 db.exec(`
   CREATE TABLE IF NOT EXISTS hunger_logs (

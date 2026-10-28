@@ -1681,3 +1681,13 @@ test("NUT-02: sabor que não está no catálogo pergunta e oferece o parecido", 
   assert.match(await send(newUser(), "comi uma coxinha de frango"), /Refeição registrada/, "sabor do catálogo registra direto");
   assert.match(await send(newUser(), "comi um pastel"), /Refeição registrada/, "sem sabor usa o padrão");
 });
+
+// ---------- ACO-02: passos ----------
+
+test("ACO-02: passos do dia, meta de passos e passos no resumo", async () => {
+  const userId = newUser();
+  assert.match(await send(userId, "andei 6.000 passos"), /👟 \*Passos:\* 6\.000 de 8\.000 .* 75%\nFaltam 2\.000 passos/);
+  assert.match(await send(userId, "minha meta de passos é 10000"), /Meta de passos definida: \*10\.000 por dia\*/);
+  assert.match(await send(userId, "dei 10 mil passos"), /✅ Meta de passos batida hoje!/);
+  assert.match(await send(userId, "resumo do dia"), /👟 \*Passos:\* 10\.000 de 10\.000/);
+});
