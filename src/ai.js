@@ -607,6 +607,16 @@ function unknownFoodName(message) {
   return name;
 }
 
+// "mochi de morango": o alimento principal é desconhecido e só o sabor/recheio está no
+// catálogo. Sem isso, a refeição viraria só "morango". Retorna o nome inteiro ou null.
+const HEAD_STOPWORDS = /^(?:prato|pratos|porcao|porcoes|fatia|fatias|pedaco|pedacos|copo|copos|xicara|xicaras|colher|colheres|concha|conchas|pote|potes|lata|latas|pacote|pacotes|caixa|caixas|barra|barras|sache|saches|scoop|scoops|dose|doses|tigela|bowl|marmita|marmitex|quentinha|unidade|unidades|metade|pouco|resto|cafe|almoco|jantar|lanche|suco|vitamina|salada|sopa|caldo|creme|molho)$/;
+function unknownHeadFood(message, extraFoods) {
+  const name = unknownFoodName(message);
+  const match = name && normalizeRequestText(name).match(/^([a-z]{3,})\s+(?:de|com|recheado de|sabor)\s+\S/);
+  if (!match || HEAD_STOPWORDS.test(match[1])) return null;
+  return estimateMealFromText(`comi ${match[1]}`, { extraFoods }) ? null : name;
+}
+
 function buildUnknownFoodQuestion(name) {
   return [
     `🔎 Não tenho *${name}* no meu catálogo ainda.`,
@@ -1436,7 +1446,7 @@ function buildMealQuantityQuestion(items) {
 
 async function handlePendingMealClarification(userId, message, internal) {
   const pending = getPendingMealClarification(userId);
-  if (!pending || !["generic_food", "missing_quantity", "photo_meal", "meal_sides", "unknown_food"].includes(pending.type)) return null;
+  if (!pending || !["generic_food", "missing_quantity", "photo_meal", "meal_sides", "unknown_food", "label_name"].includes(pending.type)) return null;
 
   if (!(Date.now() - Number(pending.created_at) <= PENDING_CLARIFICATION_MAX_AGE_MS)) {
     clearPendingMealClarification(userId);
@@ -1450,6 +1460,16 @@ async function handlePendingMealClarification(userId, message, internal) {
     return /^(?:sim|s|isso|pode(?: registrar)?|registra(?:r)?|confirm[oa]|ok|certo)\b/i.test(message.trim())
       ? processMessage(userId, pending.original_message, { ...internal, acceptDefaultQuantities: true })
       : null;
+  }
+
+  if (pending.type === "label_name") {
+    const name = message.trim().replace(/^(?:e |é |eh |o nome e |nome:?\s*)/i, "").replace(/[.!]+$/, "");
+    if (name && name.length <= 50 && !/\d{3,}/.test(name)) {
+      clearPendingMealClarification(userId);
+      const registration = parseFoodRegistration(labelRegistrationText(name, pending.label));
+      if (registration?.food) saveUserFood(userId, registration.food);
+      return buildFoodRegistrationReply(registration || { missing: ["nome"] });
+    }
   }
 
   if (pending.type === "unknown_food") {
@@ -2720,6 +2740,30 @@ export async function processVoiceMessage(userId, { base64, mimeType = "audio/og
 
 // VIS-01 / VIS-02: foto de refeição. O modelo lista alimentos e gramas estimadas; o
 // cálculo usa o catálogo e só registra depois do "sim" da usuária.
+function labelRegistrationText(name, label) {
+  return `cadastrar alimento: ${name}, ${label.portion_g} g tem ${label.kcal} kcal, ${label.protein_g} g de proteína, ${label.carbs_g} g de carboidrato e ${label.fat_g} g de gordura`;
+}
+
+async function handleLabelPhoto(userId, label, caption, internal) {
+  const pending = getPendingMealClarification(userId);
+  const waiting = pending?.type === "unknown_food" && Date.now() - Number(pending.created_at) <= PENDING_CLARIFICATION_MAX_AGE_MS ? pending : null;
+  const name = waiting?.food_name || label.name || String(caption || "").trim() || null;
+  const values = `📋 Por porção (${label.portion_g} g): ${Math.round(label.kcal)} kcal · P ${formatKg(label.protein_g)} g · C ${formatKg(label.carbs_g)} g · G ${formatKg(label.fat_g)} g`;
+  if (!name) {
+    setPendingMealClarification(userId, { type: "label_name", label, created_at: Date.now() });
+    return ["📸 *Li a tabela nutricional*", values, "", "Qual o *nome* desse produto? (ex.: *granola da marca X*) Assim eu cadastro."].join("\n");
+  }
+  const registration = parseFoodRegistration(labelRegistrationText(name, label));
+  if (!registration?.food) return `📸 Li o rótulo, mas os valores não fecharam (${(registration?.errors || []).join("; ")}). Confira a foto ou me mande os valores em texto.`;
+  saveUserFood(userId, registration.food);
+  const lines = ["📸 *Li a tabela nutricional*", values, "", buildFoodRegistrationReply(registration)];
+  if (waiting) {
+    clearPendingMealClarification(userId);
+    lines.push("", await processMessage(userId, waiting.original_message, { ...internal, allowEstimate: true, acceptDefaultQuantities: true }));
+  }
+  return lines.join("\n");
+}
+
 export async function processMealPhoto(userId, { imageBase64, mimeType, caption = "" }, internal = {}) {
   let reading;
   try {
@@ -2735,6 +2779,9 @@ export async function processMealPhoto(userId, { imageBase64, mimeType, caption 
     console.error("Falha ao analisar a foto:", error.message);
     return "Não consegui analisar a foto agora. Pode me dizer em texto o que comeu?";
   }
+
+  // VIS-03 / SUP-06: foto de rótulo cadastra o alimento (e registra a refeição pendente).
+  if (reading.label) return handleLabelPhoto(userId, reading.label, caption, internal);
 
   const extraFoods = getUserFoods(userId);
   const photo = resolvePhotoItems(reading.items, (text) => estimateMealFromText(text, { extraFoods }));
@@ -3116,7 +3163,9 @@ const summaryIntent = classifySummaryIntent(message);
 
       // CAT-09: nenhum alimento reconhecido e sem valores na mensagem: oferece cadastrar
       // pelo rótulo (texto ou foto) ou estimar, em vez de inventar em silêncio.
-      const unknownFood = !estimatedMeal && !internal.allowEstimate && !/\d+\s*(?:kcal|calorias)/i.test(message) ? unknownFoodName(message) : null;
+      const unknownFood = !internal.allowEstimate && !/\d+\s*(?:kcal|calorias)/i.test(message)
+        ? (!estimatedMeal ? unknownFoodName(message) : unknownHeadFood(message, getUserFoods(userId)))
+        : null;
       if (unknownFood) {
         setPendingMealClarification(userId, { type: "unknown_food", original_message: message, food_name: unknownFood, created_at: Date.now() });
         return buildUnknownFoodQuestion(unknownFood);

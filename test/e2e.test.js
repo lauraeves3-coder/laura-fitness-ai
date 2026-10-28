@@ -1619,3 +1619,32 @@ test("CAT-09: alimento fora do catálogo pede o rótulo, cadastra e registra; 'e
   const estimate = await send(other, "estima", fakeModel([finalText("Estimei cerca de 120 kcal.")]));
   assert.match(estimate, /Estimei cerca de 120 kcal/);
 });
+
+// ---------- VIS-03 / SUP-06: foto do rótulo ----------
+
+test("VIS-03: foto da tabela nutricional cadastra o alimento e registra a refeição pendente", async () => {
+  const { processMealPhoto } = await import("../src/ai.js");
+  const label = (name) => fakeModel([finalText(JSON.stringify({ items: [], label: { name, portion_g: 40, kcal: 160, protein_g: 4, carbs_g: 26, fat_g: 4.5 }, confidence: "high", notes: "" }))]);
+  // Alimento desconhecido esperando o rótulo.
+  const userId = newUser();
+  await send(userId, "comi um mochi");
+  const reply = await processMealPhoto(userId, { imageBase64: "AAAA", mimeType: "image/jpeg" }, { apiClient: label(null) });
+  assert.match(reply, /📸 \*Li a tabela nutricional\*\n📋 Por porção \(40 g\): 160 kcal · P 4 g · C 26 g · G 4,5 g/);
+  assert.match(reply, /✅ Cadastrei Mochi[\s\S]*✅ \*Refeição registrada\*/);
+  assert.equal(Math.round(db.getTodayMeals(userId)[0].calories), 160);
+
+  // Rótulo sem nome e sem pendência: pergunta o nome e cadastra.
+  const other = newUser();
+  const ask = await processMealPhoto(other, { imageBase64: "AAAA" }, { apiClient: label(null) });
+  assert.match(ask, /Qual o \*nome\* desse produto\?/);
+  assert.match(await send(other, "barrinha de castanhas"), /✅ Cadastrei Barrinha de castanhas/);
+  assert.match(await send(other, "comi 1 barrinha de castanhas"), /✅ \*Refeição registrada\*/);
+});
+
+test("CAT-09/NUT-02: alimento principal desconhecido com sabor conhecido não vira só o sabor", async () => {
+  const userId = newUser();
+  assert.match(await send(userId, "comi um mochi de morango"), /🔎 Não tenho \*mochi de morango\* no meu catálogo/);
+  const known = newUser();
+  assert.match(await send(known, "comi uma fatia de bolo de chocolate"), /Refeição registrada/, "bolo existe no catálogo");
+  assert.doesNotMatch(await send(known, "comi 1 copo de suco de laranja"), /Não tenho/, "medida + 'de' não conta");
+});

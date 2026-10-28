@@ -96,7 +96,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | SUP-03 | Cada SKU separado com rótulo completo, GTIN, fonte/URL, data, status, confiança | P2 | PARCIAL | SUP-01 | cada produto e sabor é um item com a fonte e a data no campo `reference` (site oficial, 24/10/2026); sabor sem tabela própria no site usa a do sabor de referência e diz isso. Faltam GTIN e status por SKU |
 | SUP-04 | Dados por porção e por 100 g/ml; BR vs importado; rótulo antigo/novo | P2 | NÃO IMPLEMENTADO | SUP-03 | — |
 | SUP-05 | Entender "tomei whey", marca/sabor, scoop/gramas; perguntar quando preciso | P2 | IMPLEMENTADO E TESTADO | — | "tomei 2 scoops de whey da dux sabor cookies" reconhece marca, tipo (concentrado/isolado) e sabor sem confundir sabor com fruta; scoop/dose/medida = 1 porção do rótulo, dosador = meia porção; sem marca segue o whey genérico (`test/catalog.test.js`) |
-| SUP-06 | Cadastro por foto de rótulo e despensa de suplementos do usuário | P3 | NÃO IMPLEMENTADO | VIS-03, DSP-01 | — |
+| SUP-06 | Cadastro por foto de rótulo e despensa de suplementos do usuário | P3 | PARCIAL | VIS-03, DSP-01 | Rótulo de suplemento por foto cadastra o produto como alimento próprio (mesmo fluxo do VIS-03); whey também via 'tenho whey…' (perfil + despensa). Falta despensa específica de suplementos com doses restantes. |
 
 ## VIS — Fotos, visão e OCR
 
@@ -104,7 +104,7 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 |---|---|---|---|---|---|
 | VIS-01 | Foto de refeição: componentes, porções com incerteza, kcal/macros, confirmar antes de registrar | P2 | PARCIAL | ARQ-05 | foto pelo WhatsApp: o webhook baixa a mídia (Graph API), o modelo lista alimentos e gramas estimadas em JSON (`src/vision.js`), o cálculo usa o catálogo e só registra após "sim"; outra mensagem descarta a leitura; itens fora do catálogo são avisados (`test/e2e.test.js`, modelo e download simulados). Não validado com a OpenAI real (Fase 5) |
 | VIS-02 | Não fingir peso exato; perguntar se imagem ruim/sem escala | P2 | PARCIAL | ARQ-05 | instruções pedem estimativa sem falsa precisão e `confidence`; foto sem comida/ruim ou resposta inválida não registra e pede texto; confiança baixa é avisada (`test/e2e.test.js`). Não validado com imagens reais |
-| VIS-03 | OCR de rótulo, ingredientes, receita escrita, balança | P2 | NÃO IMPLEMENTADO | VIS-01 | — |
+| VIS-03 | OCR de rótulo, ingredientes, receita escrita, balança | P2 | PARCIAL | VIS-01 | Foto da tabela nutricional: o modelo de visão devolve 'label' (nome, porção, kcal e macros por porção, como impresso); o app cadastra o alimento (user_foods) e, se havia alimento desconhecido esperando, registra a refeição; sem nome, pergunta. Faltam lista de ingredientes, receita escrita e balança. test/e2e.test.js |
 | VIS-04 | Fotos de evolução corporal privadas por data | P3 | NÃO IMPLEMENTADO | CRP-03 | — |
 
 ## REC — Receitas
@@ -313,3 +313,4 @@ Nenhum item foi validado contra a API da OpenAI ou o WhatsApp reais (Fase 5 pend
 | 28/10/2026 | NUT-22: fome e saciedade com sugestões e padrão de horário. Totais: 68 testados, 1 não testado, 44 parciais, 10 não implementados, 1 bloqueados. |
 | 28/10/2026 | CONV-04: várias ações numa mesma mensagem. Totais: 69 testados, 1 não testado, 43 parciais, 10 não implementados, 1 bloqueados. |
 | 28/10/2026 | CAT-09: alimento desconhecido pede o rótulo, cadastra e registra. Totais: 70 testados, 1 não testado, 42 parciais, 10 não implementados, 1 bloqueados. |
+| 28/10/2026 | VIS-03/SUP-06: foto do rótulo cadastra o alimento; alimento principal desconhecido com sabor conhecido ('mochi de morango') pede o rótulo. Totais: 70 testados, 1 não testado, 44 parciais, 8 não implementados, 1 bloqueados. |

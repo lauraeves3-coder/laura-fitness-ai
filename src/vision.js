@@ -9,7 +9,11 @@ carioca", "peito de frango grelhado", "batata frita", "salada de folhas") e uma
 estimativa de gramas por item. Não finja precisão: as gramas são estimativas visuais.
 Se a imagem não mostrar comida, estiver ruim ou sem referência de tamanho, devolva
 items vazio ou confidence "low" e explique em notes.
-Responda APENAS com JSON: {"items":[{"name":"...","grams":0}],"confidence":"low|medium|high","notes":"..."}
+Se a foto for uma TABELA NUTRICIONAL / rótulo (e não um prato), não liste items: leia a
+tabela e devolva "label" com o nome do produto (se aparecer na embalagem; senão null), a
+porção em gramas ou ml e os valores POR PORÇÃO exatamente como impressos.
+Responda APENAS com JSON: {"items":[{"name":"...","grams":0}],"label":null,"confidence":"low|medium|high","notes":"..."}
+Com rótulo: {"items":[],"label":{"name":"...","portion_g":30,"kcal":0,"protein_g":0,"carbs_g":0,"fat_g":0},"confidence":"...","notes":"..."}
 `.trim();
 
 // catalogNames: nomes do catálogo; o modelo usa um deles quando o alimento corresponder,
@@ -42,8 +46,15 @@ export function parseVisionResult(text) {
   const items = (Array.isArray(data.items) ? data.items : [])
     .map((item) => ({ name: String(item?.name || "").trim(), grams: Math.round(Number(item?.grams)) }))
     .filter(({ name, grams }) => name && grams > 0 && grams <= 2000);
+  // VIS-03: tabela nutricional lida da foto (valores por porção).
+  const raw = data.label && typeof data.label === "object" ? data.label : null;
+  const number = (value) => (Number.isFinite(Number(value)) && Number(value) >= 0 ? Number(value) : null);
+  const label = raw && number(raw.portion_g) > 0 && number(raw.kcal) !== null && ["protein_g", "carbs_g", "fat_g"].every((key) => number(raw[key]) !== null)
+    ? { name: raw.name ? String(raw.name).trim() : null, portion_g: number(raw.portion_g), kcal: number(raw.kcal), protein_g: number(raw.protein_g), carbs_g: number(raw.carbs_g), fat_g: number(raw.fat_g) }
+    : null;
   return {
     items,
+    label,
     confidence: ["low", "medium", "high"].includes(data.confidence) ? data.confidence : "low",
     notes: String(data.notes || "").trim()
   };
