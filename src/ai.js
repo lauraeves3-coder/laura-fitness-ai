@@ -53,6 +53,7 @@ import {
   setGoalReviewAt,
   setReplyStyle,
   getRecentStrengthEfforts,
+  getExercisesBetween,
   getPantry
 } from "./db.js";
 import { reviewTargets, describeTargetReview } from "./goalReview.js";
@@ -125,7 +126,7 @@ import { parsePastMealDate, formatDay, addDays, daysBetween, weekdayOf } from ".
 import { getQuantityQuestions, applyQuantityAnswer, catalogFoodNames, suggestSides, findFoodCandidates } from "./nutritionCatalog.js";
 import { parseFoodRegistration, buildFoodRegistrationReply } from "./userFoods.js";
 import { parseReminderCommand, buildReminderCommandReply, dueReminders, buildWaterReminder } from "./reminders.js";
-import { validateWorkoutRecord, buildWorkoutReply, applyEffortFromText, fatigueAdvice } from "./workouts.js";
+import { validateWorkoutRecord, buildWorkoutReply, applyEffortFromText, fatigueAdvice, detectStrengthQuery, buildMuscleVolumeReply, buildExerciseProgressReply } from "./workouts.js";
 import { runAgent, getClient } from "./agent/agent.js";
 import { describeMealPhoto, buildPhotoMealText, resolvePhotoItems } from "./vision.js";
 import { toFile } from "openai";
@@ -2846,6 +2847,15 @@ const summaryIntent = classifySummaryIntent(message);
     // ajustes por cansaço/dor, sem o modelo.
     const trainingReply = handleTrainingMessage(userId, message, dailySummary.date);
     if (trainingReply) return trainingReply;
+
+    // MUS-03: "volume por músculo", "evolução no supino".
+    const strengthQuery = detectStrengthQuery(message);
+    if (strengthQuery?.type === "volume") {
+      return buildMuscleVolumeReply(getExercisesBetween(userId, addDays(dailySummary.date, -6), dailySummary.date));
+    }
+    if (strengthQuery?.type === "progress") {
+      return buildExerciseProgressReply(getExercisesBetween(userId, addDays(dailySummary.date, -365), dailySummary.date), strengthQuery.exercise);
+    }
 
     // CRP-03: medidas corporais e evolução do peso.
     const bodyReply = handleBodyMessage(userId, message, dailySummary.date);

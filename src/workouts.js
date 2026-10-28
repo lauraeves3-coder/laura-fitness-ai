@@ -120,3 +120,96 @@ export function fatigueAdvice(recentEfforts = []) {
     ? "😮‍💨 Suas últimas 3 sessões foram muito pesadas (esforço 9+). Vale uma semana mais leve: mesmas cargas com 1 série a menos, ou 10–15% menos carga, para recuperar."
     : null;
 }
+
+// MUS-03: grupo muscular pelo nome do exercício (texto livre do registro).
+const MUSCLE_GROUPS = [
+  ["Peito", /supino|crucifixo|peck|flexao de braco|flexao|crossover|voador/],
+  ["Costas", /remada|puxada|pulldown|barra fixa|serrote|pullover|levantamento terra|terra/],
+  ["Ombros", /desenvolvimento|elevacao lateral|elevacao frontal|face pull|arnold|crucifixo invertido/],
+  ["Quadríceps", /agachamento|leg press|extensora|afundo|passada|hack|bulgaro|sissy/],
+  ["Posteriores", /stiff|flexora|mesa flexora|good morning|nordic/],
+  ["Glúteos", /elevacao pelvica|hip thrust|gluteo|abdutora|coice|ponte/],
+  ["Bíceps", /rosca|biceps/],
+  ["Tríceps", /triceps|testa|frances|mergulho|paralela|coice de triceps/],
+  ["Panturrilha", /panturrilha|gemeos/],
+  ["Core", /prancha|abdominal|crunch|dead bug|elevacao de pernas/]
+];
+const plain = (text) => String(text || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLocaleLowerCase("pt-BR");
+
+export function muscleOf(exerciseName) {
+  const name = plain(exerciseName);
+  return MUSCLE_GROUPS.find(([, pattern]) => pattern.test(name))?.[0] || null;
+}
+
+// Séries por grupo muscular no período, com a faixa usual para hipertrofia (10–20/semana).
+export function buildMuscleVolumeReply(exercises, { days = 7 } = {}) {
+  if (!exercises.length) {
+    return "💪 Ainda não tenho treinos de musculação com séries nos últimos 7 dias. Registre, por exemplo: *treinei supino 4x10 com 40 kg e remada 3x12 com 30 kg*.";
+  }
+  const sets = new Map();
+  let unknown = 0;
+  for (const exercise of exercises) {
+    const group = muscleOf(exercise.name);
+    const count = Number(exercise.sets) || 0;
+    if (!group) { unknown += count; continue; }
+    sets.set(group, (sets.get(group) || 0) + count);
+  }
+  const scale = 7 / days;
+  const lines = ["💪 *Volume por músculo — últimos 7 dias*", "_Séries por semana; para hipertrofia, 10 a 20 costuma ser a faixa que funciona._", ""];
+  for (const [group] of MUSCLE_GROUPS) {
+    if (!sets.has(group)) continue;
+    const weekly = Math.round(sets.get(group) * scale);
+    const filled = Math.min(10, Math.round(weekly / 2));
+    const status = weekly < 10 ? "⬇️ abaixo" : weekly > 20 ? "⚠️ acima (recuperação)" : "✅ na faixa";
+    lines.push(`• *${group}:* ${weekly} ${weekly === 1 ? "série" : "séries"} ${"▓".repeat(filled)}${"░".repeat(10 - filled)} ${status}`);
+  }
+  const trained = new Set(sets.keys());
+  const missing = ["Peito", "Costas", "Ombros", "Quadríceps", "Posteriores", "Glúteos"].filter((group) => !trained.has(group));
+  if (missing.length) lines.push("", `📌 Sem séries na semana: ${missing.join(", ").toLocaleLowerCase("pt-BR")}.`);
+  if (unknown) lines.push(`_${unknown} séries de exercícios que não reconheci o grupo._`);
+  return lines.join("\n");
+}
+
+// 1RM estimado (Epley) da melhor série.
+const oneRepMax = (weight, reps) => weight * (1 + reps / 30);
+
+// Progressão de um exercício: melhor série por sessão e tendência do 1RM estimado.
+export function buildExerciseProgressReply(exercises, query) {
+  const target = plain(query).replace(/^(?:o|a)\s+/, "").trim();
+  const matching = exercises.filter((exercise) => plain(exercise.name).includes(target) && Number(exercise.weight_kg) > 0);
+  if (!matching.length) return `Ainda não tenho registros de *${query}* com carga. Mande, por exemplo: *treinei ${query} 3x10 com 40 kg*.`;
+  const sessions = new Map();
+  for (const exercise of matching) {
+    const day = String(exercise.trained_at).slice(0, 10);
+    const estimate = oneRepMax(Number(exercise.weight_kg), Number(exercise.reps) || 1);
+    const best = sessions.get(day);
+    if (!best || estimate > best.estimate) sessions.set(day, { day, weight: Number(exercise.weight_kg), reps: Number(exercise.reps), estimate });
+  }
+  const list = [...sessions.values()];
+  const first = list[0];
+  const last = list.at(-1);
+  const change = (last.estimate - first.estimate) / first.estimate;
+  const name = matching.at(-1).name;
+  const [, month1, day1] = first.day.split("-");
+  return [
+    `📈 *Evolução — ${name}*`,
+    "",
+    ...list.slice(-6).map((session) => {
+      const [, month, day] = session.day.split("-");
+      return `• ${day}/${month}: ${formatNumber(session.weight)} kg × ${session.reps} (1RM est. ${formatNumber(Math.round(session.estimate))} kg)`;
+    }),
+    "",
+    list.length > 1
+      ? `${change > 0.005 ? "⬆️" : change < -0.005 ? "⬇️" : "➡️"} Desde ${day1}/${month1}: ${change >= 0 ? "+" : "−"}${formatNumber(Math.abs(Math.round(change * 1000) / 10))}% na força estimada.`
+      : "Registre mais sessões para eu mostrar a tendência.",
+    list.length > 2 && Math.abs(change) <= 0.005 ? "💡 Estagnou? Tente a progressão dupla: chegue ao topo das repetições em todas as séries e só então suba 2–5% da carga." : null
+  ].filter((line) => line !== null).join("\n");
+}
+
+export function detectStrengthQuery(message) {
+  const text = plain(message).replace(/[?!.]+$/, "").trim();
+  if (/\bvolume\b.*\b(?:musculo|semana|musculacao|treino)\b|\bseries por musculo\b|\bcomo (?:esta|anda|ta) (?:minha |a )?musculacao\b/.test(text)) return { type: "volume" };
+  const progress = text.match(/\b(?:evolucao|progresso|progressao|minha carga)\s+(?:no|na|do|da|de|em)\s+([a-z ]{3,40})$/);
+  if (progress && !/\b(?:corrida|correr|peso|treinos?|semana|dieta)\b/.test(progress[1])) return { type: "progress", exercise: progress[1].trim() };
+  return null;
+}

@@ -1379,6 +1379,16 @@ export function getExerciseHistory(userId) {
   `).all(userId);
 }
 
+// MUS-03: exercícios (com séries) num período, para volume por músculo e progressão.
+export function getExercisesBetween(userId, startDate, endDate) {
+  return db.prepare(`
+    SELECT exercises.name, exercises.sets, exercises.reps, exercises.weight_kg, exercises.rir, exercises.rpe, workouts.trained_at
+    FROM exercises JOIN workouts ON workouts.id = exercises.workout_id AND workouts.duplicate_of IS NULL
+    WHERE workouts.user_id = ? AND date(workouts.trained_at) BETWEEN ? AND ?
+    ORDER BY workouts.trained_at, exercises.id
+  `).all(userId, startDate, endDate);
+}
+
 // Remove o último registro de água de hoje e devolve o que foi removido.
 export function deleteLastWaterLog(userId, date = getBrazilDate()) {
   const last = db.prepare(`

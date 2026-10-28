@@ -1527,3 +1527,19 @@ test("DSP-04: lista de compras pelo que costuma comer, em cru, por categoria e d
   await send(userId, "receita de strogonoff");
   assert.match(await send(userId, "lista de compras da receita"), /para a receita \*Strogonoff fit de frango\*[\s\S]*☐ /);
 });
+
+// ---------- MUS-03: volume por músculo e progressão ----------
+
+test("MUS-03: volume semanal por músculo e evolução de um exercício", async () => {
+  const userId = newUser();
+  assert.match(await send(userId, "volume por músculo"), /Ainda não tenho treinos de musculação/);
+  await send(userId, "treinei supino 4x10 com 40 kg, remada 4x10 com 35 kg e agachamento 4x8 com 60 kg");
+  await send(userId, "treinei supino 4x8 com 45 kg e rosca direta 3x12 com 12 kg");
+  const volume = await send(userId, "como está minha musculação?");
+  assert.match(volume, /💪 \*Volume por músculo — últimos 7 dias\*/);
+  assert.match(volume, /• \*Peito:\* 8 séries .* ⬇️ abaixo/);
+  assert.match(volume, /• \*Bíceps:\* 3 séries/);
+  assert.match(volume, /Sem séries na semana: ombros, posteriores, glúteos/);
+  const progress = await send(userId, "evolução no supino");
+  assert.match(progress, /📈 \*Evolução — supino\*\n\n• \d{2}\/\d{2}: 45 kg × 8 \(1RM est\. 57 kg\)/);
+});
