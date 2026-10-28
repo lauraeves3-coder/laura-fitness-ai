@@ -440,3 +440,21 @@ test("COR-05: recordes de corrida e aviso de novo recorde", async () => {
   const second = db.saveWorkout(userId, { workout_type: "Corrida", duration_min: 27, distance_km: 5, exercises: [] });
   assert.ok(service.afterWorkoutSaved(userId, second, TUESDAY).some((line) => /Novo recorde: melhor 5 km \(27:00\)/.test(line)));
 });
+
+test("ESP-02: esportes coletivos e lutas no plano, com ícone e treino específico", async () => {
+  const { generateEndurancePlan } = await import("../src/training/endurance.js");
+  const plan = generateEndurancePlan({ modality: "futebol", level: "intermediario", startDate: TUESDAY, weeks: 4, daysPerWeek: 3 });
+  const titles = plan.weeks.flatMap((week) => week.sessions.map((session) => session.title));
+  assert.ok(titles.includes("Jogo ou treino coletivo"));
+  assert.ok(titles.includes("Futebol — intensidade"));
+  const userId = "svc-lutas";
+  const reply = service.createTrainingPlanFromRequest(userId, {
+    running_goal: null, running_level: null, running_days_per_week: null, available_days: [], current_weekly_km: null, longest_run_km: null,
+    reference_distance_km: null, reference_time: null, easy_pace: null, event_date: null, target_time: null, target_pace: null,
+    strength_goal: null, strength_level: null, strength_days_per_week: null, equipment: null, limitations: [],
+    other_modality: "lutas", other_level: "iniciante", other_days_per_week: 3
+  }, TUESDAY);
+  assert.match(reply, /🥋 Lutas: 3×\/semana/);
+  assert.equal(modalityOf("Jiu-jitsu"), "lutas");
+  assert.equal(modalityOf("Futebol"), "futebol");
+});

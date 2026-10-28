@@ -429,7 +429,7 @@ export function createAgentToolRegistry({
       strength_days_per_week: { type: ["integer", "null"], minimum: 1, maximum: 6 },
       equipment: { type: ["string", "null"], enum: ["academia", "halteres", "casa", null] },
       limitations: { type: "array", items: { type: "string", enum: ["joelho", "lombar", "ombro", "punho"] } },
-      other_modality: { type: ["string", "null"], enum: ["ciclismo", "natacao", "caminhada", "funcional", "hiit", null] },
+      other_modality: { type: ["string", "null"], enum: ["ciclismo", "natacao", "caminhada", "funcional", "hiit", "futebol", "volei", "basquete", "beach_tennis", "lutas", null], description: "lutas = jiu-jitsu, muay thai, boxe, judô; beach_tennis inclui tênis" },
       other_level: { type: ["string", "null"], enum: ["iniciante", "intermediario", "avancado", null] },
       other_days_per_week: { type: ["integer", "null"], minimum: 1, maximum: 6 }
     }),

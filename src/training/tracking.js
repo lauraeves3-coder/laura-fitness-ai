@@ -13,7 +13,12 @@ const MODALITIES = [
   [/nata|nado|piscina/, "natacao"],
   [/caminh/, "caminhada"],
   [/funcional|crossfit|circuito/, "funcional"],
-  [/hiit|tabata/, "hiit"]
+  [/hiit|tabata/, "hiit"],
+  [/futebol|pelada|futsal|society/, "futebol"],
+  [/volei/, "volei"],
+  [/basquete/, "basquete"],
+  [/beach|tenis|padel/, "beach_tennis"],
+  [/luta|jiu|muay|boxe|judo|karate|mma|kickboxing/, "lutas"]
 ];
 
 const normalize = (text) => String(text || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLocaleLowerCase("pt-BR");
@@ -112,7 +117,7 @@ export function compareStrength(planned, done) {
 // alvo vale para os tiros e o pace médio inclui aquecimento e trote.
 const CONTINUOUS = new Set(["rodagem", "regenerativo", "longao", "prova", "rodagem_strides"]);
 
-const MODALITY_ICONS = { corrida: "🏃", musculacao: "🏋️", ciclismo: "🚴", natacao: "🏊", caminhada: "🚶", funcional: "🔥", hiit: "🔥" };
+const MODALITY_ICONS = { corrida: "🏃", musculacao: "🏋️", ciclismo: "🚴", natacao: "🏊", caminhada: "🚶", funcional: "🔥", hiit: "🔥", futebol: "⚽", volei: "🏐", basquete: "🏀", beach_tennis: "🎾", lutas: "🥋" };
 
 const STATUS = { feito: "✅", pulado: "❌", ajustado: "🔄" };
 

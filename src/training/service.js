@@ -11,7 +11,7 @@ import { addDays, formatDay, weekdayOf } from "../dates.js";
 import { buildTrainingPlan } from "./plan.js";
 import { RUNNING_GOALS, describePaces, describeTargetAnalysis, expectedFiveK, paceForSession } from "./running.js";
 import { STRENGTH_GOALS, generateStrengthPlan } from "./strength.js";
-import { ENDURANCE_MODALITIES } from "./endurance.js";
+import { ENDURANCE_MODALITIES, MODALITY_EMOJI } from "./endurance.js";
 import { fiveKFromReference, formatDuration, formatPace, parseDuration, trainingPaces } from "./paces.js";
 import {
   adaptSession, buildDayReply, buildLastWorkoutReply, buildPlanCreatedReply, buildProgressReply, buildWeekReply,
@@ -219,7 +219,7 @@ function describeGoals(goals) {
   return goals.map((goal) => {
     if (goal.modality === "corrida") return `🏃 Corrida: ${RUNNING_GOALS[goal.goal].label}${goal.targetSeconds ? ` em ${formatDuration(goal.targetSeconds)}` : ""} · ${LEVEL_LABEL[goal.level]} · ${goal.availableDays?.length || goal.daysPerWeek}×/semana${goal.eventDate ? ` · prova em ${goal.eventDate.split("-").reverse().join("/")}` : ""}`;
     if (goal.modality === "musculacao") return `🏋️ Musculação: ${STRENGTH_GOALS[goal.goal].label} · ${goal.daysPerWeek}×/semana · ${goal.equipment}`;
-    return `🚴 ${ENDURANCE_MODALITIES[goal.modality].label}: ${goal.daysPerWeek}×/semana`;
+    return `${MODALITY_EMOJI[goal.modality] || "🏅"} ${ENDURANCE_MODALITIES[goal.modality].label.charAt(0).toLocaleUpperCase("pt-BR")}${ENDURANCE_MODALITIES[goal.modality].label.slice(1)}: ${goal.daysPerWeek}×/semana`;
   }).join("\n");
 }
 

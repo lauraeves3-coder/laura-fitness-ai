@@ -453,7 +453,7 @@ export function detectWeightReport(message) {
 // MUS-01 / COR-05: treino simples relatado ("corri 5 km em 30 min", "fiz 40 min de
 // musculação"). Sem duração, devolve null e o modelo segue perguntando.
 const WORKOUT_VERBS = [[/\bcorri\b/, "Corrida"], [/\bcaminhei\b/, "Caminhada"], [/\bpedalei\b/, "Ciclismo"], [/\bnadei\b/, "Natação"]];
-const WORKOUT_TYPES = [[/muscula[cç]ao|academia|treino de (?:forca|força)/, "Musculação"], [/corrida/, "Corrida"], [/caminhada/, "Caminhada"], [/bike|bicicleta|ciclismo|spinning/, "Ciclismo"], [/natacao/, "Natação"], [/funcional|crossfit/, "Funcional"], [/yoga|pilates/, "Yoga/Pilates"]];
+const WORKOUT_TYPES = [[/muscula[cç]ao|academia|treino de (?:forca|força)/, "Musculação"], [/corrida/, "Corrida"], [/caminhada/, "Caminhada"], [/bike|bicicleta|ciclismo|spinning/, "Ciclismo"], [/natacao/, "Natação"], [/funcional|crossfit/, "Funcional"], [/yoga|pilates/, "Yoga/Pilates"], [/futebol|pelada|futsal|society/, "Futebol"], [/volei/, "Vôlei"], [/basquete/, "Basquete"], [/beach tennis|beach|tenis|padel/, "Beach tennis"], [/jiu[- ]?jitsu|muay thai|boxe|judo|karate|mma|kickboxing|luta/, "Lutas"]];
 export function detectSimpleWorkout(message) {
   const text = normalizeRequestText(message);
   if (/\b(?:nao|vou|quero|posso|devo|amanha|plano)\b/.test(text)) return null;
@@ -461,7 +461,7 @@ export function detectSimpleWorkout(message) {
   if (!duration) return null;
   const minutes = Number(duration[1].replace(",", ".")) * (/^h/.test(duration[2]) ? 60 : 1);
   const type = WORKOUT_VERBS.find(([pattern]) => pattern.test(text))?.[1]
-    || (/\b(?:fiz|treinei|pratiquei)\b/.test(text) ? WORKOUT_TYPES.find(([pattern]) => pattern.test(text))?.[1] : null);
+    || (/\b(?:fiz|treinei|pratiquei|joguei|lutei)\b/.test(text) ? WORKOUT_TYPES.find(([pattern]) => pattern.test(text))?.[1] : null);
   if (!type || !(minutes > 0)) return null;
   const distance = text.match(/(\d+(?:[.,]\d+)?)\s*(?:km|quilometros?)\b/);
   return {

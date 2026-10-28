@@ -9,8 +9,17 @@ export const ENDURANCE_MODALITIES = {
   natacao: { label: "natação", long: "Nado contínuo longo", easy: "Nado leve e técnico (educativos + nado contínuo)", quality: ["8 × 50 m forte com 30 s de descanso", "4 × 200 m em ritmo forte com 45 s de descanso", "10 × 100 m moderado com 20 s de descanso"] },
   caminhada: { label: "caminhada", long: "Caminhada longa", easy: "Caminhada em ritmo confortável", quality: ["Caminhada com 6 × 2 min em ritmo acelerado", "Caminhada em subida ou escada: 20 min", "Caminhada rápida contínua"] },
   funcional: { label: "treino funcional", long: "Circuito longo (corpo inteiro)", easy: "Mobilidade + circuito leve", quality: ["Circuito: 4 voltas de 8 exercícios × 40 s, 20 s de descanso", "EMOM 20 min: agachamento, flexão, remada, prancha", "Circuito de força: 3 voltas de 6 exercícios × 12"] },
-  hiit: { label: "HIIT", long: "Aeróbico leve longo (recuperação ativa)", easy: "Aeróbico leve 30 min", quality: ["Tabata: 2 blocos de 8 × (20 s forte + 10 s leve)", "10 × (30 s forte + 90 s leve)", "6 × (1 min forte + 1 min leve)"] }
+  hiit: { label: "HIIT", long: "Aeróbico leve longo (recuperação ativa)", easy: "Aeróbico leve 30 min", quality: ["Tabata: 2 blocos de 8 × (20 s forte + 10 s leve)", "10 × (30 s forte + 90 s leve)", "6 × (1 min forte + 1 min leve)"] },
+  // ESP-02: esportes coletivos, de raquete e lutas: o treino/jogo da modalidade e um
+  // condicionamento específico (sprints, agilidade, saltos, rounds).
+  futebol: { label: "futebol", long: "Jogo ou treino coletivo", easy: "Técnica com bola + trote regenerativo", quality: ["Tiros curtos: 8 × 30 m com mudança de direção, 1 min de pausa", "Agilidade: escada, cones e saltos — 4 voltas", "Intervalado: 6 × (2 min forte + 2 min leve)"] },
+  volei: { label: "vôlei", long: "Treino ou jogo de vôlei", easy: "Fundamentos (passe, levantamento, saque) em ritmo leve", quality: ["Saltos: 5 × 6 saltos verticais máximos, 90 s de pausa", "Agilidade lateral: 6 × 20 s de deslocamento + bloqueio", "Pliometria leve + core: 3 voltas"] },
+  basquete: { label: "basquete", long: "Jogo ou treino coletivo", easy: "Arremessos e fundamentos em ritmo leve", quality: ["Sprints de quadra: 8 × ida e volta, 45 s de pausa", "Defesa: 6 × 30 s de deslocamento lateral + salto", "Intervalado: 5 × (3 min de jogo intenso + 1 min leve)"] },
+  beach_tennis: { label: "beach tennis", long: "Jogo de beach tennis", easy: "Treino de golpes em ritmo leve", quality: ["Deslocamentos na areia: 8 × 20 s com 40 s de pausa", "Saltos e smash: 5 × 8 com 1 min de pausa", "Jogo intervalado: 6 × (3 min intenso + 1 min leve)"] },
+  lutas: { label: "lutas", long: "Treino na academia de luta", easy: "Técnica + mobilidade (sem sparring forte)", quality: ["Rounds: 6 × 3 min no saco ou sombra forte, 1 min de pausa", "Pegada e core: 4 voltas (suspensão na barra, prancha, rotação com elástico)", "HIIT de luta: 8 × (20 s de sprawl + 40 s leve)"] }
 };
+
+export const MODALITY_EMOJI = { ciclismo: "🚴", natacao: "🏊", caminhada: "🚶", funcional: "🔥", hiit: "🔥", futebol: "⚽", volei: "🏐", basquete: "🏀", beach_tennis: "🎾", lutas: "🥋" };
 
 const capitalize = (text) => text.charAt(0).toLocaleUpperCase("pt-BR") + text.slice(1);
 
